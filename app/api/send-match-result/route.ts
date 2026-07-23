@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const TOURNAMENT_NAME = 'Samanvayam Qatar';
 const TOURNAMENT_DATE = 'Wednesday, 15 July 2026';
 const VENUE = 'Sports Complex, Main Hall';
@@ -188,6 +186,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'RESEND_API_KEY not set' }, { status: 500 });
   }
 
+  const resend = new Resend(process.env.RESEND_API_KEY);
   const body: MatchResultPayload = await req.json();
   const { winner, loser, sets } = body;
 
