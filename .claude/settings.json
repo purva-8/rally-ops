@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/private/tmp/scaledown-claude-plugin/dist/hooks/user-prompt-submit.js\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/private/tmp/scaledown-claude-plugin/dist/hooks/post-tool-use.js\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/private/tmp/scaledown-claude-plugin/dist/hooks/git-attribution.js\""
+          }
+        ]
+      }
+    ]
+  },
+  "agent": "scaledown"
+}
