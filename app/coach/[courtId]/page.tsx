@@ -3,7 +3,7 @@
 import { use, useState, useEffect } from 'react';
 import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS } from '../../tournament/types';
-import type { Set } from '../../tournament/types';
+import type { Set, Category } from '../../tournament/types';
 
 function isSetWon(s: Set) {
   const a = s.player1Score;
@@ -323,7 +323,7 @@ function MatchPickCard({ match, onPick, label, highlight }: {
           {match.player1Name} <span className="text-orange-400 font-normal text-base">vs</span> {match.player2Name}
         </p>
         <p className="text-orange-400 text-sm mt-0.5">
-          {CATEGORY_LABELS[match.category]} · {match.roundName}
+          {CATEGORY_LABELS[match.category as Category]} · {match.roundName}
           {match.courtId && match.courtId !== '' && (
             <span className="text-orange-600 ml-2">· currently on another court</span>
           )}
