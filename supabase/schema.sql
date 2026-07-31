@@ -8,7 +8,7 @@ create extension if not exists "uuid-ossp";
 create table if not exists orgs (
   id          uuid primary key default uuid_generate_v4(),
   name        text not null,
-  slug        text unique not null,  -- e.g. "shopwithsomi"
+  slug        text unique not null,  -- e.g. "my-club" or "rallyops-qatar"
   logo_url    text,
   created_at  timestamptz default now()
 );
@@ -100,24 +100,27 @@ create policy "registrations_own_insert" on registrations
 create policy "registrations_own_withdraw" on registrations
   for update using (auth.uid() = player_id and status = 'pending');
 
--- ─── Sample Data (ShopwithSomi org + one tournament) ─────────────────────────
-insert into orgs (name, slug) values ('ShopWithSomi', 'shopwithsomi')
-  on conflict (slug) do nothing;
+-- ─── Sample Org (replace with your org name and slug) ────────────────────────
+-- insert into orgs (name, slug) values ('My Badminton Club', 'my-club')
+--   on conflict (slug) do nothing;
 
--- After inserting org, grab its ID and create a sample tournament:
--- (Run separately once you have the org id)
--- insert into tournaments (org_id, name, sport, venue, event_date, status, registration_close_at,
---   eligibility, rules, entry_fee, categories)
+-- ─── Sample Tournament ────────────────────────────────────────────────────────
+-- After creating an org, copy its id from Table Editor → orgs, then run:
+--
+-- insert into tournaments (org_id, name, sport, venue, event_date, status, registration_close_at, eligibility, rules, entry_fee, categories)
 -- values (
---   '<org-id-here>',
---   'Samanvayam Qatar 2026',
+--   'PASTE-ORG-ID-HERE',
+--   'Summer Open 2026',
 --   'badminton',
---   'Sports Complex, Main Hall',
+--   'Main Sports Hall',
 --   '2026-09-15',
 --   'open',
---   '2026-08-31',
---   'Open to all members of the Qatar Indian community. Age 18+. Medical fitness required.',
---   '1. Matches follow BWF scoring rules (21 points, best of 3 sets).\n2. Players must report to court 10 minutes before scheduled time.\n3. No-show after 10 minutes = walkover.\n4. Disputes to be resolved by the umpire on court.',
+--   '2026-08-31 23:59:00+00',
+--   'Open to all registered members. Age 16+. Medical fitness required.',
+--   '1. Matches follow BWF scoring rules (21 points, best of 3 sets).
+-- 2. Players must report to court 10 minutes before scheduled time.
+-- 3. No-show after 10 minutes = walkover.
+-- 4. Disputes resolved by the umpire on court.',
 --   50,
 --   array['male_singles','female_singles','male_doubles','female_doubles','spouse_doubles']
 -- );
