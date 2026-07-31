@@ -52,6 +52,10 @@ export default function AdminPage() {
           </div>
           <div className="flex items-center gap-3">
             <SeedButton />
+            <a href="/admin/registrations"
+              className="hidden sm:flex items-center gap-1.5 text-xs font-medium bg-orange-800 hover:bg-orange-700 text-orange-200 hover:text-white px-3 py-2 rounded-lg transition-colors border border-orange-700">
+              <span>📋</span> Registrations
+            </a>
             <a href="/tournament"
               className="hidden sm:flex items-center gap-1.5 text-xs font-medium bg-orange-800 hover:bg-orange-700 text-orange-200 hover:text-white px-3 py-2 rounded-lg transition-colors border border-orange-700">
               <span>🔗</span> Player Link
