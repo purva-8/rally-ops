@@ -78,31 +78,38 @@ export default function AdminRegistrationsPage() {
   const pendingCount = registrations.filter((r) => r.status === 'pending').length;
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <header className="bg-white border-b border-stone-200 px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-stone-100">
+      <header className="bg-orange-950 text-white px-6 py-4 flex items-center justify-between shadow-lg">
         <div>
-          <h1 className="text-lg font-bold text-stone-900">Registrations</h1>
-          {pendingCount > 0 && (
-            <p className="text-xs text-amber-600 font-medium">{pendingCount} pending approval</p>
-          )}
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-xs font-bold tracking-widest uppercase text-orange-400">RallyOps</span>
+            <span className="text-orange-800 text-xs">·</span>
+            <span className="text-xs text-orange-300/60">Admin</span>
+          </div>
+          <h1 className="text-base font-bold text-white flex items-center gap-2">
+            Registrations
+            {pendingCount > 0 && (
+              <span className="bg-amber-500 text-white text-xs font-bold rounded-full px-2 py-0.5">{pendingCount}</span>
+            )}
+          </h1>
         </div>
-        <a href="/admin" className="text-sm text-stone-500 hover:text-stone-900">← Admin</a>
+        <a href="/admin" className="text-xs text-orange-400 hover:text-orange-200 transition-colors">← Admin</a>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6">
         {/* Filters */}
-        <div className="flex gap-2 mb-6">
+        <div className="bg-white rounded-2xl border border-stone-200 p-1.5 mb-6 flex gap-1 shadow-sm">
           {(['pending', 'approved', 'rejected', 'all'] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors capitalize ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors capitalize flex-1 ${
                 filter === f
-                  ? 'bg-orange-600 text-white border-orange-600'
-                  : 'bg-white text-stone-600 border-stone-200 hover:border-orange-300'
+                  ? 'bg-orange-600 text-white shadow-sm'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
               }`}
             >
-              {f}
+              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
               {f === 'pending' && pendingCount > 0 && (
                 <span className="ml-1.5 bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5">{pendingCount}</span>
               )}
