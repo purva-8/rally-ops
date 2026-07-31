@@ -107,15 +107,15 @@ export default function RegisterPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-        <div className="text-stone-400 text-sm">Loading...</div>
+      <div className="min-h-screen bg-orange-950 flex items-center justify-center">
+        <div className="text-orange-300/60 text-sm">Loading...</div>
       </div>
     );
   }
 
   if (!tournament || tournament.status !== 'open') {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-stone-100 flex items-center justify-center px-4">
         <div className="text-center">
           <p className="text-stone-600">Registration is not open for this tournament.</p>
           <Link href={`/events/${id}`} className="text-orange-600 text-sm mt-2 inline-block">← Back to tournament</Link>
@@ -125,19 +125,22 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <header className="bg-white border-b border-stone-200 sticky top-0 z-10">
-        <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href={`/events/${id}`} className="text-sm text-stone-500 hover:text-stone-900">← Back</Link>
-          <span className="text-sm font-bold text-orange-600">RallyOps</span>
+    <div className="min-h-screen bg-stone-100">
+      <header className="bg-orange-950 text-white sticky top-0 z-10 shadow-lg">
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+          <Link href={`/events/${id}`} className="text-xs text-orange-400 hover:text-orange-200 transition-colors">← Back</Link>
+          <span className="text-xs font-bold tracking-widest uppercase text-orange-300">RallyOps</span>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-stone-900">Register</h1>
-          <p className="text-sm text-stone-500 mt-1">{tournament.name}</p>
+      <div className="bg-orange-950 text-white pb-8 pt-6 px-4">
+        <div className="max-w-lg mx-auto">
+          <p className="text-orange-400 text-xs font-bold tracking-widest uppercase mb-1">Registration</p>
+          <h1 className="text-2xl font-bold">{tournament.name}</h1>
         </div>
+      </div>
+
+      <main className="max-w-lg mx-auto px-4 py-6 -mt-2">
 
         {/* Progress */}
         {step !== 'done' && (
