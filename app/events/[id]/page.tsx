@@ -111,7 +111,7 @@ export default function TournamentDetailPage() {
         <div className="grid grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-2xl border border-stone-200 p-4 text-center">
             <div className="text-2xl font-bold text-orange-600">
-              {tournament.entry_fee ? `QAR ${tournament.entry_fee}` : 'Free'}
+              {tournament.entry_fee ? tournament.entry_fee : 'Free'}
             </div>
             <div className="text-xs text-stone-500 mt-1">Entry Fee</div>
           </div>

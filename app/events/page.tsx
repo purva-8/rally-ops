@@ -152,7 +152,7 @@ export default function EventsPage() {
                     {t.categories?.length} categories
                   </div>
                   <div className="text-sm font-semibold text-orange-600">
-                    {t.entry_fee ? `QAR ${t.entry_fee}` : 'Free entry'}
+                    {t.entry_fee ? `Entry: ${t.entry_fee}` : 'Free entry'}
                   </div>
                 </div>
 

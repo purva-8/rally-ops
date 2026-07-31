@@ -240,7 +240,7 @@ export default function RegisterPage() {
               <div className="flex justify-between text-sm border-t border-stone-100 pt-4">
                 <span className="text-stone-500">Entry fee</span>
                 <span className="font-bold text-orange-600">
-                  {tournament.entry_fee > 0 ? `QAR ${tournament.entry_fee}` : 'Free'}
+                  {tournament.entry_fee > 0 ? tournament.entry_fee : 'Free'}
                 </span>
               </div>
               {tournament.entry_fee > 0 && (
