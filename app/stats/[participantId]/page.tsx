@@ -116,10 +116,12 @@ export default function StatsPage({ params }: { params: Promise<{ participantId:
 
   if (!participant || !stats) {
     return (
-      <div className="min-h-screen bg-orange-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4">🏸</div>
-          <p className="text-gray-600">Player not found.</p>
+          <div className="w-14 h-14 bg-stone-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-stone-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg>
+          </div>
+          <p className="text-stone-600">Player not found.</p>
           <a href="/admin" className="text-orange-600 underline mt-2 block">Back to Admin</a>
         </div>
       </div>
@@ -127,31 +129,32 @@ export default function StatsPage({ params }: { params: Promise<{ participantId:
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 py-8 px-4">
-      {/* Action buttons — outside the card so they don't appear in the screenshot */}
+    <div className="min-h-screen bg-[#F9FAFB] py-8 px-4">
       <div className="max-w-lg mx-auto mb-4 flex gap-3 justify-end">
         <button
           onClick={handleCopyLink}
-          className="flex items-center gap-2 bg-white border border-orange-200 text-orange-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-50 transition-colors"
+          className="flex items-center gap-2 bg-white border border-stone-200 text-stone-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-stone-50 transition-colors"
         >
-          {copied ? '✓ Copied!' : '🔗 Copy Link'}
+          {copied ? 'Copied!' : 'Copy Link'}
         </button>
         <button
           onClick={handleDownload}
           disabled={downloading}
           className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors disabled:opacity-60"
         >
-          {downloading ? 'Saving...' : '⬇️ Save as Image'}
+          {downloading ? 'Saving...' : (
+            <>
+              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a1 1 0 011 1v6.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L7 8.586V2a1 1 0 011-1z"/><path d="M2 12a1 1 0 011 1v1h10v-1a1 1 0 112 0v1a2 2 0 01-2 2H3a2 2 0 01-2-2v-1a1 1 0 011-1z"/></svg>
+              Save as Image
+            </>
+          )}
         </button>
       </div>
 
-      {/* THE CARD */}
       <div ref={cardRef} className="max-w-lg mx-auto">
         <div className="bg-white rounded-3xl overflow-hidden shadow-2xl">
 
-          {/* Header */}
           <div className="relative bg-gradient-to-br from-orange-600 to-orange-800 px-8 pt-8 pb-6 overflow-hidden">
-            {/* decorative court lines */}
             <div className="absolute inset-0 opacity-10">
               <div className="absolute top-1/2 left-0 right-0 h-px bg-white" />
               <div className="absolute top-0 bottom-0 left-1/2 w-px bg-white" />
@@ -161,7 +164,7 @@ export default function StatsPage({ params }: { params: Promise<{ participantId:
             <div className="relative">
               {stats.isChampion && (
                 <div className="inline-flex items-center gap-1.5 bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full mb-3">
-                  🏆 CHAMPION — {stats.championCategories.join(' & ')}
+                  CHAMPION — {stats.championCategories.join(' & ')}
                 </div>
               )}
               <h1 className="text-3xl font-black text-white tracking-tight">{participant.fullName}</h1>
@@ -174,12 +177,8 @@ export default function StatsPage({ params }: { params: Promise<{ participantId:
                 ))}
               </div>
             </div>
-
-            {/* Big shuttlecock */}
-            <div className="absolute right-6 top-6 text-6xl opacity-20 select-none">🏸</div>
           </div>
 
-          {/* Main stats grid */}
           <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100">
             <StatBox label="Matches" value={stats.matchesPlayed} sub="played" />
             <StatBox label="Win Rate" value={`${stats.winRate}%`} sub={`${stats.wins}W · ${stats.losses}L`} highlight />
@@ -192,7 +191,6 @@ export default function StatsPage({ params }: { params: Promise<{ participantId:
             <StatBox label="Best Set" value={stats.longestRally} sub="points in a set" />
           </div>
 
-          {/* Match history */}
           {stats.matchHistory.length > 0 && (
             <div className="px-6 py-5">
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Match History</h3>
@@ -213,7 +211,6 @@ export default function StatsPage({ params }: { params: Promise<{ participantId:
             </div>
           )}
 
-          {/* Footer */}
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-black text-orange-600 tracking-tight">RallyOps</p>
@@ -223,7 +220,6 @@ export default function StatsPage({ params }: { params: Promise<{ participantId:
               <p className="text-xs text-gray-400">Badminton Tournament</p>
               <p className="text-xs text-gray-400">Management Platform</p>
             </div>
-            <div className="text-2xl">🏸</div>
           </div>
         </div>
       </div>
