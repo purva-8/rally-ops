@@ -115,7 +115,9 @@ export default function MyEntriesPage() {
       <main className="max-w-2xl mx-auto px-4 -mt-3 pb-10">
         {entries.length === 0 ? (
           <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-10 flex flex-col items-center text-center">
-            <div className="w-14 h-14 bg-stone-100 rounded-2xl flex items-center justify-center mb-4 text-2xl">🏆</div>
+            <div className="w-14 h-14 bg-stone-100 rounded-2xl flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-stone-300" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h4.5a.75.75 0 010 1.5H14.5v.25a4.5 4.5 0 01-9 0V4.75H4.75a.75.75 0 010-1.5h4.5V1.75A.75.75 0 0110 1zm-4 4.5v.25a3 3 0 006 0V5.5H6zm-1.5 7.5a.75.75 0 000 1.5h11a.75.75 0 000-1.5h-11z" clipRule="evenodd" /></svg>
+              </div>
             <h2 className="text-sm font-bold text-stone-700 mb-1">No entries yet</h2>
             <p className="text-xs text-stone-400 mb-6 max-w-xs">Register for an open tournament and your entries will appear here.</p>
             <Link
