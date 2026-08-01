@@ -37,7 +37,6 @@ export default function CoachPage({ params }: { params: Promise<{ courtId: strin
   const nextMatch = courtMatches.find((m) => m.status === 'upcoming');
   const completedMatches = courtMatches.filter((m) => m.status === 'completed');
 
-  // All upcoming matches across all courts (for the picker)
   const allUpcoming = matches.filter((m) => m.status === 'upcoming');
 
   const [sets, setSets] = useState<Set[]>([{ player1Score: 0, player2Score: 0 }]);
@@ -55,11 +54,13 @@ export default function CoachPage({ params }: { params: Promise<{ courtId: strin
 
   if (!court) {
     return (
-      <div className="min-h-screen bg-orange-950 text-white flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#111827] text-white flex items-center justify-center p-6">
         <div className="text-center">
-          <p className="text-6xl mb-4">🏟️</p>
+          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-white/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
           <p className="text-2xl font-bold">Court not found</p>
-          <a href="/admin" className="mt-6 inline-block text-orange-300 underline text-lg">← Back to Admin</a>
+          <a href="/admin" className="mt-6 inline-block text-orange-400 underline text-lg">← Back to Admin</a>
         </div>
       </div>
     );
@@ -116,7 +117,6 @@ export default function CoachPage({ params }: { params: Promise<{ courtId: strin
   };
 
   const handlePickMatch = (matchId: string) => {
-    // Reassign this match to this court
     assignCourt(matchId, courtId, coach?.id || '', coach?.name || court.name);
     setShowPicker(false);
   };
@@ -125,38 +125,35 @@ export default function CoachPage({ params }: { params: Promise<{ courtId: strin
   const currentSet = sets[currentSetIdx];
   const { p1: p1SetsWon, p2: p2SetsWon } = setsWon(sets);
 
-  // Match picker modal
   if (showPicker) {
     const otherMatches = allUpcoming.filter((m) => m.courtId !== courtId);
     const thisCourtQueued = allUpcoming.filter((m) => m.courtId === courtId);
 
     return (
-      <main className="min-h-screen bg-orange-950 text-white flex flex-col">
-        <div className="bg-orange-900 px-5 py-4 flex items-center gap-4 border-b border-orange-800">
-          <button onClick={() => setShowPicker(false)} className="text-orange-300 text-2xl leading-none">←</button>
+      <main className="min-h-screen bg-[#111827] text-white flex flex-col">
+        <div className="bg-[#1F2937] px-5 py-4 flex items-center gap-4 border-b border-[#374151]">
+          <button onClick={() => setShowPicker(false)} className="text-stone-400 text-2xl leading-none">←</button>
           <div>
-            <p className="text-orange-300 text-xs uppercase tracking-widest">Select a Match</p>
+            <p className="text-stone-400 text-xs uppercase tracking-widest">Select a Match</p>
             <p className="text-white text-xl font-bold">{court.name}</p>
           </div>
         </div>
 
         <div className="flex-1 px-4 py-5 space-y-5 max-w-lg mx-auto w-full overflow-y-auto pb-10">
-          {/* This court's queue */}
           {thisCourtQueued.length > 0 && (
             <div>
-              <p className="text-orange-400 text-xs uppercase tracking-wider font-semibold mb-3">Queued for this court</p>
+              <p className="text-stone-400 text-xs uppercase tracking-wider font-semibold mb-3">Queued for this court</p>
               <div className="space-y-2">
                 {thisCourtQueued.map((m) => (
-                  <MatchPickCard key={m.id} match={m} onPick={() => handleStart(m.id)} label="▶ Start" highlight />
+                  <MatchPickCard key={m.id} match={m} onPick={() => handleStart(m.id)} label="Start" highlight />
                 ))}
               </div>
             </div>
           )}
 
-          {/* Other courts' matches */}
           {otherMatches.length > 0 && (
             <div>
-              <p className="text-orange-400 text-xs uppercase tracking-wider font-semibold mb-3">Pull from another court</p>
+              <p className="text-stone-400 text-xs uppercase tracking-wider font-semibold mb-3">Pull from another court</p>
               <div className="space-y-2">
                 {otherMatches.map((m) => (
                   <MatchPickCard key={m.id} match={m} onPick={() => handlePickMatch(m.id)} label="Pull here" />
@@ -165,13 +162,12 @@ export default function CoachPage({ params }: { params: Promise<{ courtId: strin
             </div>
           )}
 
-          {/* Unassigned matches */}
           {(() => {
             const unassigned = allUpcoming.filter((m) => !m.courtId);
             if (!unassigned.length) return null;
             return (
               <div>
-                <p className="text-orange-400 text-xs uppercase tracking-wider font-semibold mb-3">Unassigned matches</p>
+                <p className="text-stone-400 text-xs uppercase tracking-wider font-semibold mb-3">Unassigned matches</p>
                 <div className="space-y-2">
                   {unassigned.map((m) => (
                     <MatchPickCard key={m.id} match={m} onPick={() => handlePickMatch(m.id)} label="Assign here" />
@@ -183,8 +179,10 @@ export default function CoachPage({ params }: { params: Promise<{ courtId: strin
 
           {allUpcoming.length === 0 && (
             <div className="text-center py-16">
-              <p className="text-4xl mb-3">✅</p>
-              <p className="text-orange-300 text-lg font-semibold">No upcoming matches left</p>
+              <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+              </div>
+              <p className="text-stone-400 text-lg font-semibold">No upcoming matches left</p>
             </div>
           )}
         </div>
@@ -192,35 +190,35 @@ export default function CoachPage({ params }: { params: Promise<{ courtId: strin
     );
   }
 
-  // Winner celebration
   if (winner) {
     return (
-      <div className="min-h-screen bg-orange-500 flex flex-col items-center justify-center text-white text-center px-6">
-        <div className="text-8xl mb-6 animate-bounce">🏆</div>
+      <div className="min-h-screen bg-[#111827] flex flex-col items-center justify-center text-white text-center px-6">
+        <div className="w-20 h-20 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+          <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
         <p className="text-3xl font-bold mb-2">Match Complete!</p>
         <p className="text-5xl font-black mt-4">{winner}</p>
-        <p className="text-xl mt-4 text-orange-100">Wins the match!</p>
-        <p className="text-sm text-orange-200 mt-8">Moving to next match…</p>
+        <p className="text-xl mt-4 text-stone-400">Wins the match!</p>
+        <p className="text-sm text-stone-500 mt-8">Moving to next match…</p>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-orange-950 text-white flex flex-col">
-      {/* Header */}
-      <div className="bg-orange-900 px-5 py-4 flex items-center justify-between border-b border-orange-800">
+    <main className="min-h-screen bg-[#111827] text-white flex flex-col">
+      <div className="bg-[#1F2937] px-5 py-4 flex items-center justify-between border-b border-[#374151]">
         <div>
-          <p className="text-orange-300 text-xs uppercase tracking-widest font-semibold">{coach?.name || 'Coach'}</p>
+          <p className="text-stone-400 text-xs uppercase tracking-widest font-semibold">{coach?.name || 'Coach'}</p>
           <p className="text-white text-xl font-bold">{court.name}</p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowPicker(true)}
-            className="bg-orange-700 hover:bg-orange-600 text-white text-sm px-4 py-2 rounded-xl font-semibold transition-colors border border-orange-600"
+            className="bg-[#374151] hover:bg-[#4B5563] text-white text-sm px-4 py-2 rounded-xl font-semibold transition-colors"
           >
-            🔀 Change Match
+            Change Match
           </button>
-          <a href="/admin" className="text-orange-400 text-sm border border-orange-700 px-3 py-2 rounded-xl">
+          <a href="/admin" className="text-stone-400 text-sm border border-[#374151] px-3 py-2 rounded-xl hover:border-[#4B5563] transition-colors">
             Admin ↗
           </a>
         </div>
@@ -236,7 +234,7 @@ export default function CoachPage({ params }: { params: Promise<{ courtId: strin
 
           <div className="flex items-center justify-between px-2">
             <SetDots count={p1SetsWon} />
-            <p className="text-orange-400 text-xs">Sets won</p>
+            <p className="text-stone-500 text-xs">Sets won</p>
             <SetDots count={p2SetsWon} align="right" />
           </div>
 
@@ -245,65 +243,67 @@ export default function CoachPage({ params }: { params: Promise<{ courtId: strin
             <ScorePanel name={liveMatch.player2Name} score={currentSet.player2Score} flashing={flash === 'player2'} onTap={() => handleScore('player2')} setsWon={p2SetsWon} />
           </div>
 
-          <p className="text-center text-orange-400 text-sm font-medium">
+          <p className="text-center text-stone-500 text-sm font-medium">
             Set {currentSetIdx + 1}
             {sets.slice(0, -1).length > 0 && (
-              <span className="text-orange-600 ml-2">({sets.slice(0, -1).map((s) => `${s.player1Score}–${s.player2Score}`).join(', ')})</span>
+              <span className="text-stone-600 ml-2">({sets.slice(0, -1).map((s) => `${s.player1Score}–${s.player2Score}`).join(', ')})</span>
             )}
           </p>
 
           {showUndo && (
-            <button onClick={handleUndo} className="w-full py-3 bg-orange-800 hover:bg-orange-700 rounded-2xl text-orange-200 font-semibold text-base transition-colors">
+            <button onClick={handleUndo} className="w-full py-3 bg-[#1F2937] hover:bg-[#374151] rounded-2xl text-stone-300 font-semibold text-base transition-colors">
               ↩ Undo Last Point
             </button>
           )}
 
           {nextMatch && (
-            <div className="mt-2 bg-orange-900/60 rounded-2xl p-4 border border-orange-800">
-              <p className="text-orange-400 text-xs uppercase tracking-wider mb-1">Up Next</p>
-              <p className="text-white font-semibold">{nextMatch.player1Name} <span className="text-orange-400">vs</span> {nextMatch.player2Name}</p>
-              <p className="text-orange-500 text-xs mt-0.5">{CATEGORY_LABELS[nextMatch.category]} · {nextMatch.roundName}</p>
+            <div className="mt-2 bg-[#1F2937] rounded-2xl p-4 border border-[#374151]">
+              <p className="text-stone-500 text-xs uppercase tracking-wider mb-1">Up Next</p>
+              <p className="text-white font-semibold">{nextMatch.player1Name} <span className="text-stone-500">vs</span> {nextMatch.player2Name}</p>
+              <p className="text-stone-500 text-xs mt-0.5">{CATEGORY_LABELS[nextMatch.category]} · {nextMatch.roundName}</p>
             </div>
           )}
         </div>
       ) : nextMatch ? (
         <div className="flex flex-col flex-1 items-center justify-center px-6 gap-6">
-          <p className="text-orange-400 text-sm uppercase tracking-widest font-semibold">Next Match</p>
-          <div className="bg-orange-900 rounded-3xl p-8 w-full max-w-sm text-center border border-orange-700">
-            <p className="text-orange-300 text-xs mb-4">{CATEGORY_LABELS[nextMatch.category]} · {nextMatch.roundName}</p>
+          <p className="text-stone-400 text-sm uppercase tracking-widest font-semibold">Next Match</p>
+          <div className="bg-[#1F2937] rounded-3xl p-8 w-full max-w-sm text-center border border-[#374151]">
+            <p className="text-stone-500 text-xs mb-4">{CATEGORY_LABELS[nextMatch.category]} · {nextMatch.roundName}</p>
             <p className="text-white text-3xl font-black mb-2">{nextMatch.player1Name}</p>
-            <p className="text-orange-500 text-xl font-bold my-2">VS</p>
+            <p className="text-stone-500 text-xl font-bold my-2">VS</p>
             <p className="text-white text-3xl font-black">{nextMatch.player2Name}</p>
           </div>
           <button onClick={() => handleStart(nextMatch.id)}
-            className="w-full max-w-sm py-6 bg-orange-500 hover:bg-orange-400 active:bg-orange-600 rounded-3xl text-white text-3xl font-black shadow-lg shadow-orange-900 transition-colors">
+            className="w-full max-w-sm py-6 bg-orange-500 hover:bg-orange-400 active:bg-orange-600 rounded-3xl text-white text-3xl font-black shadow-lg transition-colors">
             START MATCH
           </button>
         </div>
       ) : (
         <div className="flex flex-col flex-1 items-center justify-center px-6 gap-6 text-center">
-          <p className="text-6xl">🏸</p>
+          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center">
+            <svg className="w-8 h-8 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
           <p className="text-2xl font-bold text-white">No match queued</p>
-          <p className="text-orange-400">Tap below to pick a match for this court</p>
+          <p className="text-stone-400">Tap below to pick a match for this court</p>
           <button onClick={() => setShowPicker(true)}
             className="w-full max-w-sm py-5 bg-orange-600 hover:bg-orange-500 rounded-3xl text-white text-xl font-black transition-colors">
-            🔀 Pick a Match
+            Pick a Match
           </button>
         </div>
       )}
 
       {completedMatches.length > 0 && (
         <div className="px-4 pb-6 max-w-lg mx-auto w-full">
-          <p className="text-orange-600 text-xs uppercase tracking-wider mb-2 font-semibold">Completed ({completedMatches.length})</p>
+          <p className="text-stone-600 text-xs uppercase tracking-wider mb-2 font-semibold">Completed ({completedMatches.length})</p>
           <div className="space-y-2">
             {completedMatches.map((m) => (
-              <div key={m.id} className="bg-orange-900/40 rounded-xl px-4 py-3 flex items-center gap-3 border border-orange-900">
-                <span className="text-orange-400 text-lg">✓</span>
+              <div key={m.id} className="bg-[#1F2937] rounded-xl px-4 py-3 flex items-center gap-3 border border-[#374151]">
+                <span className="w-1.5 h-1.5 rounded-full bg-stone-500 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-sm font-medium truncate">{m.player1Name} vs {m.player2Name}</p>
-                  <p className="text-orange-400 text-xs">Winner: <span className="text-orange-300 font-semibold">{m.winnerName}</span></p>
+                  <p className="text-stone-500 text-xs">Winner: <span className="text-stone-300 font-semibold">{m.winnerName}</span></p>
                 </div>
-                <p className="text-orange-600 text-xs shrink-0">{m.sets.map((s) => `${s.player1Score}–${s.player2Score}`).join(', ')}</p>
+                <p className="text-stone-600 text-xs shrink-0">{m.sets.map((s) => `${s.player1Score}–${s.player2Score}`).join(', ')}</p>
               </div>
             ))}
           </div>
@@ -317,22 +317,22 @@ function MatchPickCard({ match, onPick, label, highlight }: {
   match: any; onPick: () => void; label: string; highlight?: boolean;
 }) {
   return (
-    <div className={`rounded-2xl p-4 flex items-center gap-4 border ${highlight ? 'bg-orange-800/60 border-orange-600' : 'bg-orange-900/40 border-orange-800'}`}>
+    <div className={`rounded-2xl p-4 flex items-center gap-4 border ${highlight ? 'bg-[#1F2937] border-orange-500/50' : 'bg-[#1F2937]/60 border-[#374151]'}`}>
       <div className="flex-1 min-w-0">
         <p className="text-white font-bold text-lg leading-tight">
-          {match.player1Name} <span className="text-orange-400 font-normal text-base">vs</span> {match.player2Name}
+          {match.player1Name} <span className="text-stone-500 font-normal text-base">vs</span> {match.player2Name}
         </p>
-        <p className="text-orange-400 text-sm mt-0.5">
+        <p className="text-stone-500 text-sm mt-0.5">
           {CATEGORY_LABELS[match.category as Category]} · {match.roundName}
           {match.courtId && match.courtId !== '' && (
-            <span className="text-orange-600 ml-2">· currently on another court</span>
+            <span className="text-stone-600 ml-2">· on another court</span>
           )}
         </p>
       </div>
       <button
         onClick={onPick}
         className={`shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-colors ${
-          highlight ? 'bg-orange-500 hover:bg-orange-400 text-white' : 'bg-orange-700 hover:bg-orange-600 text-white'
+          highlight ? 'bg-orange-500 hover:bg-orange-400 text-white' : 'bg-[#374151] hover:bg-[#4B5563] text-white'
         }`}
       >
         {label}
@@ -348,19 +348,19 @@ function ScorePanel({ name, score, flashing, onTap, setsWon }: {
     <button
       onClick={onTap}
       className={`flex flex-col items-center justify-between rounded-3xl p-5 select-none active:scale-95 transition-all duration-100 min-h-64 ${
-        flashing ? 'bg-orange-400 scale-105' : 'bg-orange-900 hover:bg-orange-800'
-      } border-2 ${flashing ? 'border-orange-300' : 'border-orange-800'}`}
+        flashing ? 'bg-orange-400 scale-105' : 'bg-[#1F2937] hover:bg-[#374151]'
+      } border-2 ${flashing ? 'border-orange-300' : 'border-[#374151]'}`}
     >
-      <p className="text-orange-300 text-sm font-semibold text-center leading-tight">{name}</p>
+      <p className="text-stone-300 text-sm font-semibold text-center leading-tight">{name}</p>
       <p className={`font-black tabular-nums leading-none transition-all ${score >= 20 ? 'text-8xl text-orange-300' : 'text-8xl text-white'}`}>
         {score}
       </p>
       <div className="flex gap-1">
         {[0, 1].map((i) => (
-          <span key={i} className={`w-3 h-3 rounded-full ${i < setsWon ? 'bg-orange-400' : 'bg-transparent border border-orange-700'}`} />
+          <span key={i} className={`w-3 h-3 rounded-full ${i < setsWon ? 'bg-orange-400' : 'bg-transparent border border-[#374151]'}`} />
         ))}
       </div>
-      <p className="text-orange-600 text-xs mt-1">TAP TO SCORE</p>
+      <p className="text-stone-600 text-xs mt-1">TAP TO SCORE</p>
     </button>
   );
 }
@@ -369,7 +369,7 @@ function SetDots({ count, align = 'left' }: { count: number; align?: 'left' | 'r
   return (
     <div className={`flex gap-2 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
       {[0, 1].map((i) => (
-        <div key={i} className={`w-4 h-4 rounded-full border-2 transition-colors ${i < count ? 'bg-orange-400 border-orange-400' : 'bg-transparent border-orange-700'}`} />
+        <div key={i} className={`w-4 h-4 rounded-full border-2 transition-colors ${i < count ? 'bg-orange-400 border-orange-400' : 'bg-transparent border-[#374151]'}`} />
       ))}
     </div>
   );
