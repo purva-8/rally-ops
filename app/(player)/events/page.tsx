@@ -63,6 +63,9 @@ export default function EventsPage() {
             <span className="text-sm font-bold tracking-tight text-white">RallyOps</span>
           </div>
           <div className="flex items-center gap-1">
+            <Link href="/create-event" className="hidden sm:flex text-xs font-semibold text-white/60 hover:text-white border border-white/20 hover:border-white/40 px-3.5 py-1.5 rounded-lg transition-colors mr-1">
+              + Host
+            </Link>
             <Link href="/login" className="text-xs text-white/60 hover:text-white px-3 py-2 transition-colors">
               Sign in
             </Link>

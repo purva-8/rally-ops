@@ -76,9 +76,15 @@ alter table player_profiles   enable row level security;
 alter table tournaments       enable row level security;
 alter table registrations     enable row level security;
 
--- Tournaments: anyone can read, only org admins can write (we'll add admin roles later)
+-- Tournaments: anyone can read, any authenticated user can create
 create policy "tournaments_public_read" on tournaments
   for select using (true);
+
+create policy "tournaments_auth_insert" on tournaments
+  for insert with check (auth.uid() = created_by);
+
+create policy "tournaments_own_update" on tournaments
+  for update using (auth.uid() = created_by);
 
 -- Player profiles: users can read all (for partner lookup), only own row to write
 create policy "profiles_public_read" on player_profiles
