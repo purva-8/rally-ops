@@ -347,13 +347,17 @@ export default function RallyOpsHome() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <a href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors px-3 py-1.5">Log in</a>
-          <button
-            onClick={handleNewTournament}
-            className="bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            Get started free
-          </button>
+          <div className="flex flex-col items-end">
+            <a
+              href="/signup"
+              className="bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+            >
+              Log in / Sign up
+            </a>
+            <span className="text-orange-400 text-[11px] mt-0.5 pr-0.5" style={{ fontFamily: "'Dancing Script', cursive" }}>
+              it's free forever
+            </span>
+          </div>
         </div>
       </nav>
 
@@ -414,68 +418,6 @@ export default function RallyOpsHome() {
             <span>No setup fees</span>
             <span className="w-1 h-1 rounded-full bg-slate-300" />
             <span>Works on any device</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ── WHO IT'S FOR ── */}
-      <section id="roles" className="px-6 py-20 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="text-orange-600 text-xs font-bold uppercase tracking-widest mb-3">Built for everyone in the room</p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">One platform. Three views.</h2>
-            <p className="text-slate-500 mt-3 max-w-lg mx-auto">Everyone gets exactly what they need — nothing more, nothing less.</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                badge: 'Org Head',
-                color: 'bg-violet-50 border-violet-200 text-violet-700',
-                dot: 'bg-violet-500',
-                title: 'You run the show.',
-                desc: 'Set up categories, courts, and dates. Share one link for registrations. On match day, your admin dashboard shows every match, every score, every bracket in real time. Fix anything with a tap.',
-                icon: (
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6.75v6.75" />
-                  </svg>
-                ),
-              },
-              {
-                badge: 'Players',
-                color: 'bg-orange-50 border-orange-200 text-orange-700',
-                dot: 'bg-orange-500',
-                title: 'Just show up and play.',
-                desc: 'Register once, get your profile. See your draw, your next match, and your results. The app notifies you when it\'s your turn. No paper, no confusion.',
-                icon: (
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                  </svg>
-                ),
-              },
-              {
-                badge: 'Coaches',
-                color: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-                dot: 'bg-emerald-500',
-                title: 'Score on the fly.',
-                desc: 'A dedicated court view shows the active match. Update points live as the rally happens. Multiple courts, multiple coaches — all synced instantly.',
-                icon: (
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                  </svg>
-                ),
-              },
-            ].map((role) => (
-              <div key={role.badge} className="bg-slate-50 border border-slate-100 rounded-2xl p-7">
-                <div className={`inline-flex items-center gap-1.5 border text-xs font-bold px-2.5 py-1 rounded-full mb-5 ${role.color}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${role.dot}`} />
-                  {role.badge}
-                </div>
-                <div className="text-slate-700 mb-3">{role.icon}</div>
-                <h3 className="text-lg font-extrabold text-slate-900 mb-2 tracking-tight">{role.title}</h3>
-                <p className="text-slate-500 text-sm leading-relaxed">{role.desc}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>

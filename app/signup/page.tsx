@@ -22,6 +22,7 @@ function SignupForm() {
       options: { redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}` },
     });
     if (error) { setError(error.message); setGoogleLoading(false); }
+    else { setTimeout(() => setGoogleLoading(false), 4000); }
   }
 
   function set(field: string, value: string) {
