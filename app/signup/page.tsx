@@ -56,7 +56,7 @@ function SignupForm() {
     });
     if (profileErr) { setError(profileErr.message); setLoading(false); return; }
 
-    router.push(redirectTo);
+    window.location.href = redirectTo;
   }
 
   return (
