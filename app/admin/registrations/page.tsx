@@ -79,7 +79,7 @@ export default function AdminRegistrationsPage() {
 
   return (
     <div className="min-h-screen bg-stone-100">
-      <header className="bg-orange-950 text-white px-6 py-4 flex items-center justify-between shadow-lg">
+      <header className="bg-[#111827] text-white px-6 py-4 flex items-center justify-between shadow-lg">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <span className="text-xs font-bold tracking-widest uppercase text-orange-400">RallyOps</span>
@@ -145,8 +145,8 @@ export default function AdminRegistrationsPage() {
                   <div className="text-sm text-stone-500 space-y-0.5">
                     <p>{CATEGORY_LABELS[reg.category] ?? reg.category} · {reg.tournaments?.name}</p>
                     {reg.partner_name && <p>Partner: {reg.partner_name}</p>}
-                    {reg.player_profiles?.mobile && <p>📞 {reg.player_profiles.mobile}</p>}
-                    {reg.emergency_contact && <p>🚨 {reg.emergency_contact}</p>}
+                    {reg.player_profiles?.mobile && <p>{reg.player_profiles.mobile}</p>}
+                    {reg.emergency_contact && <p>Emergency: {reg.emergency_contact}</p>}
                     <p className="text-xs text-stone-400 mt-1">
                       {reg.registration_code} · {new Date(reg.created_at).toLocaleString()}
                     </p>

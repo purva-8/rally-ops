@@ -94,7 +94,6 @@ export default function ExportTab() {
     const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
 
-    // Participants
     const p = participants.map((p) => ({
       'Registration ID': p.registrationId,
       'Full Name': p.fullName,
@@ -105,7 +104,6 @@ export default function ExportTab() {
     }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(p), 'Participants');
 
-    // Matches
     const m = matches.map((m) => ({
       'Category': CATEGORY_LABELS[m.category],
       'Round': m.roundName,
@@ -120,69 +118,41 @@ export default function ExportTab() {
   };
 
   const exports = [
-    {
-      label: 'Participants Sheet',
-      desc: 'Name, Phone, Email, Categories for all registered participants',
-      icon: '👥',
-      color: 'border-blue-200 hover:bg-blue-50',
-      fn: exportParticipants,
-    },
-    {
-      label: 'Matches Sheet',
-      desc: 'Match details, players, scores, winners, courts',
-      icon: '🏸',
-      color: 'border-orange-200 hover:bg-orange-50',
-      fn: exportMatches,
-    },
-    {
-      label: 'Leaderboard Sheet',
-      desc: 'Category rankings, winners by round',
-      icon: '🏆',
-      color: 'border-yellow-200 hover:bg-yellow-50',
-      fn: exportLeaderboard,
-    },
-    {
-      label: 'Court Activity Sheet',
-      desc: 'Court assignments, match history by court',
-      icon: '🏟️',
-      color: 'border-purple-200 hover:bg-purple-50',
-      fn: exportCourtActivity,
-    },
-    {
-      label: 'Full Tournament Report',
-      desc: 'All sheets combined in one Excel file',
-      icon: '📦',
-      color: 'border-gray-300 hover:bg-gray-50',
-      fn: exportAll,
-    },
+    { label: 'Participants', desc: 'Name, phone, email, categories for all registrants', fn: exportParticipants },
+    { label: 'Matches', desc: 'Match details, players, scores, courts, winners', fn: exportMatches },
+    { label: 'Leaderboard', desc: 'Category rankings and winners by round', fn: exportLeaderboard },
+    { label: 'Court Activity', desc: 'Court assignments and match history per court', fn: exportCourtActivity },
+    { label: 'Full Report', desc: 'All sheets combined in one Excel file', fn: exportAll, primary: true },
   ];
 
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-800">Export Reports</h2>
-        <p className="text-gray-500 text-sm">Download tournament data as Excel (.xlsx) files</p>
+        <h2 className="text-lg font-bold text-stone-900">Export Reports</h2>
+        <p className="text-stone-400 text-sm">Download tournament data as Excel (.xlsx) files</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {exports.map((exp) => (
           <button
             key={exp.label}
             onClick={exp.fn}
-            className={`text-left bg-white rounded-xl border-2 p-5 transition-colors ${exp.color}`}
+            className={`text-left bg-white rounded-xl border p-5 hover:shadow-sm transition-all group ${
+              exp.primary ? 'border-orange-200 hover:border-orange-300' : 'border-stone-200 hover:border-stone-300'
+            }`}
           >
-            <span className="text-3xl">{exp.icon}</span>
-            <h3 className="font-bold text-gray-800 mt-3 mb-1">{exp.label}</h3>
-            <p className="text-sm text-gray-500">{exp.desc}</p>
-            <div className="mt-4 flex items-center gap-1 text-sm font-medium text-gray-700">
-              <span>⬇️</span> Download .xlsx
+            <h3 className={`font-bold mb-1 ${exp.primary ? 'text-orange-600' : 'text-stone-900'}`}>{exp.label}</h3>
+            <p className="text-sm text-stone-400 mb-4 leading-relaxed">{exp.desc}</p>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-stone-500 group-hover:text-stone-700 transition-colors">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a1 1 0 011 1v6.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L7 8.586V2a1 1 0 011-1z"/><path d="M2 12a1 1 0 011 1v1h10v-1a1 1 0 112 0v1a2 2 0 01-2 2H3a2 2 0 01-2-2v-1a1 1 0 011-1z"/></svg>
+              Download .xlsx
             </div>
           </button>
         ))}
       </div>
 
-      <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        <strong>Note:</strong> Exports include all data currently in the system. Make sure all matches are completed before generating final reports.
+      <div className="mt-5 bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-700">
+        Export includes all current data. Complete all matches before generating final reports.
       </div>
     </div>
   );

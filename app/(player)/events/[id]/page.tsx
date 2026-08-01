@@ -62,7 +62,7 @@ export default function TournamentDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#1C0A00] flex items-center justify-center">
+      <div className="min-h-screen bg-[#111827] flex items-center justify-center">
         <div className="text-white/20 text-sm">Loading...</div>
       </div>
     );
@@ -91,7 +91,7 @@ export default function TournamentDetailPage() {
   return (
     <div className="min-h-screen bg-[#F4F4F5]">
       {/* Dark hero */}
-      <div className="bg-[#1C0A00]">
+      <div className="bg-[#111827]">
         <div className="max-w-2xl mx-auto px-4 pt-5 pb-10">
           <Link href="/events" className="inline-flex items-center gap-1 text-xs text-white/40 hover:text-white/70 transition-colors mb-6">
             ← Events

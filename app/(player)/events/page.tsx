@@ -56,7 +56,7 @@ export default function EventsPage() {
   return (
     <div className="min-h-screen bg-[#F4F4F5]">
       {/* Top nav */}
-      <header className="bg-[#1C0A00] text-white sticky top-0 z-20 border-b border-white/5">
+      <header className="bg-[#111827] text-white sticky top-0 z-20 border-b border-white/5">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-orange-600 rounded-lg flex items-center justify-center text-sm font-black">R</div>
@@ -74,7 +74,7 @@ export default function EventsPage() {
       </header>
 
       {/* Hero banner */}
-      <div className="bg-[#1C0A00]">
+      <div className="bg-[#111827]">
         <div className="max-w-2xl mx-auto px-4 pt-8 pb-10">
           <h1 className="text-2xl font-extrabold text-white tracking-tight mb-1">Tournaments</h1>
           <p className="text-sm text-white/50">Find events, register, and track your results</p>
