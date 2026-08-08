@@ -24,13 +24,7 @@ const STATUS_CONFIG = {
   completed: { label: 'Completed',   dot: 'bg-stone-400',   badge: 'bg-stone-50 text-stone-500 border-stone-200',    bar: 'border-l-stone-300' },
 };
 
-const SPORT_LABEL: Record<string, string> = {
-  badminton:     'Badminton',
-  tennis:        'Tennis',
-  squash:        'Squash',
-  'table tennis':'Table Tennis',
-  pickleball:    'Pickleball',
-};
+const SPORT_LABEL = 'Badminton';
 
 const FILTERS = ['all', 'open', 'live', 'upcoming', 'completed'] as const;
 type Filter = typeof FILTERS[number];
@@ -40,6 +34,7 @@ export default function EventsPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     createClient()
@@ -47,6 +42,7 @@ export default function EventsPage() {
       .select('*')
       .order('event_date', { ascending: true })
       .then(({ data }) => { setTournaments(data ?? []); setLoading(false); });
+    createClient().auth.getUser().then(({ data: { user } }) => setIsLoggedIn(!!user));
   }, []);
 
   const filtered = filter === 'all' ? tournaments : tournaments.filter((t) => t.status === filter);
@@ -59,19 +55,22 @@ export default function EventsPage() {
       <header className="bg-[#111827] text-white sticky top-0 z-20 border-b border-white/5">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-orange-600 rounded-lg flex items-center justify-center text-sm font-black">R</div>
-            <span className="text-sm font-bold tracking-tight text-white">RallyOps</span>
+            <img src="/logo.png" alt="RallyOps" className="h-8 w-auto object-contain" />
           </div>
           <div className="flex items-center gap-1">
-            <Link href="/create-event" className="hidden sm:flex text-xs font-semibold text-white/60 hover:text-white border border-white/20 hover:border-white/40 px-3.5 py-1.5 rounded-lg transition-colors mr-1">
+            <Link href="/create-event" className="flex text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 px-3.5 py-1.5 rounded-lg transition-colors mr-1 shadow-sm">
               + Host
             </Link>
-            <Link href="/login" className="text-xs text-white/60 hover:text-white px-3 py-2 transition-colors">
-              Sign in
-            </Link>
-            <Link href="/signup" className="text-xs bg-orange-600 hover:bg-orange-500 text-white font-semibold px-3.5 py-1.5 rounded-lg transition-colors">
-              Join free
-            </Link>
+            {!isLoggedIn && (
+              <>
+                <Link href="/login" className="text-xs text-white/60 hover:text-white px-3 py-2 transition-colors">
+                  Sign in
+                </Link>
+                <Link href="/signup" className="text-xs bg-orange-600 hover:bg-orange-500 text-white font-semibold px-3.5 py-1.5 rounded-lg transition-colors">
+                  Join free
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -175,7 +174,7 @@ export default function EventsPage() {
                         {cfg.label}
                       </span>
                       {t.sport && (
-                        <span className="text-[11px] text-stone-400 font-medium">{SPORT_LABEL[t.sport] ?? t.sport}</span>
+                        <span className="text-[11px] text-stone-400 font-medium">{SPORT_LABEL}</span>
                       )}
                     </div>
                     {t.entry_fee ? (

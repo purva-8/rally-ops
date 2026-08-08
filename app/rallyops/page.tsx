@@ -96,8 +96,7 @@ export default function RallyOpsHome() {
         <div className="px-6 pt-6 pb-2">
           <div className="max-w-2xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 bg-orange-600 rounded-lg flex items-center justify-center text-sm font-black text-white">R</div>
-              <span className="text-sm font-bold text-white tracking-tight">RallyOps</span>
+              <img src="/logo.png" alt="RallyOps" className="h-8 w-auto object-contain" />
             </div>
             <button onClick={() => setView('home')} className="text-white/40 hover:text-white text-sm transition-colors">Cancel</button>
           </div>
@@ -286,8 +285,7 @@ export default function RallyOpsHome() {
       <nav className="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between border-b border-slate-100 bg-white/90 backdrop-blur-sm">
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-orange-600 rounded-lg flex items-center justify-center text-sm font-black text-white">R</div>
-            <span className="text-sm font-bold text-slate-900 tracking-tight">RallyOps</span>
+            <img src="/logo.png" alt="RallyOps" className="h-8 w-auto object-contain" />
           </div>
         </div>
         <div className="flex items-center gap-3">

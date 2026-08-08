@@ -126,8 +126,7 @@ export default function CreateEventPage() {
       {/* Nav */}
       <header className="flex items-center justify-between px-5 py-4 border-b border-white/5">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 bg-orange-600 rounded-lg flex items-center justify-center text-sm font-black text-white">R</div>
-          <span className="text-sm font-bold text-white tracking-tight">RallyOps</span>
+          <img src="/logo.png" alt="RallyOps" className="h-8 w-auto object-contain" />
         </div>
         <button onClick={() => router.push('/events')} className="text-sm text-white/40 hover:text-white transition-colors">
           Cancel

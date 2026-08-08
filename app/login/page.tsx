@@ -29,8 +29,7 @@ function LoginForm() {
       {/* Left panel — hidden on small screens */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#111827] flex-col justify-between p-12">
         <Link href="/events" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center text-sm font-black text-white">R</div>
-          <span className="text-sm font-bold text-white tracking-tight">RallyOps</span>
+          <img src="/logo.png" alt="RallyOps" className="h-9 w-auto object-contain" />
         </Link>
 
         <div>
@@ -52,8 +51,7 @@ function LoginForm() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-white">
         {/* Mobile logo */}
         <Link href="/events" className="flex items-center gap-2.5 mb-10 lg:hidden">
-          <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center text-sm font-black text-white">R</div>
-          <span className="text-sm font-bold text-stone-900 tracking-tight">RallyOps</span>
+          <img src="/logo.png" alt="RallyOps" className="h-9 w-auto object-contain" />
         </Link>
 
         <div className="w-full max-w-sm">
