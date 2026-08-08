@@ -282,7 +282,7 @@ function CoachPageInner({ params }: { params: Promise<{ courtId: string }> }) {
 
           <div className="grid grid-cols-2 gap-3">
             <ScorePanel name={liveMatch.player1Name} score={currentSet.player1Score} flashing={flash === 'player1'} onTap={() => handleScore('player1')} setsWon={p1SetsWon} />
-            <ScorePanel name={liveMatch.player2Name} score={currentSet.player2Score} flashing={flash === 'player2'} onTap={() => handleScore('player2')} setsWon={p2SetsWon} />
+            <ScorePanel name={liveMatch.player2Name ?? ''} score={currentSet.player2Score} flashing={flash === 'player2'} onTap={() => handleScore('player2')} setsWon={p2SetsWon} />
           </div>
 
           <p className="text-center text-stone-500 text-sm font-medium">

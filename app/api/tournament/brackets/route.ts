@@ -34,16 +34,18 @@ export async function POST(req: NextRequest) {
       round: m.round,
       player1_id: m.player1Id,
       player1_name: m.player1Name,
-      player2_id: m.player2Id,
-      player2_name: m.player2Name,
+      player2_id: m.player2Id ?? null,
+      player2_name: m.player2Name ?? null,
       status: m.status ?? 'upcoming',
+      winner_id: m.winnerId ?? null,
+      winner_name: m.winnerName ?? null,
       scheduled_at: m.scheduledAt ?? null,
     }));
 
     const { data: insertedMatches, error: matchError } = await supabase
       .from('matches')
       .insert(matchInserts)
-      .select('id, category, round, player1_id, player1_name, player2_id, player2_name, status');
+      .select('id, category, round, player1_id, player1_name, player2_id, player2_name, status, winner_id, winner_name');
 
     if (matchError) {
       return NextResponse.json({ error: matchError.message }, { status: 500 });

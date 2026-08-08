@@ -56,7 +56,7 @@ function computeStats(participantId: string, matches: Match[]): PlayerStats {
       longestRally = Math.max(longestRally, myScore, oppScore);
     }
 
-    const opponent = isP1 ? m.player2Name : m.player1Name;
+    const opponent = (isP1 ? m.player2Name : m.player1Name) ?? 'Bye';
     const scoreStr = m.sets.map((s) => {
       const my = isP1 ? s.player1Score : s.player2Score;
       const opp = isP1 ? s.player2Score : s.player1Score;

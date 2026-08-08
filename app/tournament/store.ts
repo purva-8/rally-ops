@@ -146,7 +146,20 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
             const p2 = playerIndex < catPlayers.length ? catPlayers[playerIndex++] : null;
 
             if (!p2) {
-              // Bye — p1 advances automatically, no match created
+              // Bye — record a completed walkover so p1 advances into the next round
+              round1.push({
+                id: uuidv4(),
+                category: cat,
+                round: 0,
+                roundName: getRoundName(0, totalRounds - 1),
+                player1Id: p1.id,
+                player1Name: p1.fullName,
+                status: 'completed',
+                isBye: true,
+                winnerId: p1.id,
+                winnerName: p1.fullName,
+                sets: [],
+              });
               continue;
             }
 
@@ -230,7 +243,7 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
         const match = matches.find((m) => m.id === matchId);
         if (!match) return;
 
-        const result = determineWinner(match.sets, match.player1Id, match.player2Id, match.player1Name, match.player2Name);
+        const result = determineWinner(match.sets, match.player1Id, match.player2Id ?? '', match.player1Name, match.player2Name ?? '');
         if (!result) return;
 
         const { winnerId, winnerName } = result;

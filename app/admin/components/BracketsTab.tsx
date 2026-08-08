@@ -129,9 +129,13 @@ export default function BracketsTab() {
                       <StatusBadge status={match.status} />
                     </div>
                     <p className="font-semibold text-stone-900">
-                      {match.player1Name} <span className="text-stone-300 font-normal">vs</span> {match.player2Name}
+                      {match.isBye ? (
+                        <>{match.player1Name} <span className="text-stone-400 font-normal text-sm">(bye, advances automatically)</span></>
+                      ) : (
+                        <>{match.player1Name} <span className="text-stone-300 font-normal">vs</span> {match.player2Name}</>
+                      )}
                     </p>
-                    {match.sets.length > 0 && (
+                    {!match.isBye && match.sets.length > 0 && (
                       <p className="text-sm text-stone-500 mt-1">
                         {match.sets.map((s) => `${s.player1Score}–${s.player2Score}`).join(', ')}
                         {match.winnerName && <> · <strong className="text-orange-600">{match.winnerName}</strong></>}
