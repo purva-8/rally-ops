@@ -106,7 +106,7 @@ export default function AdminPage() {
                 setLinkCopied(true);
                 setTimeout(() => setLinkCopied(false), 2000);
               }}
-              className="hidden sm:flex items-center gap-1.5 text-xs font-medium bg-orange-600 hover:bg-orange-500 text-white px-3 py-1.5 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium bg-orange-600 hover:bg-orange-500 text-white px-3 py-1.5 rounded-lg transition-colors"
             >
               {linkCopied ? 'Link copied!' : 'Player Link'}
             </button>
