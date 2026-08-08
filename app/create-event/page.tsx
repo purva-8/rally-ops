@@ -13,6 +13,12 @@ const CATEGORIES = [
   { id: 'female_doubles', label: "Women's Doubles",  icon: '🏸' },
   { id: 'mixed_doubles',  label: 'Mixed Doubles',    icon: '🏸' },
   { id: 'spouse_doubles', label: 'Spouse Doubles',   icon: '🏸' },
+  { id: 'boys_u13',       label: 'Boys U13',         icon: '🧒' },
+  { id: 'boys_u15',       label: 'Boys U15',         icon: '🧒' },
+  { id: 'boys_u18',       label: 'Boys U18',         icon: '🧑' },
+  { id: 'girls_u13',      label: 'Girls U13',        icon: '👧' },
+  { id: 'girls_u15',      label: 'Girls U15',        icon: '👧' },
+  { id: 'girls_u18',      label: 'Girls U18',        icon: '👩' },
 ];
 
 const STEP_ORDER: Step[] = ['categories', 'details', 'rules', 'review'];

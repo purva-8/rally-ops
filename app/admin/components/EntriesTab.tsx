@@ -16,7 +16,8 @@ type Registration = {
   manual_name: string | null;
   manual_email: string | null;
   manual_mobile: string | null;
-  player_profiles: { full_name: string; mobile: string | null; gender: string } | null;
+  manual_qid: string | null;
+  player_profiles: { full_name: string; mobile: string | null; gender: string; qid: string | null } | null;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -25,6 +26,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   male_doubles:   'Male Doubles',
   female_doubles: 'Female Doubles',
   spouse_doubles: 'Spouse Doubles',
+  boys_u13: 'Boys U13',
+  boys_u15: 'Boys U15',
+  boys_u18: 'Boys U18',
+  girls_u13: 'Girls U13',
+  girls_u15: 'Girls U15',
+  girls_u18: 'Girls U18',
 };
 
 const STATUS_COLORS = {
@@ -35,6 +42,10 @@ const STATUS_COLORS = {
 
 function displayName(r: Registration) {
   return r.player_profiles?.full_name ?? r.manual_name ?? '-';
+}
+
+function displayQid(r: Registration) {
+  return r.player_profiles?.qid ?? r.manual_qid ?? r.registration_code;
 }
 
 export default function EntriesTab() {
@@ -49,7 +60,7 @@ export default function EntriesTab() {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [addForm, setAddForm] = useState({ name: '', email: '', mobile: '', category: '', partnerName: '' });
+  const [addForm, setAddForm] = useState({ name: '', email: '', mobile: '', qid: '', category: '', partnerName: '' });
 
   useEffect(() => {
     if (!tournamentId) return;
@@ -66,8 +77,8 @@ export default function EntriesTab() {
       .from('registrations')
       .select(`
         id, player_id, category, status, partner_name, emergency_contact, registration_code, created_at,
-        manual_name, manual_email, manual_mobile,
-        player_profiles!registrations_player_id_fkey ( full_name, mobile, gender )
+        manual_name, manual_email, manual_mobile, manual_qid,
+        player_profiles!registrations_player_id_fkey ( full_name, mobile, gender, qid )
       `)
       .eq('tournament_id', tournamentId)
       .order('created_at', { ascending: false });
@@ -80,7 +91,7 @@ export default function EntriesTab() {
       playerName: displayName(reg),
       tournamentName,
       category: reg.category,
-      registrationCode: reg.registration_code,
+      registrationCode: displayQid(reg),
     };
     if (reg.manual_email) payload.to = reg.manual_email;
     else if (reg.player_id) payload.playerId = reg.player_id;
@@ -138,7 +149,7 @@ export default function EntriesTab() {
   }
 
   async function handleAddEntry() {
-    if (!tournamentId || !addForm.name.trim() || !addForm.category) return;
+    if (!tournamentId || !addForm.name.trim() || !addForm.category || !addForm.qid.trim()) return;
     setAdding(true);
     const supabase = createClient();
     const { error } = await supabase.from('registrations').insert({
@@ -148,12 +159,13 @@ export default function EntriesTab() {
       manual_name: addForm.name.trim(),
       manual_email: addForm.email.trim() || null,
       manual_mobile: addForm.mobile.trim() || null,
+      manual_qid: addForm.qid.trim(),
       partner_name: addForm.partnerName.trim() || null,
       status: 'approved',
       payment_status: 'waived',
     });
     if (!error) {
-      setAddForm({ name: '', email: '', mobile: '', category: '', partnerName: '' });
+      setAddForm({ name: '', email: '', mobile: '', qid: '', category: '', partnerName: '' });
       setShowAddForm(false);
       fetchRegistrations();
     }
@@ -195,10 +207,12 @@ export default function EntriesTab() {
               placeholder="Email (for confirmation)" className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500" />
             <input value={addForm.mobile} onChange={(e) => setAddForm((f) => ({ ...f, mobile: e.target.value }))}
               placeholder="Mobile" className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+            <input value={addForm.qid} onChange={(e) => setAddForm((f) => ({ ...f, qid: e.target.value }))}
+              placeholder="Qatar ID *" className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500" />
             <input value={addForm.partnerName} onChange={(e) => setAddForm((f) => ({ ...f, partnerName: e.target.value }))}
               placeholder="Partner name (doubles only)" className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500 sm:col-span-2" />
           </div>
-          <button onClick={handleAddEntry} disabled={adding || !addForm.name.trim() || !addForm.category}
+          <button onClick={handleAddEntry} disabled={adding || !addForm.name.trim() || !addForm.category || !addForm.qid.trim()}
             className="bg-[#111827] hover:bg-[#1F2937] disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
             {adding ? 'Adding...' : 'Add entry'}
           </button>
@@ -271,7 +285,7 @@ export default function EntriesTab() {
                   {reg.partner_name && <p>Partner: {reg.partner_name}</p>}
                   {(reg.player_profiles?.mobile || reg.manual_mobile) && <p>{reg.player_profiles?.mobile ?? reg.manual_mobile}</p>}
                   {reg.emergency_contact && <p>Emergency: {reg.emergency_contact}</p>}
-                  <p className="text-xs text-stone-400 mt-1">{reg.registration_code} · {new Date(reg.created_at).toLocaleString()}</p>
+                  <p className="text-xs text-stone-400 mt-1">{displayQid(reg)} · {new Date(reg.created_at).toLocaleString()}</p>
                 </div>
               </div>
 

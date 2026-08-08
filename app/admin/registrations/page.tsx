@@ -28,6 +28,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   male_doubles:   'Male Doubles',
   female_doubles: 'Female Doubles',
   spouse_doubles: 'Spouse Doubles',
+  boys_u13: 'Boys U13',
+  boys_u15: 'Boys U15',
+  boys_u18: 'Boys U18',
+  girls_u13: 'Girls U13',
+  girls_u15: 'Girls U15',
+  girls_u18: 'Girls U18',
 };
 
 const STATUS_COLORS = {

@@ -30,6 +30,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   male_doubles:   'Male Doubles',
   female_doubles: 'Female Doubles',
   spouse_doubles: 'Spouse Doubles',
+  boys_u13: 'Boys U13',
+  boys_u15: 'Boys U15',
+  boys_u18: 'Boys U18',
+  girls_u13: 'Girls U13',
+  girls_u15: 'Girls U15',
+  girls_u18: 'Girls U18',
 };
 
 const STATUS_CONFIG = {
@@ -41,6 +47,7 @@ const STATUS_CONFIG = {
 export default function MyEntriesPage() {
   const router = useRouter();
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [qid, setQid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
 
@@ -48,13 +55,17 @@ export default function MyEntriesPage() {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.push('/login?redirect=/my-entries'); return; }
-      const { data } = await supabase
-        .from('registrations')
-        .select(`id, category, status, registration_code, partner_name, payment_status, created_at,
-          tournaments ( id, name, venue, entry_fee, sport, event_date )`)
-        .eq('player_id', user.id)
-        .order('created_at', { ascending: false });
+      const [{ data }, { data: prof }] = await Promise.all([
+        supabase
+          .from('registrations')
+          .select(`id, category, status, registration_code, partner_name, payment_status, created_at,
+            tournaments ( id, name, venue, entry_fee, sport, event_date )`)
+          .eq('player_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase.from('player_profiles').select('qid').eq('id', user.id).single(),
+      ]);
       setEntries((data as unknown as Entry[]) ?? []);
+      setQid(prof?.qid ?? null);
       setLoading(false);
     });
   }, [router]);
@@ -83,8 +94,15 @@ export default function MyEntriesPage() {
       {/* Header */}
       <div className="bg-[#111827]">
         <div className="max-w-2xl mx-auto px-4 pt-8 pb-10">
-          <h1 className="text-2xl font-extrabold text-white tracking-tight mb-1">My Entries</h1>
-          <p className="text-sm text-white/40">Your tournament registration history</p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-extrabold text-white tracking-tight mb-1">My Entries</h1>
+              <p className="text-sm text-white/40">Your tournament registration history</p>
+            </div>
+            <Link href="/my-matches" className="shrink-0 text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-3 py-2 rounded-lg transition-colors">
+              My Matches →
+            </Link>
+          </div>
 
           {entries.length > 0 && (
             <div className="flex gap-4 mt-6">
@@ -143,7 +161,7 @@ export default function MyEntriesPage() {
                         <span className={`w-1.5 h-1.5 rounded-full ${scfg.dot}`} />
                         {scfg.label}
                       </span>
-                      <span className="text-[11px] font-mono text-stone-400 tracking-wider">{entry.registration_code}</span>
+                      <span className="text-[11px] font-mono text-stone-400 tracking-wider">{qid ?? entry.registration_code}</span>
                     </div>
 
                     {/* Tournament name */}
