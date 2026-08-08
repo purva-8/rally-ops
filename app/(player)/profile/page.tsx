@@ -178,10 +178,10 @@ export default function ProfilePage() {
             <div className="divide-y divide-stone-50">
               {[
                 { label: 'Full Name', value: profile.full_name },
-                { label: 'Mobile',    value: profile.mobile ?? '—' },
+                { label: 'Mobile',    value: profile.mobile ?? '-' },
                 {
                   label: 'Gender',
-                  value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '—',
+                  value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '-',
                 },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-center justify-between px-5 py-3.5">

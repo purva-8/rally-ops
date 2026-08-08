@@ -29,7 +29,7 @@ function LoginForm() {
       {/* Left panel — hidden on small screens */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#111827] flex-col justify-between p-12">
         <Link href="/events" className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="RallyOps" className="h-9 w-auto object-contain" />
+          <img src="/logo.png" alt="RallyOps" className="h-14 w-auto object-contain" />
         </Link>
 
         <div>
@@ -38,7 +38,7 @@ function LoginForm() {
             <span className="text-orange-500">Professionally run.</span>
           </h1>
           <p className="text-white/40 text-base leading-relaxed max-w-sm">
-            Register for events, track your results, and manage your player profile — all in one place.
+            Register for events, track your results, and manage your player profile, all in one place.
           </p>
         </div>
 
@@ -51,7 +51,7 @@ function LoginForm() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-white">
         {/* Mobile logo */}
         <Link href="/events" className="flex items-center gap-2.5 mb-10 lg:hidden">
-          <img src="/logo.png" alt="RallyOps" className="h-9 w-auto object-contain" />
+          <img src="/logo.png" alt="RallyOps" className="h-14 w-auto object-contain" />
         </Link>
 
         <div className="w-full max-w-sm">

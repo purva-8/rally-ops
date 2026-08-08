@@ -96,7 +96,7 @@ export default function RallyOpsHome() {
         <div className="px-6 pt-6 pb-2">
           <div className="max-w-2xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <img src="/logo.png" alt="RallyOps" className="h-8 w-auto object-contain" />
+              <img src="/logo.png" alt="RallyOps" className="h-14 w-auto object-contain" />
             </div>
             <button onClick={() => setView('home')} className="text-white/40 hover:text-white text-sm transition-colors">Cancel</button>
           </div>
@@ -285,21 +285,16 @@ export default function RallyOpsHome() {
       <nav className="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between border-b border-slate-100 bg-white/90 backdrop-blur-sm">
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="RallyOps" className="h-8 w-auto object-contain" />
+            <img src="/logo.png" alt="RallyOps" className="h-14 w-auto object-contain" />
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex flex-col items-end">
-            <a
-              href="/signup"
-              className="bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-            >
-              Log in / Sign up
-            </a>
-            <span className="text-orange-400 text-[11px] mt-0.5 pr-0.5" style={{ fontFamily: "'Dancing Script', cursive" }}>
-              it's free forever
-            </span>
-          </div>
+          <a
+            href="/signup"
+            className="bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            Log in / Sign up
+          </a>
         </div>
       </nav>
 
@@ -315,11 +310,6 @@ export default function RallyOpsHome() {
         <div className="absolute left-[-60px] top-1/2 -translate-y-1/2 text-[420px] font-black text-indigo-200/40 select-none pointer-events-none leading-none hidden lg:block">R</div>
 
         <div className="relative z-10 max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-            Tournament management for organizations
-          </div>
-
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-[1.05] tracking-tight mb-2">
             Run your tournament.
           </h1>
@@ -336,7 +326,7 @@ export default function RallyOpsHome() {
           </div>
 
           <p className="text-slate-500 text-lg leading-relaxed max-w-xl mx-auto mb-8">
-            Your organization hosts the tournament. RallyOps handles everything else — registration, brackets, live scoring, coach views, and the leaderboard.
+            Your organization hosts the tournament. RallyOps handles everything else: registration, brackets, live scoring, coach views, and the leaderboard.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">

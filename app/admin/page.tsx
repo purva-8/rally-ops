@@ -82,7 +82,7 @@ export default function AdminPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <a href="/rallyops" className="flex items-center gap-2 shrink-0">
-              <img src="/logo.png" alt="RallyOps" className="h-8 w-auto object-contain" />
+              <img src="/logo.png" alt="RallyOps" className="h-14 w-auto object-contain" />
             </a>
             <div className="w-px h-4 bg-white/10 shrink-0" />
             <div className="min-w-0">

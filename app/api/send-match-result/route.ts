@@ -43,7 +43,7 @@ function winnerEmail(data: MatchResultPayload, scores: string) {
         <!-- Body -->
         <tr><td style="padding:32px;">
           <p style="color:#431407;font-size:17px;margin:0 0 8px;">Congratulations, <strong>${data.winner.name}</strong>! 🎉</p>
-          <p style="color:#7c2d12;font-size:15px;margin:0 0 24px;">You advanced in <strong>${data.category}</strong> — ${data.round}.</p>
+          <p style="color:#7c2d12;font-size:15px;margin:0 0 24px;">You advanced in <strong>${data.category}</strong>, ${data.round}.</p>
 
           <!-- Score card -->
           <table width="100%" style="background:#fff7ed;border:2px solid #fed7aa;border-radius:12px;margin-bottom:24px;">
@@ -120,7 +120,7 @@ function loserEmail(data: MatchResultPayload, scores: string) {
         <!-- Body -->
         <tr><td style="padding:32px;">
           <p style="color:#292524;font-size:17px;margin:0 0 8px;">Hi <strong>${data.loser.name}</strong>,</p>
-          <p style="color:#57534e;font-size:15px;margin:0 0 24px;">Thank you for competing in <strong>${data.category}</strong> — ${data.round}. It was a great game!</p>
+          <p style="color:#57534e;font-size:15px;margin:0 0 24px;">Thank you for competing in <strong>${data.category}</strong>, ${data.round}. It was a great game!</p>
 
           <!-- Score card -->
           <table width="100%" style="background:#f5f5f4;border:2px solid #e7e5e4;border-radius:12px;margin-bottom:24px;">
@@ -145,7 +145,7 @@ function loserEmail(data: MatchResultPayload, scores: string) {
 
           <div style="background:#fff7ed;border-left:4px solid #ea580c;border-radius:0 8px 8px 0;padding:16px;margin-bottom:24px;">
             <p style="margin:0;color:#9a3412;font-size:14px;font-weight:600;">Keep your head up! 💪</p>
-            <p style="margin:6px 0 0;color:#c2410c;font-size:13px;">Every match is a learning experience. You played well — see you on the court!</p>
+            <p style="margin:6px 0 0;color:#c2410c;font-size:13px;">Every match is a learning experience. You played well, see you on the court!</p>
           </div>
 
           <table width="100%" style="margin-bottom:24px;">
@@ -202,13 +202,13 @@ export async function POST(req: NextRequest) {
     resend.emails.send({
       from: FROM_EMAIL,
       to: winner.email,
-      subject: `🏆 You Won! — ${body.category} ${body.round}`,
+      subject: `🏆 You Won! ${body.category} ${body.round}`,
       html: winnerEmail(body, winnerScores),
     }),
     resend.emails.send({
       from: FROM_EMAIL,
       to: loser.email,
-      subject: `Match Result — ${body.category} ${body.round}`,
+      subject: `Match Result: ${body.category} ${body.round}`,
       html: loserEmail(body, winnerScores),
     }),
   ]);

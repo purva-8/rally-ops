@@ -164,7 +164,7 @@ export default function StatsPage({ params }: { params: Promise<{ participantId:
             <div className="relative">
               {stats.isChampion && (
                 <div className="inline-flex items-center gap-1.5 bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full mb-3">
-                  CHAMPION — {stats.championCategories.join(' & ')}
+                  CHAMPION: {stats.championCategories.join(' & ')}
                 </div>
               )}
               <h1 className="text-3xl font-black text-white tracking-tight">{participant.fullName}</h1>

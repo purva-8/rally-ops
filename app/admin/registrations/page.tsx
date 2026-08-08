@@ -210,7 +210,7 @@ export default function AdminRegistrationsPage() {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-stone-900">{reg.player_profiles?.full_name ?? '—'}</span>
+                    <span className="font-semibold text-stone-900">{reg.player_profiles?.full_name ?? '-'}</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[reg.status]}`}>
                       {reg.status}
                     </span>

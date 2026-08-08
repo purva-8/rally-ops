@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     await resend.emails.send({
       from: FROM_EMAIL,
       to: data.to,
-      subject: `Registration received — ${data.tournamentName}`,
+      subject: `Registration received: ${data.tournamentName}`,
       html: confirmationEmail(data),
     });
 

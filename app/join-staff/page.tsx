@@ -50,7 +50,7 @@ function JoinStaffInner() {
     <div className="min-h-screen bg-[#111827] flex items-center justify-center px-6">
       <div className="max-w-sm w-full bg-white rounded-2xl p-8 text-center shadow-xl">
         <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-          <img src="/logo.png" alt="RallyOps" className="h-9 w-auto object-contain" />
+          <img src="/logo.png" alt="RallyOps" className="h-14 w-auto object-contain" />
         </div>
 
         {status === 'checking' && <p className="text-stone-500 text-sm">Loading invite...</p>}

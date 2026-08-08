@@ -55,7 +55,7 @@ export default function EventsPage() {
       <header className="bg-[#111827] text-white sticky top-0 z-20 border-b border-white/5">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="RallyOps" className="h-8 w-auto object-contain" />
+            <img src="/logo.png" alt="RallyOps" className="h-14 w-auto object-contain" />
           </div>
           <div className="flex items-center gap-1">
             <Link href="/create-event" className="flex text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 px-3.5 py-1.5 rounded-lg transition-colors mr-1 shadow-sm">

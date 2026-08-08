@@ -52,7 +52,7 @@ function SignupForm() {
       {/* Left panel */}
       <div className="hidden lg:flex lg:w-2/5 bg-[#111827] flex-col justify-between p-12 shrink-0">
         <Link href="/events" className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="RallyOps" className="h-9 w-auto object-contain" />
+          <img src="/logo.png" alt="RallyOps" className="h-14 w-auto object-contain" />
         </Link>
 
         <div>
@@ -72,7 +72,7 @@ function SignupForm() {
       {/* Right panel */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-white overflow-y-auto">
         <Link href="/events" className="flex items-center gap-2.5 mb-8 lg:hidden">
-          <img src="/logo.png" alt="RallyOps" className="h-9 w-auto object-contain" />
+          <img src="/logo.png" alt="RallyOps" className="h-14 w-auto object-contain" />
         </Link>
 
         <div className="w-full max-w-sm">

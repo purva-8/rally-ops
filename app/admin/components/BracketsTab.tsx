@@ -261,7 +261,7 @@ function ScoreModal({ matchId, match, onSave, onComplete, onClose }: {
                     onChange={(e) => updateSet(i, 'player1Score', parseInt(e.target.value) || 0)}
                     className="w-full border border-stone-200 rounded-lg px-2 py-2 text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-orange-500 bg-stone-50" />
                 </div>
-                <span className="text-stone-200 font-bold mt-5">—</span>
+                <span className="text-stone-200 font-bold mt-5">-</span>
                 <div className="flex-1">
                   <p className="text-xs text-stone-400 mb-1 truncate">{match.player2Name}</p>
                   <input type="number" min={0} max={30} value={s.player2Score}

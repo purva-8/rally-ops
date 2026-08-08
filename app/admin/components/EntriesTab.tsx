@@ -34,7 +34,7 @@ const STATUS_COLORS = {
 };
 
 function displayName(r: Registration) {
-  return r.player_profiles?.full_name ?? r.manual_name ?? '—';
+  return r.player_profiles?.full_name ?? r.manual_name ?? '-';
 }
 
 export default function EntriesTab() {

@@ -10,7 +10,7 @@ export default function TermsPage() {
           <p>By using RallyOps, you agree to provide accurate registration information and to follow the rules and eligibility criteria set by tournament organizers.</p>
           <p>Organizers are responsible for the tournaments they create, including entry fees, rules, and match scheduling. RallyOps provides the platform but is not a party to any agreement between organizers and players.</p>
           <p>RallyOps is provided as-is, free of charge. We may update or change features at any time to improve the service.</p>
-          <p>Misuse of the platform — including fraudulent registrations or abuse of other users — may result in account suspension.</p>
+          <p>Misuse of the platform, including fraudulent registrations or abuse of other users, may result in account suspension.</p>
         </div>
       </div>
     </div>

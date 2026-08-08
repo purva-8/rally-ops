@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: `You're confirmed — ${data.tournamentName}`,
+      subject: `You're confirmed: ${data.tournamentName}`,
       html: approvedEmail({ ...data, to }),
     });
 

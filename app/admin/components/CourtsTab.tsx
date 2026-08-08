@@ -142,7 +142,7 @@ export default function CourtsTab() {
 
       <div className="mb-8">
         <h3 className="text-base font-bold text-stone-900 mb-1">Invite a Coach</h3>
-        <p className="text-stone-400 text-sm mb-4">They'll get an email to create an account or sign in — no shared passwords.</p>
+        <p className="text-stone-400 text-sm mb-4">They'll get an email to create an account or sign in. No shared passwords.</p>
         <div className="bg-white rounded-xl border border-stone-200 p-4 flex flex-col sm:flex-row gap-2.5">
           <input type="text" value={inviteName} onChange={(e) => setInviteName(e.target.value)}
             placeholder="Coach name"

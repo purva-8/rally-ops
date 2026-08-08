@@ -51,7 +51,7 @@ export default function TournamentPage() {
             <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 mb-6">
               <p className="text-xs text-stone-400 uppercase tracking-widest font-medium mb-1">Registration ID</p>
               <p className="text-3xl font-mono font-bold text-orange-700">{registered.id}</p>
-              <p className="text-xs text-stone-400 mt-2">Save this ID — you may need it to check your match schedule.</p>
+              <p className="text-xs text-stone-400 mt-2">Save this ID. You may need it to check your match schedule.</p>
             </div>
             <div className="flex flex-col gap-3">
               <a href="/tournament/brackets"

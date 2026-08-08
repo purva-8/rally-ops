@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "RallyOps — Tournament Management",
-  description: "Run your tournament. Not your spreadsheet. Brackets, live scoring, court management, and player registration — all in one place.",
+  title: "RallyOps: Tournament Management",
+  description: "Run your tournament. Not your spreadsheet. Brackets, live scoring, court management, and player registration, all in one place.",
 };
 
 export default function RootLayout({
