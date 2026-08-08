@@ -130,3 +130,172 @@ create policy "registrations_own_withdraw" on registrations
 --   50,
 --   array['male_singles','female_singles','male_doubles','female_doubles','spouse_doubles']
 -- );
+
+-- ─── Matches ─────────────────────────────────────────────────────────────────
+create table if not exists matches (
+  id                uuid primary key default uuid_generate_v4(),
+  tournament_id     uuid references tournaments(id) on delete cascade,
+  category          text not null,
+  round             int not null,
+  player1_id        uuid references player_profiles(id),
+  player1_name      text not null,
+  player2_id        uuid references player_profiles(id),
+  player2_name      text not null,
+  court_id          text,
+  referee_id        uuid references player_profiles(id),
+  referee_name      text,
+  status            text not null default 'upcoming'
+                      check (status in ('upcoming', 'in_progress', 'completed')),
+  winner_id         uuid references player_profiles(id),
+  winner_name       text,
+  scheduled_at      timestamptz,
+  completed_at      timestamptz,
+  created_at        timestamptz default now()
+);
+
+-- ─── Match Sets (scores per set) ──────────────────────────────────────────
+create table if not exists match_sets (
+  id                uuid primary key default uuid_generate_v4(),
+  match_id          uuid references matches(id) on delete cascade,
+  set_number        int not null,
+  player1_score     int not null default 0,
+  player2_score     int not null default 0,
+  created_at        timestamptz default now()
+);
+
+-- ─── Indexes for performance ─────────────────────────────────────────────
+create index if not exists matches_tournament_idx on matches(tournament_id);
+create index if not exists matches_category_idx on matches(category);
+create index if not exists matches_status_idx on matches(status);
+create index if not exists match_sets_match_idx on match_sets(match_id);
+
+-- ─── RLS for Matches ─────────────────────────────────────────────────────
+alter table matches        enable row level security;
+alter table match_sets     enable row level security;
+
+create policy "matches_public_read" on matches
+  for select using (true);
+
+create policy "match_sets_public_read" on match_sets
+  for select using (true);
+
+create policy "matches_org_insert" on matches
+  for insert with check (
+    exists (
+      select 1 from tournaments t
+      where t.id = matches.tournament_id
+      and t.created_by = auth.uid()
+    )
+  );
+
+create policy "match_sets_org_insert" on match_sets
+  for insert with check (
+    exists (
+      select 1 from matches m
+      join tournaments t on t.id = m.tournament_id
+      where m.id = match_sets.match_id
+      and t.created_by = auth.uid()
+    )
+  );
+
+create policy "matches_org_update" on matches
+  for update using (
+    exists (
+      select 1 from tournaments t
+      where t.id = matches.tournament_id
+      and t.created_by = auth.uid()
+    )
+  );
+
+create policy "match_sets_org_update" on match_sets
+  for update using (
+    exists (
+      select 1 from matches m
+      join tournaments t on t.id = m.tournament_id
+      where m.id = match_sets.match_id
+      and t.created_by = auth.uid()
+    )
+  );
+
+-- ─── Organizer visibility into registrations ────────────────────────────
+create policy "registrations_org_read" on registrations
+  for select using (
+    exists (
+      select 1 from tournaments t
+      where t.id = registrations.tournament_id
+      and t.created_by = auth.uid()
+    )
+  );
+
+create policy "registrations_org_update" on registrations
+  for update using (
+    exists (
+      select 1 from tournaments t
+      where t.id = registrations.tournament_id
+      and t.created_by = auth.uid()
+    )
+  );
+
+-- ─── Tournament Staff (coaches, co-admins) ────────────────────────────────
+create table if not exists tournament_staff (
+  id            uuid primary key default uuid_generate_v4(),
+  tournament_id uuid references tournaments(id) on delete cascade,
+  user_id       uuid references auth.users(id) on delete set null,
+  email         text not null,
+  name          text not null,
+  role          text not null default 'coach' check (role in ('coach', 'admin')),
+  court_id      text,
+  status        text not null default 'invited' check (status in ('invited', 'active')),
+  invited_by    uuid references auth.users(id),
+  created_at    timestamptz default now(),
+  unique (tournament_id, email)
+);
+
+create index if not exists tournament_staff_tournament_idx on tournament_staff(tournament_id);
+create index if not exists tournament_staff_user_idx on tournament_staff(user_id);
+create index if not exists tournament_staff_email_idx on tournament_staff(email);
+
+alter table tournament_staff enable row level security;
+
+-- Organizers manage staff for their own tournaments
+create policy "staff_org_read" on tournament_staff
+  for select using (
+    exists (select 1 from tournaments t where t.id = tournament_staff.tournament_id and t.created_by = auth.uid())
+  );
+
+create policy "staff_org_insert" on tournament_staff
+  for insert with check (
+    exists (select 1 from tournaments t where t.id = tournament_staff.tournament_id and t.created_by = auth.uid())
+  );
+
+create policy "staff_org_update" on tournament_staff
+  for update using (
+    exists (select 1 from tournaments t where t.id = tournament_staff.tournament_id and t.created_by = auth.uid())
+  );
+
+create policy "staff_org_delete" on tournament_staff
+  for delete using (
+    exists (select 1 from tournaments t where t.id = tournament_staff.tournament_id and t.created_by = auth.uid())
+  );
+
+-- A staff member can read/claim their own invite row (to self-link on login)
+create policy "staff_own_read" on tournament_staff
+  for select using (auth.uid() = user_id or email = auth.email());
+
+create policy "staff_own_claim" on tournament_staff
+  for update using (email = auth.email() and user_id is null);
+
+-- ─── Manual entries (organizer-added participants without an account) ─────────
+alter table registrations add column if not exists manual_name  text;
+alter table registrations add column if not exists manual_email text;
+alter table registrations add column if not exists manual_mobile text;
+alter table registrations alter column player_id drop not null;
+
+create policy "registrations_org_insert" on registrations
+  for insert with check (
+    exists (
+      select 1 from tournaments t
+      where t.id = registrations.tournament_id
+      and t.created_by = auth.uid()
+    )
+  );

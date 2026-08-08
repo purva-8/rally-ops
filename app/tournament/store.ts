@@ -30,6 +30,9 @@ function determineWinner(sets: Set[], p1Id: string, p2Id: string, p1Name: string
 }
 
 interface Actions {
+  setTournamentId: (id: string) => void;
+  loadParticipants: (participants: Participant[]) => void;
+  loadMatches: (matches: Match[]) => void;
   setupTournament: (data: { tournamentName: string; organizerName: string; venue: string; eventDate: string; registrationDeadline: string; courtCount: number; managerPassword: string; selectedCategories: Category[] }) => void;
   addParticipant: (data: Omit<Participant, 'id' | 'registrationId' | 'registeredAt'>) => Participant;
   updateParticipant: (id: string, data: Partial<Participant>) => void;
@@ -60,7 +63,8 @@ const DEFAULT_USERS: User[] = [
   { id: 'coach-4', name: 'Coach Meera', email: 'meera@tournament.com', role: 'coach', courtId: 'court-4' },
 ];
 
-const initialState: TournamentState = {
+const initialState: TournamentState & { tournamentId: string | null } = {
+  tournamentId: null,
   isSetup: false,
   sport: null,
   organizerName: '',
@@ -83,6 +87,12 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
       ...initialState,
       _hasHydrated: false,
       setHasHydrated: (v) => set({ _hasHydrated: v }),
+
+      setTournamentId: (id) => set({ tournamentId: id }),
+
+      loadParticipants: (participants) => set({ participants }),
+
+      loadMatches: (matches) => set({ matches, bracketGenerated: matches.length > 0 }),
 
       setupTournament: ({ tournamentName, organizerName, venue, eventDate, registrationDeadline, courtCount, managerPassword, selectedCategories }) => {
         const courts: Court[] = Array.from({ length: courtCount }, (_, i) => ({
@@ -160,7 +170,7 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
         set({ matches, bracketGenerated: true });
       },
 
-      assignCourt: (matchId, courtId, refereeId, refereeName) =>
+      assignCourt: (matchId, courtId, refereeId, refereeName) => {
         set((s) => ({
           matches: s.matches.map((m) =>
             m.id === matchId ? { ...m, courtId, refereeId, refereeName } : m
@@ -168,19 +178,52 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
           courts: s.courts.map((c) =>
             c.id === courtId ? { ...c, currentMatchId: matchId, refereeId, refereeName } : c
           ),
-        })),
+        }));
+        const { tournamentId, matches } = get();
+        if (!tournamentId) return;
+        const match = matches.find((m) => m.id === matchId);
+        fetch('/api/tournament/matches/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ matchId, sets: match?.sets ?? [], courtId, refereeId, refereeName }),
+        }).catch(() => {});
+      },
 
-      startMatch: (matchId) =>
+      startMatch: (matchId) => {
         set((s) => ({
           matches: s.matches.map((m) =>
             m.id === matchId ? { ...m, status: 'in_progress', sets: [{ player1Score: 0, player2Score: 0 }] } : m
           ),
-        })),
+        }));
+        const { tournamentId } = get();
+        if (!tournamentId) return;
+        fetch('/api/tournament/matches/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ matchId, sets: [{ player1Score: 0, player2Score: 0 }], status: 'in_progress' }),
+        }).catch(() => {});
+      },
 
-      updateScore: (matchId, sets) =>
+      updateScore: (matchId, sets) => {
         set((s) => ({
           matches: s.matches.map((m) => (m.id === matchId ? { ...m, sets } : m)),
-        })),
+        }));
+        const { tournamentId, matches } = get();
+        if (!tournamentId) return;
+        const match = matches.find((m) => m.id === matchId);
+        fetch('/api/tournament/matches/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            matchId,
+            sets,
+            status: match?.status,
+            courtId: match?.courtId,
+            refereeId: match?.refereeId,
+            refereeName: match?.refereeName,
+          }),
+        }).catch(() => {});
+      },
 
       completeMatch: (matchId) => {
         const { matches, participants, courts } = get();
@@ -213,6 +256,25 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
               loser: { name: loserName, email: loserParticipant.email },
             }),
           }).catch(() => {}); // fire and forget
+        }
+
+        // Persist final match result to DB
+        const { tournamentId } = get();
+        if (tournamentId) {
+          fetch('/api/tournament/matches/score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              matchId,
+              sets: match.sets,
+              status: 'completed',
+              winnerId,
+              winnerName,
+              courtId: match.courtId,
+              refereeId: match.refereeId,
+              refereeName: match.refereeName,
+            }),
+          }).catch(() => {});
         }
 
         // Find if there are other completed matches in the same round for this category

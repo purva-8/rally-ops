@@ -83,6 +83,7 @@ export interface User {
 }
 
 export interface TournamentState {
+  tournamentId: string | null;
   isSetup: boolean;
   sport: 'badminton' | null;
   organizerName: string;

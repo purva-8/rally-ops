@@ -1,19 +1,58 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../tournament/types';
 import type { Category } from '../../tournament/types';
 
+type Staff = { id: string; name: string; email: string; role: 'coach' | 'admin'; status: 'invited' | 'active' };
+
 export default function BracketsTab() {
-  const { participants, matches, bracketGenerated, generateBrackets, courts, users, assignCourt, startMatch, updateScore, completeMatch, selectedCategories } = useTournamentStore();
+  const { participants, matches, bracketGenerated, generateBrackets, courts, assignCourt, startMatch, updateScore, completeMatch, selectedCategories, tournamentId } = useTournamentStore();
   const [selectedCat, setSelectedCat] = useState<Category | 'all'>('all');
   const [assigningMatch, setAssigningMatch] = useState<string | null>(null);
   const [assignCourt2, setAssignCourt2] = useState('');
   const [assignReferee, setAssignReferee] = useState('');
   const [scoringMatch, setScoringMatch] = useState<string | null>(null);
+  const [persisting, setPersisting] = useState(false);
+  const [staff, setStaff] = useState<Staff[]>([]);
 
-  const coaches = users.filter((u) => u.role === 'coach');
+  useEffect(() => {
+    if (!tournamentId) return;
+    fetch(`/api/tournament/staff?tournamentId=${tournamentId}`)
+      .then((res) => res.json())
+      .then((data) => setStaff(data.staff ?? []));
+  }, [tournamentId]);
+
+  const handleGenerateAndPersist = async () => {
+    generateBrackets();
+    if (!tournamentId) return; // legacy in-memory-only tournament, nothing to persist
+
+    setPersisting(true);
+    try {
+      const generatedMatches = useTournamentStore.getState().matches;
+      const res = await fetch('/api/tournament/brackets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId, matches: generatedMatches }),
+      });
+      const data = await res.json();
+      if (data.matches) {
+        // Replace in-memory match ids with real DB ids so scoring persists correctly
+        const dbMatches = data.matches.map((dbM: any, i: number) => ({
+          ...generatedMatches[i],
+          id: dbM.id,
+        }));
+        useTournamentStore.setState({ matches: dbMatches });
+      }
+    } catch (err) {
+      console.error('Failed to persist brackets:', err);
+    } finally {
+      setPersisting(false);
+    }
+  };
+
+  const coaches = staff.filter((s) => s.role === 'coach' && s.status === 'active');
   const categories: Category[] = selectedCategories.length > 0 ? selectedCategories : ['male_singles', 'female_singles', 'male_doubles', 'female_doubles', 'spouse_doubles'];
 
   const displayMatches = selectedCat === 'all' ? matches : matches.filter((m) => m.category === selectedCat);
@@ -27,15 +66,16 @@ export default function BracketsTab() {
         </div>
         {!bracketGenerated ? (
           <button
+            disabled={persisting}
             onClick={() => {
               if (participants.length < 2) { alert('Need at least 2 participants to generate brackets.'); return; }
               if (confirm('Generate tournament brackets? This will create match fixtures based on current registrations.')) {
-                generateBrackets();
+                handleGenerateAndPersist();
               }
             }}
-            className="bg-[#111827] hover:bg-[#1F2937] text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors"
+            className="bg-[#111827] hover:bg-[#1F2937] disabled:opacity-50 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors"
           >
-            Generate Tournament
+            {persisting ? 'Generating…' : 'Generate Tournament'}
           </button>
         ) : (
           <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-full font-semibold">Brackets Ready</span>
