@@ -19,6 +19,7 @@ type Tournament = {
   eligibility: string;
   rules: string;
   max_participants?: number;
+  created_by: string;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -36,10 +37,7 @@ const STATUS_CONFIG = {
   completed: { label: 'Completed',    cls: 'bg-stone-50 text-stone-500 border-stone-200' },
 };
 
-const SPORT_LABEL: Record<string, string> = {
-  badminton: 'Badminton', tennis: 'Tennis', squash: 'Squash',
-  'table tennis': 'Table Tennis', pickleball: 'Pickleball',
-};
+const SPORT_LABEL = 'Badminton';
 
 export default function TournamentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -111,7 +109,7 @@ export default function TournamentDetailPage() {
                   {scfg.label}
                 </span>
                 {tournament.sport && (
-                  <span className="text-xs text-white/40 font-medium">{SPORT_LABEL[tournament.sport] ?? tournament.sport}</span>
+                  <span className="text-xs text-white/40 font-medium">{SPORT_LABEL}</span>
                 )}
               </div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-white leading-tight tracking-tight">{tournament.name}</h1>
