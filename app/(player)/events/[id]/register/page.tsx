@@ -421,7 +421,12 @@ export default function RegisterPage() {
             <div className="space-y-3">
               <Link
                 href={`/events/${id}/register`}
-                onClick={() => { setStep('category'); setSelectedCategory(''); setPartnerName(''); }}
+                onClick={() => {
+                  setExistingRegs((prev) => [...prev, selectedCategory]);
+                  setStep('category');
+                  setSelectedCategory('');
+                  setPartnerName('');
+                }}
                 className="block w-full border border-orange-300 text-orange-600 py-3 rounded-xl font-medium text-sm hover:bg-orange-50 transition-colors"
               >
                 Register for another category
