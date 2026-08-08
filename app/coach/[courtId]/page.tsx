@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTournamentStore } from '../../tournament/store';
 import { createClient } from '@/lib/supabase/client';
@@ -27,7 +27,7 @@ function setsWon(sets: Set[]) {
   return { p1, p2 };
 }
 
-export default function CoachPage({ params }: { params: Promise<{ courtId: string }> }) {
+function CoachPageInner({ params }: { params: Promise<{ courtId: string }> }) {
   const { courtId } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -414,5 +414,13 @@ function SetDots({ count, align = 'left' }: { count: number; align?: 'left' | 'r
         <div key={i} className={`w-4 h-4 rounded-full border-2 transition-colors ${i < count ? 'bg-orange-400 border-orange-400' : 'bg-transparent border-[#374151]'}`} />
       ))}
     </div>
+  );
+}
+
+export default function CoachPage({ params }: { params: Promise<{ courtId: string }> }) {
+  return (
+    <Suspense fallback={null}>
+      <CoachPageInner params={params} />
+    </Suspense>
   );
 }

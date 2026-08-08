@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import EntriesTab from './components/EntriesTab';
@@ -19,7 +19,7 @@ const TABS = [
   { id: 'export',    label: 'Export' },
 ];
 
-export default function AdminPage() {
+function AdminPageInner() {
   const [activeTab, setActiveTab] = useState('entries');
   const { isSetup, _hasHydrated, tournamentName, organizerName, eventDate, venue, loadParticipants, loadMatches, setTournamentId, tournamentId } = useTournamentStore();
   const router = useRouter();
@@ -143,5 +143,13 @@ export default function AdminPage() {
         {activeTab === 'export'      && <ExportTab />}
       </main>
     </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminPageInner />
+    </Suspense>
   );
 }
