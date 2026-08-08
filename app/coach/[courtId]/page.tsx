@@ -1,7 +1,9 @@
 'use client';
 
 import { use, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTournamentStore } from '../../tournament/store';
+import { createClient } from '@/lib/supabase/client';
 import { CATEGORY_LABELS } from '../../tournament/types';
 import type { Set, Category } from '../../tournament/types';
 
@@ -27,10 +29,48 @@ function setsWon(sets: Set[]) {
 
 export default function CoachPage({ params }: { params: Promise<{ courtId: string }> }) {
   const { courtId } = use(params);
-  const { courts, matches, users, startMatch, updateScore, completeMatch, assignCourt } = useTournamentStore();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tournamentId = searchParams.get('tournamentId');
+  const { courts, matches, startMatch, updateScore, completeMatch, assignCourt, setTournamentId, loadMatches } = useTournamentStore();
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authorized, setAuthorized] = useState(false);
+  const [coachIdentity, setCoachIdentity] = useState<{ id: string; name: string } | null>(null);
+
+  useEffect(() => {
+    if (!tournamentId) { setAuthChecked(true); return; } // legacy in-memory flow, no DB tournament to check
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { router.replace(`/login?redirect=/coach/${courtId}?tournamentId=${tournamentId}`); return; }
+
+      const { data: tournament } = await supabase.from('tournaments').select('created_by, name').eq('id', tournamentId).single();
+      const isOrganizer = !!tournament && tournament.created_by === user.id;
+
+      const { data: staffRow } = await supabase
+        .from('tournament_staff')
+        .select('id, name, court_id, role, status')
+        .eq('tournament_id', tournamentId)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      const isAssignedCoach = !!staffRow && staffRow.role === 'coach' && (staffRow.court_id === courtId || !staffRow.court_id);
+
+      if (!isOrganizer && !isAssignedCoach) { router.replace('/events'); return; }
+
+      if (staffRow) setCoachIdentity({ id: staffRow.id, name: staffRow.name });
+
+      setTournamentId(tournamentId);
+      const res = await fetch(`/api/tournament/matches?tournamentId=${tournamentId}`);
+      const data = await res.json();
+      if (data.matches) loadMatches(data.matches);
+      setAuthorized(true);
+      setAuthChecked(true);
+    });
+  }, [tournamentId, courtId, router, setTournamentId, loadMatches]);
 
   const court = courts.find((c) => c.id === courtId);
-  const coach = users.find((u) => u.courtId === courtId && u.role === 'coach');
+  const coach = coachIdentity;
 
   const courtMatches = matches.filter((m) => m.courtId === courtId);
   const liveMatch = courtMatches.find((m) => m.status === 'in_progress');
@@ -51,6 +91,8 @@ export default function CoachPage({ params }: { params: Promise<{ courtId: strin
       setSets(liveMatch.sets.length ? liveMatch.sets : [{ player1Score: 0, player2Score: 0 }]);
     }
   }, [liveMatch?.id]);
+
+  if (!authChecked) return null;
 
   if (!court) {
     return (

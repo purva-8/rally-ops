@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import ParticipantsTab from './components/ParticipantsTab';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import EntriesTab from './components/EntriesTab';
 import BracketsTab from './components/BracketsTab';
 import CourtsTab from './components/CourtsTab';
 import ExportTab from './components/ExportTab';
@@ -11,28 +12,64 @@ import SeedButton from './components/SeedButton';
 import { useTournamentStore } from '../tournament/store';
 
 const TABS = [
-  { id: 'participants', label: 'Participants' },
-  { id: 'brackets',    label: 'Brackets' },
-  { id: 'courts',      label: 'Courts' },
-  { id: 'analytics',   label: 'Analytics' },
-  { id: 'export',      label: 'Export' },
+  { id: 'entries',   label: 'Entries' },
+  { id: 'brackets',  label: 'Brackets' },
+  { id: 'courts',    label: 'Courts' },
+  { id: 'analytics', label: 'Analytics' },
+  { id: 'export',    label: 'Export' },
 ];
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState('participants');
-  const { isSetup, _hasHydrated, tournamentName, organizerName, eventDate, venue } = useTournamentStore();
+  const [activeTab, setActiveTab] = useState('entries');
+  const { isSetup, _hasHydrated, tournamentName, organizerName, eventDate, venue, loadParticipants, loadMatches, setTournamentId, tournamentId } = useTournamentStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const dbTournamentId = searchParams.get('tournamentId');
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authorized, setAuthorized] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     if (!_hasHydrated) return;
+    if (dbTournamentId) return; // ownership check below handles this case
     if (!isSetup) { router.replace('/rallyops'); return; }
     const { managerPassword } = useTournamentStore.getState();
     if (managerPassword && !sessionStorage.getItem('rally-unlocked')) {
       router.replace('/rallyops');
     }
-  }, [_hasHydrated, isSetup, router]);
+  }, [_hasHydrated, isSetup, router, dbTournamentId]);
 
-  if (!_hasHydrated || !isSetup) return null;
+  useEffect(() => {
+    if (!dbTournamentId) return;
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { router.replace(`/login?redirect=/admin?tournamentId=${dbTournamentId}`); return; }
+      const { data: tournament } = await supabase.from('tournaments').select('created_by').eq('id', dbTournamentId).single();
+      if (!tournament || tournament.created_by !== user.id) { router.replace('/events'); return; }
+      setAuthorized(true);
+      setAuthChecked(true);
+    });
+  }, [dbTournamentId, router]);
+
+  useEffect(() => {
+    if (!dbTournamentId || !authorized) return;
+    setTournamentId(dbTournamentId);
+    fetch(`/api/tournament/registrations?tournamentId=${dbTournamentId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.participants) loadParticipants(data.participants);
+      });
+    fetch(`/api/tournament/matches?tournamentId=${dbTournamentId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.matches) loadMatches(data.matches);
+      })
+      .catch((err) => console.error('Failed to load registrations:', err));
+  }, [dbTournamentId, authorized, setTournamentId, loadParticipants, loadMatches]);
+
+  if (!_hasHydrated) return null;
+  if (dbTournamentId && !authChecked) return null;
+  if (!isSetup && !dbTournamentId) return null;
 
   const formattedDate = eventDate
     ? new Date(eventDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -60,18 +97,19 @@ export default function AdminPage() {
 
           <div className="flex items-center gap-2 shrink-0">
             <SeedButton />
-            <a
-              href="/admin/registrations"
-              className="hidden sm:flex items-center gap-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 text-white/60 hover:text-white px-3 py-1.5 rounded-lg transition-colors border border-white/10"
-            >
-              Registrations
-            </a>
-            <a
-              href="/tournament"
+            <button
+              onClick={() => {
+                const link = dbTournamentId
+                  ? `${window.location.origin}/events/${dbTournamentId}`
+                  : `${window.location.origin}/tournament`;
+                navigator.clipboard.writeText(link);
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 2000);
+              }}
               className="hidden sm:flex items-center gap-1.5 text-xs font-medium bg-orange-600 hover:bg-orange-500 text-white px-3 py-1.5 rounded-lg transition-colors"
             >
-              Player Link
-            </a>
+              {linkCopied ? 'Link copied!' : 'Player Link'}
+            </button>
           </div>
         </div>
       </header>
@@ -98,7 +136,7 @@ export default function AdminPage() {
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {activeTab === 'participants' && <ParticipantsTab />}
+        {activeTab === 'entries'     && <EntriesTab />}
         {activeTab === 'brackets'    && <BracketsTab />}
         {activeTab === 'courts'      && <CourtsTab />}
         {activeTab === 'analytics'   && <AnalyticsTab />}
