@@ -11,6 +11,8 @@ type Tournament = {
   categories: string[];
   entry_fee: number;
   status: string;
+  venue: string;
+  event_date: string;
 };
 
 type Profile = {
@@ -64,7 +66,7 @@ export default function RegisterPage() {
         return;
       }
       const [{ data: t }, { data: p }, { data: regs }] = await Promise.all([
-        supabase.from('tournaments').select('id,name,categories,entry_fee,status').eq('id', id).single(),
+        supabase.from('tournaments').select('id,name,categories,entry_fee,status,venue,event_date').eq('id', id).single(),
         supabase.from('player_profiles').select('id,full_name,gender').eq('id', user.id).single(),
         supabase.from('registrations').select('category').eq('tournament_id', id).eq('player_id', user.id),
       ]);
@@ -88,19 +90,39 @@ export default function RegisterPage() {
     setSubmitting(true);
     setError('');
     const supabase = createClient();
-    const { error } = await supabase.from('registrations').insert({
-      tournament_id: tournament.id,
-      player_id: profile.id,
-      category: selectedCategory,
-      partner_name: isDoubles ? partnerName : null,
-      emergency_contact: emergencyContact || null,
-      status: 'pending',
-      payment_status: tournament.entry_fee > 0 ? 'unpaid' : 'waived',
-    });
+    const { data: registration, error } = await supabase
+      .from('registrations')
+      .insert({
+        tournament_id: tournament.id,
+        player_id: profile.id,
+        category: selectedCategory,
+        partner_name: isDoubles ? partnerName : null,
+        emergency_contact: emergencyContact || null,
+        status: 'pending',
+        payment_status: tournament.entry_fee > 0 ? 'unpaid' : 'waived',
+      })
+      .select('registration_code')
+      .single();
     if (error) {
       setError(error.message);
       setSubmitting(false);
     } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        fetch('/api/registration-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: user.email,
+            playerName: profile.full_name,
+            tournamentName: tournament.name,
+            category: selectedCategory,
+            registrationCode: registration?.registration_code ?? '',
+            venue: tournament.venue,
+            eventDate: tournament.event_date,
+          }),
+        }).catch(() => {});
+      }
       setStep('done');
     }
   }

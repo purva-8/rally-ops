@@ -1,0 +1,303 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useTournamentStore } from '../../tournament/store';
+
+type Registration = {
+  id: string;
+  player_id: string | null;
+  category: string;
+  status: 'pending' | 'approved' | 'rejected';
+  partner_name: string | null;
+  emergency_contact: string | null;
+  registration_code: string;
+  created_at: string;
+  manual_name: string | null;
+  manual_email: string | null;
+  manual_mobile: string | null;
+  player_profiles: { full_name: string; mobile: string | null; gender: string } | null;
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  male_singles:   'Male Singles',
+  female_singles: 'Female Singles',
+  male_doubles:   'Male Doubles',
+  female_doubles: 'Female Doubles',
+  spouse_doubles: 'Spouse Doubles',
+};
+
+const STATUS_COLORS = {
+  pending:  'bg-amber-100 text-amber-800',
+  approved: 'bg-green-100 text-green-800',
+  rejected: 'bg-red-100 text-red-800',
+};
+
+function displayName(r: Registration) {
+  return r.player_profiles?.full_name ?? r.manual_name ?? '—';
+}
+
+export default function EntriesTab() {
+  const { tournamentId } = useTournamentStore();
+  const [tournamentName, setTournamentName] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [addForm, setAddForm] = useState({ name: '', email: '', mobile: '', category: '', partnerName: '' });
+
+  useEffect(() => {
+    if (!tournamentId) return;
+    fetchRegistrations();
+    createClient().from('tournaments').select('name, categories').eq('id', tournamentId).single()
+      .then(({ data }) => {
+        if (data) { setTournamentName(data.name); setCategories(data.categories ?? []); }
+      });
+  }, [tournamentId]);
+
+  async function fetchRegistrations() {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('registrations')
+      .select(`
+        id, player_id, category, status, partner_name, emergency_contact, registration_code, created_at,
+        manual_name, manual_email, manual_mobile,
+        player_profiles!registrations_player_id_fkey ( full_name, mobile, gender )
+      `)
+      .eq('tournament_id', tournamentId)
+      .order('created_at', { ascending: false });
+    setRegistrations((data as unknown as Registration[]) ?? []);
+    setLoading(false);
+  }
+
+  async function sendApprovalEmail(reg: Registration) {
+    const payload: Record<string, string> = {
+      playerName: displayName(reg),
+      tournamentName,
+      category: reg.category,
+      registrationCode: reg.registration_code,
+    };
+    if (reg.manual_email) payload.to = reg.manual_email;
+    else if (reg.player_id) payload.playerId = reg.player_id;
+    else return;
+    fetch('/api/registration-approved', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+  }
+
+  async function updateStatus(id: string, status: 'approved' | 'rejected') {
+    setUpdating(id);
+    const supabase = createClient();
+    await supabase
+      .from('registrations')
+      .update({ status, approved_at: status === 'approved' ? new Date().toISOString() : null })
+      .eq('id', id);
+    const reg = registrations.find((r) => r.id === id);
+    if (status === 'approved' && reg) sendApprovalEmail(reg);
+    setRegistrations((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    setUpdating(null);
+  }
+
+  async function bulkUpdateStatus(status: 'approved' | 'rejected') {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkUpdating(true);
+    const supabase = createClient();
+    await supabase
+      .from('registrations')
+      .update({ status, approved_at: status === 'approved' ? new Date().toISOString() : null })
+      .in('id', ids);
+    if (status === 'approved') {
+      registrations.filter((r) => ids.includes(r.id)).forEach(sendApprovalEmail);
+    }
+    setRegistrations((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, status } : r)));
+    setSelectedIds(new Set());
+    setBulkUpdating(false);
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(ids: string[]) {
+    setSelectedIds((prev) => {
+      const allSelected = ids.length > 0 && ids.every((id) => prev.has(id));
+      return allSelected ? new Set() : new Set(ids);
+    });
+  }
+
+  async function handleAddEntry() {
+    if (!tournamentId || !addForm.name.trim() || !addForm.category) return;
+    setAdding(true);
+    const supabase = createClient();
+    const { error } = await supabase.from('registrations').insert({
+      tournament_id: tournamentId,
+      player_id: null,
+      category: addForm.category,
+      manual_name: addForm.name.trim(),
+      manual_email: addForm.email.trim() || null,
+      manual_mobile: addForm.mobile.trim() || null,
+      partner_name: addForm.partnerName.trim() || null,
+      status: 'approved',
+      payment_status: 'waived',
+    });
+    if (!error) {
+      setAddForm({ name: '', email: '', mobile: '', category: '', partnerName: '' });
+      setShowAddForm(false);
+      fetchRegistrations();
+    }
+    setAdding(false);
+  }
+
+  const filtered = filter === 'all' ? registrations : registrations.filter((r) => r.status === filter);
+  const pendingCount = registrations.filter((r) => r.status === 'pending').length;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-lg font-bold text-stone-900">Entries</h2>
+          <p className="text-stone-400 text-sm">{registrations.length} total registrations</p>
+        </div>
+        <button
+          onClick={() => setShowAddForm((v) => !v)}
+          className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+        >
+          {showAddForm ? 'Cancel' : 'Register new'}
+        </button>
+      </div>
+
+      {showAddForm && (
+        <div className="bg-white rounded-xl border border-stone-200 p-4 mb-6">
+          <h3 className="text-sm font-bold text-stone-800 mb-3">Manually register a player</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
+            <input value={addForm.name} onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="Full name *" className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+            <select value={addForm.category} onChange={(e) => setAddForm((f) => ({ ...f, category: e.target.value }))}
+              className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500">
+              <option value="">Category *</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{CATEGORY_LABELS[cat] ?? cat}</option>
+              ))}
+            </select>
+            <input value={addForm.email} onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="Email (for confirmation)" className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+            <input value={addForm.mobile} onChange={(e) => setAddForm((f) => ({ ...f, mobile: e.target.value }))}
+              placeholder="Mobile" className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+            <input value={addForm.partnerName} onChange={(e) => setAddForm((f) => ({ ...f, partnerName: e.target.value }))}
+              placeholder="Partner name (doubles only)" className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500 sm:col-span-2" />
+          </div>
+          <button onClick={handleAddEntry} disabled={adding || !addForm.name.trim() || !addForm.category}
+            className="bg-[#111827] hover:bg-[#1F2937] disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+            {adding ? 'Adding...' : 'Add entry'}
+          </button>
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl border border-stone-200 p-1.5 mb-4 flex gap-1 shadow-sm">
+        {(['pending', 'approved', 'rejected', 'all'] as const).map((f) => (
+          <button key={f} onClick={() => { setFilter(f); setSelectedIds(new Set()); }}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors capitalize flex-1 ${
+              filter === f ? 'bg-orange-600 text-white shadow-sm' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+            }`}>
+            {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+            {f === 'pending' && pendingCount > 0 && (
+              <span className="ml-1.5 bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5">{pendingCount}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {!loading && filtered.length > 0 && (
+        <div className="bg-white rounded-xl border border-stone-200 p-3 mb-4 flex items-center justify-between shadow-sm">
+          <label className="flex items-center gap-2 text-sm text-stone-600 font-medium cursor-pointer select-none">
+            <input type="checkbox" checked={filtered.length > 0 && filtered.every((r) => selectedIds.has(r.id))}
+              onChange={() => toggleSelectAll(filtered.map((r) => r.id))}
+              className="w-4 h-4 rounded border-stone-300 text-orange-600 focus:ring-orange-500" />
+            {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
+          </label>
+          {selectedIds.size > 0 && (
+            <div className="flex gap-2">
+              <button onClick={() => bulkUpdateStatus('rejected')} disabled={bulkUpdating}
+                className="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-40">
+                Reject {selectedIds.size}
+              </button>
+              <button onClick={() => bulkUpdateStatus('approved')} disabled={bulkUpdating}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-40">
+                {bulkUpdating ? 'Updating...' : `Approve ${selectedIds.size}`}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {loading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <div key={i} className="bg-white rounded-xl border border-stone-200 p-5 animate-pulse h-20" />)}
+        </div>
+      )}
+
+      {!loading && filtered.length === 0 && (
+        <div className="text-center py-16 text-stone-400 bg-white rounded-xl border border-stone-200">
+          <p>No {filter === 'all' ? '' : filter} entries yet.</p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {filtered.map((reg) => (
+          <div key={reg.id} className={`bg-white rounded-xl border p-5 transition-colors ${selectedIds.has(reg.id) ? 'border-orange-300 bg-orange-50/30' : 'border-stone-200'}`}>
+            <div className="flex items-start justify-between gap-4">
+              <input type="checkbox" checked={selectedIds.has(reg.id)} onChange={() => toggleSelect(reg.id)}
+                className="w-4 h-4 mt-1 rounded border-stone-300 text-orange-600 focus:ring-orange-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-semibold text-stone-900">{displayName(reg)}</span>
+                  {!reg.player_profiles && <span className="text-[10px] font-semibold text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">Manual</span>}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[reg.status]}`}>{reg.status}</span>
+                </div>
+                <div className="text-sm text-stone-500 space-y-0.5">
+                  <p>{CATEGORY_LABELS[reg.category] ?? reg.category}</p>
+                  {reg.partner_name && <p>Partner: {reg.partner_name}</p>}
+                  {(reg.player_profiles?.mobile || reg.manual_mobile) && <p>{reg.player_profiles?.mobile ?? reg.manual_mobile}</p>}
+                  {reg.emergency_contact && <p>Emergency: {reg.emergency_contact}</p>}
+                  <p className="text-xs text-stone-400 mt-1">{reg.registration_code} · {new Date(reg.created_at).toLocaleString()}</p>
+                </div>
+              </div>
+
+              {reg.status === 'pending' && (
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => updateStatus(reg.id, 'rejected')} disabled={updating === reg.id}
+                    className="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-40">
+                    Reject
+                  </button>
+                  <button onClick={() => updateStatus(reg.id, 'approved')} disabled={updating === reg.id}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-40">
+                    {updating === reg.id ? '...' : 'Approve'}
+                  </button>
+                </div>
+              )}
+
+              {reg.status === 'approved' && (
+                <button onClick={() => updateStatus(reg.id, 'rejected')} disabled={updating === reg.id}
+                  className="px-3 py-1.5 border border-stone-200 text-stone-500 rounded-lg text-xs hover:border-red-300 hover:text-red-600 transition-colors shrink-0">
+                  Revoke
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

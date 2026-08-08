@@ -17,7 +17,6 @@ type Entry = {
   tournaments: {
     id: string;
     name: string;
-    start_date: string;
     venue: string;
     entry_fee: number;
     sport: string;
@@ -52,7 +51,7 @@ export default function MyEntriesPage() {
       const { data } = await supabase
         .from('registrations')
         .select(`id, category, status, registration_code, partner_name, payment_status, created_at,
-          tournaments ( id, name, start_date, venue, entry_fee, sport, event_date )`)
+          tournaments ( id, name, venue, entry_fee, sport, event_date )`)
         .eq('player_id', user.id)
         .order('created_at', { ascending: false });
       setEntries((data as unknown as Entry[]) ?? []);

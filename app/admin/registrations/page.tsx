@@ -41,6 +41,8 @@ export default function AdminRegistrationsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
   const [updating, setUpdating] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   useEffect(() => {
     fetchRegistrations();
@@ -53,7 +55,7 @@ export default function AdminRegistrationsPage() {
       .select(`
         id, category, status, partner_name, emergency_contact,
         payment_status, created_at, registration_code,
-        player_profiles ( full_name, mobile, gender ),
+        player_profiles!registrations_player_id_fkey ( full_name, mobile, gender ),
         tournaments ( name )
       `)
       .order('created_at', { ascending: false });
@@ -72,6 +74,38 @@ export default function AdminRegistrationsPage() {
       prev.map((r) => (r.id === id ? { ...r, status } : r))
     );
     setUpdating(null);
+  }
+
+  async function bulkUpdateStatus(status: 'approved' | 'rejected') {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkUpdating(true);
+    const supabase = createClient();
+    await supabase
+      .from('registrations')
+      .update({ status, approved_at: status === 'approved' ? new Date().toISOString() : null })
+      .in('id', ids);
+    setRegistrations((prev) =>
+      prev.map((r) => (ids.includes(r.id) ? { ...r, status } : r))
+    );
+    setSelectedIds(new Set());
+    setBulkUpdating(false);
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(ids: string[]) {
+    setSelectedIds((prev) => {
+      const allSelected = ids.length > 0 && ids.every((id) => prev.has(id));
+      return allSelected ? new Set() : new Set(ids);
+    });
   }
 
   const filtered = filter === 'all' ? registrations : registrations.filter((r) => r.status === filter);
@@ -102,7 +136,7 @@ export default function AdminRegistrationsPage() {
           {(['pending', 'approved', 'rejected', 'all'] as const).map((f) => (
             <button
               key={f}
-              onClick={() => setFilter(f)}
+              onClick={() => { setFilter(f); setSelectedIds(new Set()); }}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors capitalize flex-1 ${
                 filter === f
                   ? 'bg-orange-600 text-white shadow-sm'
@@ -116,6 +150,39 @@ export default function AdminRegistrationsPage() {
             </button>
           ))}
         </div>
+
+        {/* Bulk action bar */}
+        {!loading && filtered.length > 0 && (
+          <div className="bg-white rounded-xl border border-stone-200 p-3 mb-4 flex items-center justify-between shadow-sm">
+            <label className="flex items-center gap-2 text-sm text-stone-600 font-medium cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={filtered.length > 0 && filtered.every((r) => selectedIds.has(r.id))}
+                onChange={() => toggleSelectAll(filtered.map((r) => r.id))}
+                className="w-4 h-4 rounded border-stone-300 text-orange-600 focus:ring-orange-500"
+              />
+              {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
+            </label>
+            {selectedIds.size > 0 && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => bulkUpdateStatus('rejected')}
+                  disabled={bulkUpdating}
+                  className="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-40"
+                >
+                  Reject {selectedIds.size}
+                </button>
+                <button
+                  onClick={() => bulkUpdateStatus('approved')}
+                  disabled={bulkUpdating}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-40"
+                >
+                  {bulkUpdating ? 'Updating...' : `Approve ${selectedIds.size}`}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {loading && (
           <div className="space-y-3">
@@ -133,8 +200,14 @@ export default function AdminRegistrationsPage() {
 
         <div className="space-y-3">
           {filtered.map((reg) => (
-            <div key={reg.id} className="bg-white rounded-xl border border-stone-200 p-5">
+            <div key={reg.id} className={`bg-white rounded-xl border p-5 transition-colors ${selectedIds.has(reg.id) ? 'border-orange-300 bg-orange-50/30' : 'border-stone-200'}`}>
               <div className="flex items-start justify-between gap-4">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(reg.id)}
+                  onChange={() => toggleSelect(reg.id)}
+                  className="w-4 h-4 mt-1 rounded border-stone-300 text-orange-600 focus:ring-orange-500 shrink-0"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-semibold text-stone-900">{reg.player_profiles?.full_name ?? '—'}</span>

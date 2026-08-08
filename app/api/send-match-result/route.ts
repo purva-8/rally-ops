@@ -4,7 +4,7 @@ import { Resend } from 'resend';
 const TOURNAMENT_NAME = 'Samanvayam Qatar';
 const TOURNAMENT_DATE = 'Wednesday, 15 July 2026';
 const VENUE = 'Sports Complex, Main Hall';
-const FROM_EMAIL = 'tournament@yourdomain.com'; // replace with your verified Resend domain
+const FROM_EMAIL = 'RallyOps <onboarding@resend.dev>';
 
 interface MatchResultPayload {
   category: string;
