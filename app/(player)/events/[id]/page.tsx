@@ -28,6 +28,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   male_doubles:   'Male Doubles',
   female_doubles: 'Female Doubles',
   spouse_doubles: 'Spouse Doubles',
+  boys_u13: 'Boys U13',
+  boys_u15: 'Boys U15',
+  boys_u18: 'Boys U18',
+  girls_u13: 'Girls U13',
+  girls_u15: 'Girls U15',
+  girls_u18: 'Girls U18',
 };
 
 const STATUS_CONFIG = {
@@ -96,10 +102,16 @@ export default function TournamentDetailPage() {
           </Link>
 
           {tournament.status === 'live' && (
-            <div className="flex items-center gap-2 bg-orange-500/15 border border-orange-500/25 rounded-xl px-4 py-2.5 mb-5 w-fit">
+            <Link href={`/events/${id}/results`} className="flex items-center gap-2 bg-orange-500/15 border border-orange-500/25 rounded-xl px-4 py-2.5 mb-5 w-fit hover:bg-orange-500/25 transition-colors">
               <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
               <span className="text-sm font-semibold text-orange-200">Live · Matches in progress</span>
-            </div>
+              <span className="text-xs text-orange-300/70">View results →</span>
+            </Link>
+          )}
+          {tournament.status === 'completed' && (
+            <Link href={`/events/${id}/results`} className="flex items-center gap-2 bg-white/10 border border-white/15 rounded-xl px-4 py-2.5 mb-5 w-fit hover:bg-white/15 transition-colors">
+              <span className="text-sm font-semibold text-white/80">View final results & champions →</span>
+            </Link>
           )}
 
           <div className="flex items-start gap-3 mb-5">

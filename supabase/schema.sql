@@ -299,3 +299,12 @@ create policy "registrations_org_insert" on registrations
       and t.created_by = auth.uid()
     )
   );
+
+-- ─── Bracket byes (walkovers) ──────────────────────────────────────────────
+alter table matches alter column player2_name drop not null;
+
+-- ─── Qatar ID: one stable identifier per person, reused across all their
+--     registrations in a tournament instead of a random code per category ──
+alter table player_profiles add column if not exists qid text;
+create index if not exists player_profiles_qid_idx on player_profiles(qid);
+alter table registrations add column if not exists manual_qid text;

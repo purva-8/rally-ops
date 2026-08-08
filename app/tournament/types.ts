@@ -5,7 +5,13 @@ export type Category =
   | 'female_singles'
   | 'male_doubles'
   | 'female_doubles'
-  | 'spouse_doubles';
+  | 'spouse_doubles'
+  | 'boys_u13'
+  | 'boys_u15'
+  | 'boys_u18'
+  | 'girls_u13'
+  | 'girls_u15'
+  | 'girls_u18';
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   male_singles: 'Male Singles',
@@ -13,6 +19,12 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   male_doubles: 'Male Doubles',
   female_doubles: 'Female Doubles',
   spouse_doubles: 'Spouse Doubles',
+  boys_u13: 'Boys U13',
+  boys_u15: 'Boys U15',
+  boys_u18: 'Boys U18',
+  girls_u13: 'Girls U13',
+  girls_u15: 'Girls U15',
+  girls_u18: 'Girls U18',
 };
 
 export const CATEGORY_COLORS: Record<Category, string> = {
@@ -21,6 +33,12 @@ export const CATEGORY_COLORS: Record<Category, string> = {
   male_doubles: 'bg-indigo-100 text-indigo-800',
   female_doubles: 'bg-purple-100 text-purple-800',
   spouse_doubles: 'bg-rose-100 text-rose-800',
+  boys_u13: 'bg-cyan-100 text-cyan-800',
+  boys_u15: 'bg-teal-100 text-teal-800',
+  boys_u18: 'bg-sky-100 text-sky-800',
+  girls_u13: 'bg-fuchsia-100 text-fuchsia-800',
+  girls_u15: 'bg-rose-100 text-rose-800',
+  girls_u18: 'bg-violet-100 text-violet-800',
 };
 
 export interface Participant {
@@ -53,8 +71,9 @@ export interface Match {
   roundName: string;
   player1Id: string;
   player1Name: string;
-  player2Id: string;
-  player2Name: string;
+  player2Id?: string;
+  player2Name?: string;
+  isBye?: boolean;
   courtId?: string;
   refereeId?: string;
   refereeName?: string;

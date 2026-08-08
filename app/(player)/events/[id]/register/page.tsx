@@ -19,6 +19,8 @@ type Profile = {
   id: string;
   full_name: string;
   gender: string;
+  dob: string | null;
+  qid: string | null;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -27,6 +29,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   male_doubles:   'Male Doubles',
   female_doubles: 'Female Doubles',
   spouse_doubles: 'Spouse Doubles',
+  boys_u13: 'Boys U13',
+  boys_u15: 'Boys U15',
+  boys_u18: 'Boys U18',
+  girls_u13: 'Girls U13',
+  girls_u15: 'Girls U15',
+  girls_u18: 'Girls U18',
 };
 
 const DOUBLES_CATEGORIES = ['male_doubles', 'female_doubles', 'spouse_doubles'];
@@ -38,9 +46,30 @@ const GENDER_ELIGIBILITY: Record<string, string[]> = {
   male_doubles:   ['male'],
   female_doubles: ['female'],
   spouse_doubles: ['male', 'female'],
+  boys_u13:  ['male'],
+  boys_u15:  ['male'],
+  boys_u18:  ['male'],
+  girls_u13: ['female'],
+  girls_u15: ['female'],
+  girls_u18: ['female'],
 };
 
-type Step = 'category' | 'partner' | 'confirm' | 'done';
+// Max age (inclusive) allowed per junior category, as of the tournament date
+const AGE_ELIGIBILITY: Record<string, number> = {
+  boys_u13: 13, boys_u15: 15, boys_u18: 18,
+  girls_u13: 13, girls_u15: 15, girls_u18: 18,
+};
+
+function ageOn(dob: string, onDate: string) {
+  const birth = new Date(dob);
+  const ref = new Date(onDate);
+  let age = ref.getFullYear() - birth.getFullYear();
+  const hadBirthday = ref.getMonth() > birth.getMonth() || (ref.getMonth() === birth.getMonth() && ref.getDate() >= birth.getDate());
+  if (!hadBirthday) age--;
+  return age;
+}
+
+type Step = 'identity' | 'category' | 'partner' | 'confirm' | 'done';
 
 export default function RegisterPage() {
   const { id } = useParams<{ id: string }>();
@@ -57,6 +86,8 @@ export default function RegisterPage() {
   const [partnerName, setPartnerName] = useState('');
   const [emergencyContact, setEmergencyContact] = useState('');
   const [existingRegs, setExistingRegs] = useState<string[]>([]);
+  const [identityForm, setIdentityForm] = useState({ dob: '', qid: '' });
+  const [savingIdentity, setSavingIdentity] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -67,20 +98,46 @@ export default function RegisterPage() {
       }
       const [{ data: t }, { data: p }, { data: regs }] = await Promise.all([
         supabase.from('tournaments').select('id,name,categories,entry_fee,status,venue,event_date').eq('id', id).single(),
-        supabase.from('player_profiles').select('id,full_name,gender').eq('id', user.id).single(),
+        supabase.from('player_profiles').select('id,full_name,gender,dob,qid').eq('id', user.id).single(),
         supabase.from('registrations').select('category').eq('tournament_id', id).eq('player_id', user.id),
       ]);
       setTournament(t);
       setProfile(p);
       setExistingRegs(regs?.map((r) => r.category) ?? []);
+      if (p && (!p.dob || !p.qid)) {
+        setStep('identity');
+        setIdentityForm({ dob: p.dob ?? '', qid: p.qid ?? '' });
+      }
       setLoading(false);
     });
   }, [id, router]);
 
+  async function saveIdentity() {
+    if (!profile || !identityForm.dob.trim() || !identityForm.qid.trim()) return;
+    setSavingIdentity(true);
+    const { data, error } = await createClient()
+      .from('player_profiles')
+      .update({ dob: identityForm.dob, qid: identityForm.qid.trim() })
+      .eq('id', profile.id)
+      .select()
+      .single();
+    if (!error && data) {
+      setProfile(data);
+      setStep('category');
+    }
+    setSavingIdentity(false);
+  }
+
   const eligibleCategories = tournament?.categories.filter((cat) => {
     if (existingRegs.includes(cat)) return false;
     if (!profile) return false;
-    return GENDER_ELIGIBILITY[cat]?.includes(profile.gender) ?? true;
+    if (!(GENDER_ELIGIBILITY[cat]?.includes(profile.gender) ?? true)) return false;
+    const maxAge = AGE_ELIGIBILITY[cat];
+    if (maxAge && profile.dob) {
+      const eventDate = tournament?.event_date ?? new Date().toISOString();
+      if (ageOn(profile.dob, eventDate) > maxAge) return false;
+    }
+    return true;
   }) ?? [];
 
   const isDoubles = DOUBLES_CATEGORIES.includes(selectedCategory);
@@ -117,7 +174,7 @@ export default function RegisterPage() {
             playerName: profile.full_name,
             tournamentName: tournament.name,
             category: selectedCategory,
-            registrationCode: registration?.registration_code ?? '',
+            registrationCode: profile.qid ?? registration?.registration_code ?? '',
             venue: tournament.venue,
             eventDate: tournament.event_date,
           }),
@@ -167,9 +224,48 @@ export default function RegisterPage() {
         {/* Progress */}
         {step !== 'done' && (
           <div className="flex gap-2 mb-8">
-            {(['category', ...(isDoubles ? ['partner'] : []), 'confirm'] as Step[]).map((s, i) => (
-              <div key={s} className={`h-1.5 flex-1 rounded-full ${step === s ? 'bg-orange-600' : i < ['category', 'partner', 'confirm'].indexOf(step) ? 'bg-orange-300' : 'bg-stone-200'}`} />
-            ))}
+            {(['identity', 'category', ...(isDoubles ? ['partner'] : []), 'confirm'] as Step[])
+              .filter((s) => s !== 'identity' || step === 'identity')
+              .map((s, i, arr) => (
+                <div key={s} className={`h-1.5 flex-1 rounded-full ${step === s ? 'bg-orange-600' : i < arr.indexOf(step) ? 'bg-orange-300' : 'bg-stone-200'}`} />
+              ))}
+          </div>
+        )}
+
+        {/* Step: Identity (Qatar ID + date of birth, asked once) */}
+        {step === 'identity' && (
+          <div>
+            <h2 className="text-base font-semibold text-stone-800 mb-1">Confirm your details</h2>
+            <p className="text-sm text-stone-500 mb-6">
+              We ask this once. Your Qatar ID becomes your registration reference across every category you enter,
+              and your date of birth is used to check eligibility for age-based categories.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-stone-700 mb-1.5">Qatar ID</label>
+              <input
+                type="text"
+                value={identityForm.qid}
+                onChange={(e) => setIdentityForm((f) => ({ ...f, qid: e.target.value }))}
+                className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="e.g. 28012345678"
+              />
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-stone-700 mb-1.5">Date of birth</label>
+              <input
+                type="date"
+                value={identityForm.dob}
+                onChange={(e) => setIdentityForm((f) => ({ ...f, dob: e.target.value }))}
+                className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+            <button
+              onClick={saveIdentity}
+              disabled={savingIdentity || !identityForm.qid.trim() || !identityForm.dob.trim()}
+              className="w-full bg-orange-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-orange-700 transition-colors disabled:opacity-40"
+            >
+              {savingIdentity ? 'Saving...' : 'Continue →'}
+            </button>
           </div>
         )}
 
@@ -251,6 +347,10 @@ export default function RegisterPage() {
               <div className="flex justify-between text-sm">
                 <span className="text-stone-500">Player</span>
                 <span className="font-medium text-stone-900">{profile?.full_name}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-stone-500">Qatar ID</span>
+                <span className="font-medium text-stone-900">{profile?.qid}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-stone-500">Category</span>
