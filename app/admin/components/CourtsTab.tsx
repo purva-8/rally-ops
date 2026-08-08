@@ -173,6 +173,7 @@ export default function CourtsTab() {
           <div className="bg-white rounded-xl border border-stone-200 p-8 text-center text-stone-300 text-sm">No coaches invited yet.</div>
         ) : (
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-stone-50 border-b border-stone-100">
@@ -212,6 +213,7 @@ export default function CourtsTab() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>
