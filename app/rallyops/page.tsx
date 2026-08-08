@@ -6,15 +6,8 @@ import { useTournamentStore } from '../tournament/store';
 import type { Category } from '../tournament/types';
 import { CATEGORY_LABELS } from '../tournament/types';
 
-type Step = 'sport' | 'categories' | 'details' | 'courts';
+type Step = 'categories' | 'details' | 'courts';
 type View = 'home' | 'setup';
-
-const SPORTS = [
-  { id: 'badminton', label: 'Badminton', sub: 'Best of 3 sets · 21 pts', available: true },
-  { id: 'tennis',    label: 'Tennis',    sub: 'Coming soon',              available: false },
-  { id: 'squash',    label: 'Squash',    sub: 'Coming soon',              available: false },
-  { id: 'pickleball',label: 'Pickleball',sub: 'Coming soon',              available: false },
-];
 
 const ALL_CATEGORIES: { id: Category; label: string }[] = [
   { id: 'male_singles',   label: "Men's Singles" },
@@ -54,8 +47,7 @@ export default function RallyOpsHome() {
   const { isSetup, tournamentName, organizerName, eventDate, venue, participants, matches, managerPassword, reset } = store;
 
   const [view, setView] = useState<View>('home');
-  const [step, setStep] = useState<Step>('sport');
-  const [selectedSport, setSelectedSport] = useState('');
+  const [step, setStep] = useState<Step>('categories');
   const [selectedCats, setSelectedCats] = useState<Category[]>(['male_singles', 'female_singles', 'male_doubles', 'female_doubles', 'spouse_doubles']);
   const [form, setForm] = useState({ tournamentName: '', organizerName: '', venue: '', eventDate: '', registrationDeadline: '', courtCount: 4, managerPassword: '' });
 
@@ -73,8 +65,7 @@ export default function RallyOpsHome() {
 
   const handleNewTournament = () => {
     if (isSetup) reset();
-    setStep('sport');
-    setSelectedSport('');
+    setStep('categories');
     setSelectedCats(['male_singles', 'female_singles', 'male_doubles', 'female_doubles', 'spouse_doubles']);
     setForm({ tournamentName: '', organizerName: '', venue: '', eventDate: '', registrationDeadline: '', courtCount: 4, managerPassword: '' });
     setView('setup');
@@ -97,7 +88,7 @@ export default function RallyOpsHome() {
 
   // ── SETUP WIZARD ─────────────────────────────────────────────────────────────
   if (view === 'setup') {
-    const steps: Step[] = ['sport', 'categories', 'details', 'courts'];
+    const steps: Step[] = ['categories', 'details', 'courts'];
     const stepIdx = steps.indexOf(step);
 
     return (
@@ -121,49 +112,7 @@ export default function RallyOpsHome() {
         <div className="flex-1 px-6 pb-10 overflow-y-auto">
           <div className="max-w-lg mx-auto">
 
-            {/* STEP 1 — Sport */}
-            {step === 'sport' && (
-              <div>
-                <div className="mb-8 mt-2">
-                  <h2 className="text-2xl font-extrabold text-white tracking-tight mb-1">Select your sport</h2>
-                  <p className="text-white/40 text-sm">We'll tailor scoring and brackets for you.</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {SPORTS.map((sport) => (
-                    <button
-                      key={sport.id}
-                      onClick={() => sport.available && setSelectedSport(sport.id)}
-                      disabled={!sport.available}
-                      className={`relative p-5 rounded-2xl border text-left transition-all duration-150 ${
-                        sport.available
-                          ? selectedSport === sport.id
-                            ? 'border-orange-500 bg-orange-500/10'
-                            : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8'
-                          : 'border-white/5 bg-white/[0.02] opacity-40 cursor-not-allowed'
-                      }`}
-                    >
-                      {!sport.available && (
-                        <span className="absolute top-3 right-3 text-[10px] text-white/40 font-medium bg-white/5 px-2 py-0.5 rounded-full">Soon</span>
-                      )}
-                      {selectedSport === sport.id && (
-                        <span className="absolute top-3 right-3 text-orange-400"><IconCheck className="w-4 h-4" /></span>
-                      )}
-                      <p className="text-white font-bold text-base mb-0.5">{sport.label}</p>
-                      <p className="text-white/40 text-xs">{sport.sub}</p>
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setStep('categories')}
-                  disabled={!selectedSport}
-                  className="mt-6 w-full bg-orange-600 hover:bg-orange-500 text-white py-3.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Continue
-                </button>
-              </div>
-            )}
-
-            {/* STEP 2 — Categories */}
+            {/* STEP 1 — Categories */}
             {step === 'categories' && (
               <div>
                 <div className="mb-8 mt-2">
@@ -193,7 +142,7 @@ export default function RallyOpsHome() {
                   {selectedCats.length === 0 ? 'Select at least one category' : `${selectedCats.length} categor${selectedCats.length === 1 ? 'y' : 'ies'} selected`}
                 </p>
                 <div className="flex gap-3">
-                  <button onClick={() => setStep('sport')} className="px-5 py-3 rounded-xl border border-white/15 text-white/60 text-sm font-medium hover:bg-white/5 transition-colors">Back</button>
+                  <button onClick={() => setView('home')} className="px-5 py-3 rounded-xl border border-white/15 text-white/60 text-sm font-medium hover:bg-white/5 transition-colors">Back</button>
                   <button
                     onClick={() => setStep('details')}
                     disabled={selectedCats.length === 0}
@@ -330,7 +279,7 @@ export default function RallyOpsHome() {
   const completedMatches = matches.filter((m) => m.status === 'completed').length;
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className={`flex flex-col bg-white ${isSetup ? "min-h-screen" : "h-screen overflow-hidden"}`}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');`}</style>
 
       {/* ── NAV ── */}
@@ -339,11 +288,6 @@ export default function RallyOpsHome() {
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 bg-orange-600 rounded-lg flex items-center justify-center text-sm font-black text-white">R</div>
             <span className="text-sm font-bold text-slate-900 tracking-tight">RallyOps</span>
-          </div>
-          <div className="hidden md:flex items-center gap-6 text-sm text-slate-500">
-            <a href="#features" className="hover:text-slate-900 transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-slate-900 transition-colors">How it works</a>
-            <a href="#roles" className="hover:text-slate-900 transition-colors">Who it's for</a>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -363,7 +307,7 @@ export default function RallyOpsHome() {
 
       {/* ── HERO ── */}
       <section
-        className="relative overflow-hidden px-6 pt-20 pb-24 flex flex-col items-center text-center"
+        className="relative overflow-hidden px-6 py-10 flex-1 flex flex-col items-center justify-center text-center"
         style={{
           backgroundColor: '#EEF2FF',
           backgroundImage: 'radial-gradient(circle, #c7d2fe 1px, transparent 1px)',
@@ -373,17 +317,17 @@ export default function RallyOpsHome() {
         <div className="absolute left-[-60px] top-1/2 -translate-y-1/2 text-[420px] font-black text-indigo-200/40 select-none pointer-events-none leading-none hidden lg:block">R</div>
 
         <div className="relative z-10 max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-8">
+          <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
             Tournament management for organizations
           </div>
 
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-slate-900 leading-[1.05] tracking-tight mb-2">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-[1.05] tracking-tight mb-2">
             Run your tournament.
           </h1>
-          <div className="relative inline-block mb-8">
+          <div className="relative inline-block mb-6">
             <h1
-              className="text-5xl sm:text-6xl lg:text-7xl text-slate-800 leading-[1.1]"
+              className="text-4xl sm:text-5xl lg:text-6xl text-slate-800 leading-[1.1]"
               style={{ fontFamily: "'Dancing Script', cursive" }}
             >
               Not your spreadsheet.
@@ -393,93 +337,23 @@ export default function RallyOpsHome() {
             </svg>
           </div>
 
-          <p className="text-slate-500 text-xl leading-relaxed max-w-xl mx-auto mb-10">
+          <p className="text-slate-500 text-lg leading-relaxed max-w-xl mx-auto mb-8">
             Your organization hosts the tournament. RallyOps handles everything else — registration, brackets, live scoring, coach views, and the leaderboard.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
-            <button
-              onClick={handleNewTournament}
-              className="w-full sm:w-auto bg-orange-600 hover:bg-orange-500 text-white font-bold px-8 py-4 rounded-xl text-base transition-colors shadow-lg shadow-orange-200"
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href="/login"
+              className="w-full sm:w-auto bg-orange-600 hover:bg-orange-500 text-white font-bold px-8 py-4 rounded-xl text-base transition-colors shadow-lg shadow-orange-200 inline-block"
             >
               Set up your tournament
-            </button>
-            <a
-              href="/events"
-              className="w-full sm:w-auto border border-slate-300 hover:border-slate-400 text-slate-700 font-semibold px-8 py-4 rounded-xl text-base transition-colors text-center"
-            >
-              View as player
             </a>
           </div>
-
-          <div className="flex items-center justify-center gap-3 text-slate-400 text-sm">
-            <span>Free to use</span>
-            <span className="w-1 h-1 rounded-full bg-slate-300" />
-            <span>No setup fees</span>
-            <span className="w-1 h-1 rounded-full bg-slate-300" />
-            <span>Works on any device</span>
-          </div>
         </div>
       </section>
 
-      {/* ── HOW IT WORKS ── */}
-      <section id="how-it-works" className="px-6 py-20" style={{ backgroundColor: '#F8FAFF' }}>
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="text-orange-600 text-xs font-bold uppercase tracking-widest mb-3">Simple by design</p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">From setup to podium in five steps.</h2>
-          </div>
-
-          <div className="space-y-4">
-            {[
-              { n: '01', title: 'Create your tournament', desc: 'Pick your sport, set your categories (Men\'s Singles, Mixed Doubles, Spouse Doubles — whatever you run), add courts and dates. Done in under 5 minutes.' },
-              { n: '02', title: 'Share one registration link', desc: 'Send the link to your players. They sign up, fill their profile, and pick their categories. You see everyone in your admin panel as they register.' },
-              { n: '03', title: 'Go live on match day', desc: 'Hit "Launch." RallyOps generates brackets automatically based on registered players. Courts are assigned. The leaderboard goes live.' },
-              { n: '04', title: 'Coaches score in real time', desc: 'Each coach gets a court view on their phone. As points are played, they tap to update the score. Brackets and standings update instantly for everyone.' },
-              { n: '05', title: 'Players track themselves', desc: 'Players open the app to see their next match, their court, the live leaderboard, and their full match history. No announcements needed.' },
-            ].map((step) => (
-              <div key={step.n} className="flex gap-6 bg-white border border-slate-100 rounded-2xl p-6">
-                <span className="text-2xl font-black text-slate-200 shrink-0 w-10 text-right leading-none pt-0.5">{step.n}</span>
-                <div>
-                  <h3 className="font-extrabold text-slate-900 mb-1 tracking-tight">{step.title}</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">{step.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── FEATURES ── */}
-      <section id="features" className="px-6 py-20 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="text-orange-600 text-xs font-bold uppercase tracking-widest mb-3">Everything included</p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">No extra apps. No spreadsheets. No chaos.</h2>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { title: 'Auto brackets', desc: 'Generated the moment you launch, based on who registered.' },
-              { title: 'Live scoring', desc: 'Coaches update points court-side. Scores sync everywhere.' },
-              { title: 'Leaderboard', desc: 'Rankings update in real time as matches complete.' },
-              { title: 'Player profiles', desc: 'Every player has a profile with their history and results.' },
-              { title: 'Admin dashboard', desc: 'Org head sees and controls everything from one screen.' },
-              { title: 'Coach view', desc: 'Distraction-free scoring UI, built for the sideline.' },
-              { title: 'Court management', desc: 'Track which matches are on which court, live.' },
-              { title: 'Notifications', desc: 'Players get notified when their match is up.' },
-            ].map((f) => (
-              <div key={f.title} className="border border-slate-100 rounded-xl p-5 hover:border-orange-200 hover:bg-orange-50/30 transition-colors">
-                <div className="w-2 h-2 rounded-full bg-orange-500 mb-3" />
-                <h4 className="font-bold text-slate-900 text-sm mb-1">{f.title}</h4>
-                <p className="text-slate-400 text-xs leading-relaxed">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── FINAL CTA ── */}
+      {/* ── ACTIVE TOURNAMENT ── */}
+      {isSetup && (
       <section
         className="px-6 py-24 text-center"
         style={{
@@ -489,18 +363,7 @@ export default function RallyOpsHome() {
         }}
       >
         <div className="max-w-xl mx-auto">
-          <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
-            Ready to run your next tournament?
-          </h2>
-          <p className="text-slate-500 text-lg mb-8">Free to set up. No card required. Works on any device.</p>
-          <button
-            onClick={handleNewTournament}
-            className="bg-orange-600 hover:bg-orange-500 text-white font-bold px-10 py-4 rounded-xl text-base transition-colors shadow-lg shadow-orange-200"
-          >
-            Set up your tournament now
-          </button>
-
-          {isSetup && (
+          {(
             <div className="mt-8 bg-white border border-slate-200 rounded-2xl p-6 text-left shadow-sm">
               <p className="text-orange-600 text-xs font-bold uppercase tracking-widest mb-4">Active Tournament</p>
               <div className="flex items-start gap-4 mb-5">
@@ -544,6 +407,7 @@ export default function RallyOpsHome() {
           )}
         </div>
       </section>
+      )}
 
       {/* ── FOOTER ── */}
       <footer className="px-6 py-5 border-t border-slate-100 bg-white">
@@ -554,9 +418,9 @@ export default function RallyOpsHome() {
               <span className="text-slate-600 font-bold">RallyOps</span>
             </div>
             <span>·</span>
-            <a href="#" className="hover:text-slate-600 transition-colors">Privacy</a>
-            <a href="#" className="hover:text-slate-600 transition-colors">Terms</a>
-            <a href="#" className="hover:text-slate-600 transition-colors">Support</a>
+            <a href="/privacy" className="hover:text-slate-600 transition-colors">Privacy</a>
+            <a href="/terms" className="hover:text-slate-600 transition-colors">Terms</a>
+            <a href="/support" className="hover:text-slate-600 transition-colors">Support</a>
           </div>
           <a href="https://purvahk.com" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">
             Built by <span className="text-slate-500 font-medium">Purva</span>

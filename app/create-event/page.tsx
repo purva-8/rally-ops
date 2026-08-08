@@ -4,14 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-type Step = 'sport' | 'categories' | 'details' | 'rules' | 'review';
-
-const SPORTS = [
-  { id: 'badminton',  label: 'Badminton',   sub: 'Best of 3 sets · 21 pts', available: true  },
-  { id: 'tennis',     label: 'Tennis',       sub: 'Coming soon',              available: false },
-  { id: 'squash',     label: 'Squash',       sub: 'Coming soon',              available: false },
-  { id: 'pickleball', label: 'Pickleball',   sub: 'Coming soon',              available: false },
-];
+type Step = 'categories' | 'details' | 'rules' | 'review';
 
 const CATEGORIES = [
   { id: 'male_singles',   label: "Men's Singles",   icon: '🏸' },
@@ -22,7 +15,7 @@ const CATEGORIES = [
   { id: 'spouse_doubles', label: 'Spouse Doubles',   icon: '🏸' },
 ];
 
-const STEP_ORDER: Step[] = ['sport', 'categories', 'details', 'rules', 'review'];
+const STEP_ORDER: Step[] = ['categories', 'details', 'rules', 'review'];
 
 function ProgressDots({ step }: { step: Step }) {
   const idx = STEP_ORDER.indexOf(step);
@@ -50,9 +43,10 @@ function IconCheck() {
 
 export default function CreateEventPage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('sport');
-  const [sport, setSport] = useState('badminton');
+  const [step, setStep] = useState<Step>('categories');
+  const sport = 'badminton';
   const [categories, setCategories] = useState<string[]>(['male_singles', 'female_singles', 'male_doubles', 'female_doubles']);
+  const [customCategory, setCustomCategory] = useState('');
   const [form, setForm] = useState({
     name: '',
     venue: '',
@@ -69,6 +63,15 @@ export default function CreateEventPage() {
 
   function toggleCat(id: string) {
     setCategories((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
+  }
+
+  function addCustomCategory() {
+    const label = customCategory.trim();
+    if (!label) return;
+    const id = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    if (!id || categories.includes(id)) return;
+    setCategories((prev) => [...prev, id]);
+    setCustomCategory('');
   }
 
   function set(field: string, value: string) {
@@ -136,44 +139,12 @@ export default function CreateEventPage() {
           <ProgressDots step={step} />
 
           {/* STEP: Sport */}
-          {step === 'sport' && (
-            <div>
-              <h1 className="text-2xl font-extrabold text-white text-center mb-1">Select your sport</h1>
-              <p className="text-sm text-white/40 text-center mb-8">We'll tailor scoring and brackets for you.</p>
-              <div className="grid grid-cols-2 gap-3 mb-8">
-                {SPORTS.map((s) => (
-                  <button
-                    key={s.id}
-                    disabled={!s.available}
-                    onClick={() => { if (s.available) setSport(s.id); }}
-                    className={`relative p-5 rounded-2xl border text-left transition-all ${
-                      !s.available
-                        ? 'border-white/10 opacity-40 cursor-not-allowed'
-                        : sport === s.id
-                        ? 'border-orange-500 bg-white/10 ring-1 ring-orange-500'
-                        : 'border-white/10 hover:border-white/30 bg-white/5'
-                    }`}
-                  >
-                    {!s.available && (
-                      <span className="absolute top-3 right-3 text-[10px] font-bold text-white/40 bg-white/10 px-2 py-0.5 rounded-full">Soon</span>
-                    )}
-                    <p className="text-white font-bold text-sm">{s.label}</p>
-                    <p className="text-white/40 text-xs mt-0.5">{s.sub}</p>
-                  </button>
-                ))}
-              </div>
-              <button onClick={next} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3.5 rounded-2xl font-bold text-sm transition-colors">
-                Continue
-              </button>
-            </div>
-          )}
-
           {/* STEP: Categories */}
           {step === 'categories' && (
             <div>
               <h1 className="text-2xl font-extrabold text-white text-center mb-1">Select categories</h1>
               <p className="text-sm text-white/40 text-center mb-8">Choose which events players can register for.</p>
-              <div className="space-y-2 mb-8">
+              <div className="space-y-2 mb-4">
                 {CATEGORIES.map((c) => {
                   const selected = categories.includes(c.id);
                   return (
@@ -195,6 +166,32 @@ export default function CreateEventPage() {
                     </button>
                   );
                 })}
+                {categories.filter((id) => !CATEGORIES.some((c) => c.id === id)).map((id) => (
+                  <div key={id} className="w-full flex items-center justify-between p-4 rounded-2xl border border-orange-500 bg-orange-500/10">
+                    <span className="text-sm font-semibold text-white capitalize">{id.replace(/_/g, ' ')}</span>
+                    <button onClick={() => toggleCat(id)} className="text-white/40 hover:text-white text-xs font-semibold shrink-0">
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mb-8">
+                <input
+                  type="text"
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomCategory(); } }}
+                  placeholder="Don't see your category? Type it here"
+                  className="flex-1 px-4 py-3 bg-white/5 border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={addCustomCategory}
+                  disabled={!customCategory.trim()}
+                  className="px-4 py-3 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white transition-colors shrink-0"
+                >
+                  Add
+                </button>
               </div>
               <div className="flex gap-3">
                 <button onClick={back} className="flex-1 border border-white/20 text-white/60 hover:text-white py-3.5 rounded-2xl font-bold text-sm transition-colors">
@@ -229,9 +226,10 @@ export default function CreateEventPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-white/40 mb-1.5">Venue</label>
+                  <label className="block text-xs font-semibold text-white/40 mb-1.5">Venue *</label>
                   <input
                     type="text"
+                    required
                     value={form.venue}
                     onChange={(e) => set('venue', e.target.value)}
                     placeholder="e.g. Main Sports Hall, Dubai"
@@ -240,18 +238,20 @@ export default function CreateEventPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-white/40 mb-1.5">Event date</label>
+                    <label className="block text-xs font-semibold text-white/40 mb-1.5">Event date *</label>
                     <input
                       type="date"
+                      required
                       value={form.event_date}
                       onChange={(e) => set('event_date', e.target.value)}
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white outline-none transition-colors"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-white/40 mb-1.5">Registration closes</label>
+                    <label className="block text-xs font-semibold text-white/40 mb-1.5">Registration closes *</label>
                     <input
                       type="datetime-local"
+                      required
                       value={form.registration_close_at}
                       onChange={(e) => set('registration_close_at', e.target.value)}
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white outline-none transition-colors"
@@ -260,9 +260,10 @@ export default function CreateEventPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-white/40 mb-1.5">Entry fee (0 = free)</label>
+                    <label className="block text-xs font-semibold text-white/40 mb-1.5">Entry fee (0 = free) *</label>
                     <input
                       type="number"
+                      required
                       min="0"
                       value={form.entry_fee}
                       onChange={(e) => set('entry_fee', e.target.value)}
@@ -271,9 +272,10 @@ export default function CreateEventPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-white/40 mb-1.5">Max participants</label>
+                    <label className="block text-xs font-semibold text-white/40 mb-1.5">Max participants *</label>
                     <input
                       type="number"
+                      required
                       min="1"
                       value={form.max_participants}
                       onChange={(e) => set('max_participants', e.target.value)}
@@ -283,7 +285,7 @@ export default function CreateEventPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-white/40 mb-1.5">Registration status</label>
+                  <label className="block text-xs font-semibold text-white/40 mb-1.5">Registration status *</label>
                   <div className="grid grid-cols-2 gap-2">
                     {(['open', 'upcoming'] as const).map((s) => (
                       <button
@@ -308,7 +310,7 @@ export default function CreateEventPage() {
                 </button>
                 <button
                   onClick={next}
-                  disabled={!form.name.trim()}
+                  disabled={!form.name.trim() || !form.venue.trim() || !form.event_date || !form.registration_close_at || form.entry_fee === '' || !form.max_participants}
                   className="flex-1 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white py-3.5 rounded-2xl font-bold text-sm transition-colors"
                 >
                   Continue
@@ -329,7 +331,7 @@ export default function CreateEventPage() {
                     rows={3}
                     value={eligibility}
                     onChange={(e) => setEligibility(e.target.value)}
-                    placeholder="e.g. Open to all registered members. Age 16+."
+                    placeholder="e.g. Men's Singles: Open to all skill levels.\nWomen's Singles: Age 16+.\nMixed Doubles: One player must be a club member."
                     className="w-full px-4 py-3 bg-white/5 border border-white/10 focus:border-orange-500 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-colors resize-none"
                   />
                 </div>
