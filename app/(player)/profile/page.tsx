@@ -10,10 +10,10 @@ type Profile = {
   full_name: string;
   mobile: string | null;
   gender: string | null;
-  dob: string | null;
 };
 
 type Stats = { total: number; approved: number; pending: number };
+type Roles = { isOrganizer: boolean; isCoach: boolean; isAdminStaff: boolean };
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map((n) => n[0]?.toUpperCase() ?? '').join('');
@@ -24,29 +24,38 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [email, setEmail] = useState('');
   const [stats, setStats] = useState<Stats>({ total: 0, approved: 0, pending: 0 });
+  const [roles, setRoles] = useState<Roles>({ isOrganizer: false, isCoach: false, isAdminStaff: false });
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ full_name: '', mobile: '', dob: '' });
+  const [form, setForm] = useState({ full_name: '', mobile: '' });
 
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.push('/login?redirect=/profile'); return; }
       setEmail(user.email ?? '');
-      const [{ data: prof }, { data: regs }] = await Promise.all([
+      const [{ data: prof }, { data: regs }, { data: ownedTournaments }, { data: staffRows }] = await Promise.all([
         supabase.from('player_profiles').select('*').eq('id', user.id).single(),
         supabase.from('registrations').select('status').eq('player_id', user.id),
+        supabase.from('tournaments').select('id').eq('created_by', user.id).limit(1),
+        supabase.from('tournament_staff').select('role').eq('user_id', user.id).eq('status', 'active'),
       ]);
       if (prof) {
         setProfile(prof);
-        setForm({ full_name: prof.full_name, mobile: prof.mobile ?? '', dob: prof.dob ?? '' });
+        setForm({ full_name: prof.full_name, mobile: prof.mobile ?? '' });
       }
       const rows = regs ?? [];
       setStats({
         total:    rows.length,
         approved: rows.filter((r) => r.status === 'approved').length,
         pending:  rows.filter((r) => r.status === 'pending').length,
+      });
+      const staff = staffRows ?? [];
+      setRoles({
+        isOrganizer:  (ownedTournaments ?? []).length > 0,
+        isCoach:      staff.some((s) => s.role === 'coach'),
+        isAdminStaff: staff.some((s) => s.role === 'admin'),
       });
       setLoading(false);
     });
@@ -57,7 +66,7 @@ export default function ProfilePage() {
     setSaving(true);
     const { data, error } = await createClient()
       .from('player_profiles')
-      .update({ full_name: form.full_name, mobile: form.mobile || null, dob: form.dob || null })
+      .update({ full_name: form.full_name, mobile: form.mobile || null })
       .eq('id', profile.id)
       .select()
       .single();
@@ -103,11 +112,33 @@ export default function ProfilePage() {
             <div>
               <h1 className="text-lg font-extrabold text-white tracking-tight leading-tight">{profile.full_name}</h1>
               <p className="text-sm text-white/40 mt-0.5">{email}</p>
-              {profile.gender && (
-                <span className="inline-block mt-1.5 text-[11px] bg-white/10 text-white/60 px-2 py-0.5 rounded-full capitalize">
-                  {profile.gender}
-                </span>
-              )}
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {roles.isOrganizer && (
+                  <span className="inline-block text-[11px] font-semibold bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">
+                    Organizer
+                  </span>
+                )}
+                {roles.isAdminStaff && (
+                  <span className="inline-block text-[11px] font-semibold bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">
+                    Admin
+                  </span>
+                )}
+                {roles.isCoach && (
+                  <span className="inline-block text-[11px] font-semibold bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">
+                    Coach
+                  </span>
+                )}
+                {!roles.isOrganizer && !roles.isCoach && !roles.isAdminStaff && (
+                  <span className="inline-block text-[11px] font-semibold bg-white/10 text-white/50 px-2 py-0.5 rounded-full">
+                    Player
+                  </span>
+                )}
+                {profile.gender && (
+                  <span className="inline-block text-[11px] bg-white/10 text-white/60 px-2 py-0.5 rounded-full capitalize">
+                    {profile.gender}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -149,12 +180,6 @@ export default function ProfilePage() {
                 { label: 'Full Name', value: profile.full_name },
                 { label: 'Mobile',    value: profile.mobile ?? '—' },
                 {
-                  label: 'Date of Birth',
-                  value: profile.dob
-                    ? new Date(profile.dob).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-                    : '—',
-                },
-                {
                   label: 'Gender',
                   value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '—',
                 },
@@ -170,7 +195,6 @@ export default function ProfilePage() {
               {[
                 { key: 'full_name', label: 'Full Name', type: 'text' },
                 { key: 'mobile',    label: 'Mobile',    type: 'tel' },
-                { key: 'dob',       label: 'Date of Birth', type: 'date' },
               ].map(({ key, label, type }) => (
                 <div key={key}>
                   <label className="block text-xs font-semibold text-stone-400 uppercase tracking-widest mb-1.5">{label}</label>
@@ -204,6 +228,9 @@ export default function ProfilePage() {
         {/* Quick nav */}
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm divide-y divide-stone-100 overflow-hidden">
           {[
+            ...(roles.isOrganizer || roles.isCoach
+              ? [{ href: '/my-tournaments', label: 'My Hosted Tournaments', sub: 'Admin & coach access' }]
+              : []),
             { href: '/my-entries', label: 'My Tournament Entries', sub: 'View all registrations' },
             { href: '/events',     label: 'Browse Events',         sub: 'Find open tournaments' },
           ].map(({ href, label, sub }) => (
