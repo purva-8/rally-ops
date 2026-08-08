@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const inviteUrl = `${req.nextUrl.origin}/join-staff?tournamentId=${tournamentId}&email=${encodeURIComponent(staffRow.email)}`;
     try {
-      await resend.emails.send({
+      const { error: sendError } = await resend.emails.send({
         from: 'RallyOps <onboarding@resend.dev>',
         to: staffRow.email,
         subject: `You've been invited to coach ${tournament.name}`,
@@ -76,6 +76,9 @@ export async function POST(req: NextRequest) {
           </div>
         `,
       });
+      if (sendError) {
+        console.error('Resend rejected staff invite email:', sendError);
+      }
     } catch (err) {
       console.error('Failed to send invite email:', err);
     }

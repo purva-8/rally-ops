@@ -90,14 +90,19 @@ export async function POST(req: NextRequest) {
     }
 
     const resend = new Resend(apiKey);
-    await resend.emails.send({
+    const { data: sent, error: sendError } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
       subject: `You're confirmed: ${data.tournamentName}`,
       html: approvedEmail({ ...data, to }),
     });
 
-    return NextResponse.json({ success: true });
+    if (sendError) {
+      console.error('Resend rejected approval email:', sendError);
+      return NextResponse.json({ error: sendError.message }, { status: 502 });
+    }
+
+    return NextResponse.json({ success: true, id: sent?.id });
   } catch (err) {
     console.error('Failed to send approval email:', err);
     return NextResponse.json({ error: 'Failed to send email' }, { status: 500 });
