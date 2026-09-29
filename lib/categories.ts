@@ -7,6 +7,8 @@ export type CategoryDef = {
   minAge?: number;
   maxAge?: number;
   doubles?: boolean;
+  // Entry fee for this category; falls back to the tournament's entry_fee
+  fee?: number;
 };
 
 export const CATEGORY_DEFS: Record<string, CategoryDef> = {
@@ -25,18 +27,18 @@ export const CATEGORY_DEFS: Record<string, CategoryDef> = {
   girls_u18: { label: 'Girls U18', genders: ['female'], maxAge: 18 },
 
   // Age-banded categories (Kids 10-14, Youth over 14 up to 18, Adults 18+)
-  female_singles_18plus:  { label: 'Singles - Female (18+)',           genders: ['female'], minAge: 18 },
-  female_singles_kids:    { label: 'Singles - Female (Kids 10-14)',    genders: ['female'], minAge: 10, maxAge: 14 },
-  female_singles_youth:   { label: 'Singles - Female (Youth 14-18)',   genders: ['female'], minAge: 15, maxAge: 18 },
-  male_singles_18plus:    { label: 'Singles - Male (18+)',             genders: ['male'],   minAge: 18 },
-  male_singles_kids:      { label: 'Singles - Male (Kids 10-14)',      genders: ['male'],   minAge: 10, maxAge: 14 },
-  male_singles_youth:     { label: 'Singles - Male (Youth 14-18)',     genders: ['male'],   minAge: 15, maxAge: 18 },
-  male_doubles_18plus:    { label: "Doubles - Men's Open (18+)",       genders: ['male'],   minAge: 18, doubles: true },
-  mixed_doubles_kids:     { label: 'Doubles - Mixed Open (Kids 10-14)',  minAge: 10, maxAge: 14, doubles: true },
-  mixed_doubles_youth:    { label: 'Doubles - Mixed Open (Youth 14-18)', minAge: 15, maxAge: 18, doubles: true },
-  mixed_doubles_open:     { label: 'Doubles - Mixed Open',             doubles: true },
-  spouse_doubles_open:    { label: 'Doubles - Spouse',                 doubles: true },
-  female_doubles_open:    { label: 'Doubles - Women',                  genders: ['female'], doubles: true },
+  female_singles_18plus:  { label: 'Singles - Female (18+)',           genders: ['female'], minAge: 18, fee: 30 },
+  female_singles_kids:    { label: 'Singles - Female (Kids 10-14)',    genders: ['female'], minAge: 10, maxAge: 14, fee: 30 },
+  female_singles_youth:   { label: 'Singles - Female (Youth 14-18)',   genders: ['female'], minAge: 15, maxAge: 18, fee: 30 },
+  male_singles_18plus:    { label: 'Singles - Male (18+)',             genders: ['male'],   minAge: 18, fee: 35 },
+  male_singles_kids:      { label: 'Singles - Male (Kids 10-14)',      genders: ['male'],   minAge: 10, maxAge: 14, fee: 30 },
+  male_singles_youth:     { label: 'Singles - Male (Youth 14-18)',     genders: ['male'],   minAge: 15, maxAge: 18, fee: 30 },
+  male_doubles_18plus:    { label: "Doubles - Men's Open (18+)",       genders: ['male'],   minAge: 18, doubles: true, fee: 60 },
+  mixed_doubles_kids:     { label: 'Doubles - Mixed Open (Kids 10-14)',  minAge: 10, maxAge: 14, doubles: true, fee: 60 },
+  mixed_doubles_youth:    { label: 'Doubles - Mixed Open (Youth 14-18)', minAge: 15, maxAge: 18, doubles: true, fee: 60 },
+  mixed_doubles_open:     { label: 'Doubles - Mixed Open',             doubles: true, fee: 60 },
+  spouse_doubles_open:    { label: 'Doubles - Spouse',                 doubles: true, fee: 60 },
+  female_doubles_open:    { label: 'Doubles - Women',                  genders: ['female'], doubles: true, fee: 60 },
 };
 
 export const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
@@ -70,4 +72,8 @@ export function isEligible(id: string, gender: string | null, dob: string | null
     if (def.maxAge !== undefined && age > def.maxAge) return false;
   }
   return true;
+}
+
+export function categoryFee(id: string, fallback: number) {
+  return CATEGORY_DEFS[id]?.fee ?? fallback;
 }

@@ -4,36 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORY_LABELS } from '@/lib/categories';
+import preset from '@/lib/samanvayam-preset.json';
 
 type Step = 'categories' | 'details' | 'rules' | 'review';
 
 const CATEGORIES = Object.entries(CATEGORY_LABELS).map(([id, label]) => ({ id, label }));
 
-const SAMANVAYAM_PRESET = {
-  name: 'Samanvayam Khel Utsav',
-  categories: [
-    'female_singles_18plus', 'female_singles_kids', 'female_singles_youth',
-    'male_singles_18plus', 'male_singles_kids', 'male_singles_youth',
-    'male_doubles_18plus', 'mixed_doubles_kids', 'mixed_doubles_youth',
-    'mixed_doubles_open', 'spouse_doubles_open', 'female_doubles_open',
-  ],
-  eligibility: `1. Open to Samanvayam members and their families.
-2. Each Samanvayam member registers on behalf of their family (wife or husband, sons, daughters and other family members) from one account, under the member's Qatar ID. Family members do not need separate accounts.
-3. Age is counted on the day of the tournament: Kids 10 to 14 years, Youth over 14 up to 18 years, Adults 18 years and above.
-4. Singles categories are by gender. Men's Open Doubles (18+) is for men, and Doubles - Women is for women. Mixed Open categories and Spouse Doubles are open to any gender.
-5. Spouse Doubles requires a married couple. Family members can be entered in any category they qualify for.
-6. For doubles, the registering player enters their partner's name. The partner does not need to register separately.
-7. A player may enter more than one category, as long as the schedule allows.`,
-  rules: `1. Matches follow BWF rules: rally point scoring, best of 3 games to 21 points.
-2. Players must report to the desk 10 minutes before their scheduled match. A no-show after 10 minutes is a walkover.
-3. Players bring their own racquets. Shuttles are provided by the organizers.
-4. The umpire's and organizers' decisions are final.
-5. Age and identity may be checked against the Qatar ID given at registration. Wrong information can lead to disqualification.
-6. Categories with very few entries may be merged or cancelled by the organizers. Affected players will be informed.
-7. The organizers may adjust the schedule and draw to suit the venue and timing.
-8. Players take part at their own risk and must be medically fit to play. Parents are responsible for their children at the venue.
-9. Play in a fair and sporting way. Poor conduct can lead to disqualification.`,
-};
+const SAMANVAYAM_PRESET = preset;
 
 const STEP_ORDER: Step[] = ['categories', 'details', 'rules', 'review'];
 
@@ -97,7 +74,15 @@ export default function CreateEventPage() {
 
   function applySamanvayamPreset() {
     setCategories(SAMANVAYAM_PRESET.categories);
-    setForm((f) => ({ ...f, name: SAMANVAYAM_PRESET.name, is_samanvayam: true }));
+    setForm((f) => ({
+      ...f,
+      name: SAMANVAYAM_PRESET.name,
+      venue: SAMANVAYAM_PRESET.venue,
+      event_date: SAMANVAYAM_PRESET.event_date,
+      registration_close_at: SAMANVAYAM_PRESET.registration_close_at.slice(0, 10),
+      entry_fee: String(SAMANVAYAM_PRESET.entry_fee),
+      is_samanvayam: true,
+    }));
     setEligibility(SAMANVAYAM_PRESET.eligibility);
     setRules(SAMANVAYAM_PRESET.rules);
   }

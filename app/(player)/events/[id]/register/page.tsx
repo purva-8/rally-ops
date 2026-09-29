@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { CATEGORY_LABELS, isDoublesCategory, isEligible } from '@/lib/categories';
+import { CATEGORY_LABELS, categoryFee, isDoublesCategory, isEligible } from '@/lib/categories';
 
 type Tournament = {
   id: string;
@@ -191,7 +191,7 @@ function RegisterPageInner() {
         partner_name: isDoubles ? partnerName : null,
         emergency_contact: emergencyContact || null,
         status: 'pending',
-        payment_status: tournament.entry_fee > 0 ? 'unpaid' : 'waived',
+        payment_status: categoryFee(selectedCategory, tournament.entry_fee) > 0 ? 'unpaid' : 'waived',
       })
       .select('registration_code')
       .single();
@@ -527,10 +527,10 @@ function RegisterPageInner() {
               <div className="flex justify-between text-sm border-t border-stone-100 pt-4">
                 <span className="text-stone-500">Entry fee</span>
                 <span className="font-bold text-orange-600">
-                  {tournament.entry_fee > 0 ? tournament.entry_fee : 'Free'}
+                  {categoryFee(selectedCategory, tournament.entry_fee) > 0 ? `QAR ${categoryFee(selectedCategory, tournament.entry_fee)}${isDoubles ? ' per pair' : ''}` : 'Free'}
                 </span>
               </div>
-              {tournament.entry_fee > 0 && (
+              {categoryFee(selectedCategory, tournament.entry_fee) > 0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
                   Payment details will be shared by the organizer after your registration is approved.
                 </div>

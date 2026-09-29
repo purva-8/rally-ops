@@ -37,7 +37,7 @@ interface Actions {
   addParticipant: (data: Omit<Participant, 'id' | 'registrationId' | 'registeredAt'>) => Participant;
   updateParticipant: (id: string, data: Partial<Participant>) => void;
   deleteParticipant: (id: string) => void;
-  generateBrackets: () => void;
+  generateCategoryBracket: (category: Category, orderedParticipantIds: string[], byeParticipantIds: string[]) => void;
   assignCourt: (matchId: string, courtId: string, refereeId: string, refereeName: string) => void;
   startMatch: (matchId: string) => void;
   updateScore: (matchId: string, sets: Set[]) => void;
@@ -121,66 +121,53 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
       deleteParticipant: (id) =>
         set((s) => ({ participants: s.participants.filter((p) => p.id !== id) })),
 
-      generateBrackets: () => {
-        const { participants, selectedCategories } = get();
-        const categories: Category[] = selectedCategories.length > 0
-          ? selectedCategories
-          : ['male_singles', 'female_singles', 'male_doubles', 'female_doubles', 'spouse_doubles'];
-        const matches: Match[] = [];
+      generateCategoryBracket: (category, orderedParticipantIds, byeParticipantIds) => {
+        const { participants } = get();
+        const byeSet = new Set(byeParticipantIds);
+        const catPlayers = orderedParticipantIds
+          .map((id) => participants.find((p) => p.id === id))
+          .filter((p): p is Participant => !!p);
+        if (catPlayers.length < 2) return;
 
-        for (const cat of categories) {
-          const catPlayers = participants.filter((p) => p.categories.includes(cat));
-          if (catPlayers.length < 2) continue;
+        const size = Math.pow(2, Math.ceil(Math.log2(catPlayers.length)));
+        const totalRounds = Math.log2(size);
+        const roundName = getRoundName(0, totalRounds - 1);
 
-          // Pad to power of 2
-          const size = Math.pow(2, Math.ceil(Math.log2(catPlayers.length)));
-          const byes = size - catPlayers.length;
-          const totalRounds = Math.log2(size);
+        const byePlayers = catPlayers.filter((p) => byeSet.has(p.id));
+        const activePlayers = catPlayers.filter((p) => !byeSet.has(p.id));
 
-          // Round 1 matches
-          const round1: Match[] = [];
-          let playerIndex = 0;
+        const round1: Match[] = byePlayers.map((p) => ({
+          id: uuidv4(),
+          category,
+          round: 0,
+          roundName,
+          player1Id: p.id,
+          player1Name: p.fullName,
+          status: 'completed',
+          isBye: true,
+          winnerId: p.id,
+          winnerName: p.fullName,
+          sets: [],
+        }));
 
-          for (let i = 0; i < size / 2; i++) {
-            const p1 = catPlayers[playerIndex++];
-            const p2 = playerIndex < catPlayers.length ? catPlayers[playerIndex++] : null;
-
-            if (!p2) {
-              // Bye — record a completed walkover so p1 advances into the next round
-              round1.push({
-                id: uuidv4(),
-                category: cat,
-                round: 0,
-                roundName: getRoundName(0, totalRounds - 1),
-                player1Id: p1.id,
-                player1Name: p1.fullName,
-                status: 'completed',
-                isBye: true,
-                winnerId: p1.id,
-                winnerName: p1.fullName,
-                sets: [],
-              });
-              continue;
-            }
-
-            round1.push({
-              id: uuidv4(),
-              category: cat,
-              round: 0,
-              roundName: getRoundName(0, totalRounds - 1),
-              player1Id: p1.id,
-              player1Name: p1.fullName,
-              player2Id: p2.id,
-              player2Name: p2.fullName,
-              status: 'upcoming',
-              sets: [],
-            });
-          }
-
-          matches.push(...round1);
+        for (let i = 0; i < activePlayers.length; i += 2) {
+          const p1 = activePlayers[i];
+          const p2 = activePlayers[i + 1];
+          round1.push({
+            id: uuidv4(),
+            category,
+            round: 0,
+            roundName,
+            player1Id: p1.id,
+            player1Name: p1.fullName,
+            player2Id: p2.id,
+            player2Name: p2.fullName,
+            status: 'upcoming',
+            sets: [],
+          });
         }
 
-        set({ matches, bracketGenerated: true });
+        set((s) => ({ matches: [...s.matches, ...round1], bracketGenerated: true }));
       },
 
       assignCourt: (matchId, courtId, refereeId, refereeName) => {
