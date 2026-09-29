@@ -27,12 +27,14 @@ export function buildLines(people: BillPerson[], regs: BillRegistration[]): Line
     if (fee <= 0 || r.payment_status === 'waived') continue;
     const paid = r.payment_status === 'paid';
     const label = categoryLabel(r.category);
-    if (isDoublesCategory(r.category) && r.partner_id && r.player_id) {
+    if (isDoublesCategory(r.category) && (r.partner_id || r.partner_name) && r.player_id) {
       const half = fee / 2;
       if (mine.has(r.player_id)) lines.push({ key: r.id + 'a', personId: r.player_id, label, note: `with ${r.partner_name ?? 'partner'} · half of ${fee}`, amount: half, paid });
-      if (mine.has(r.partner_id)) lines.push({ key: r.id + 'b', personId: r.partner_id, label, note: `with ${r.player_profiles?.full_name ?? 'partner'} · half of ${fee}`, amount: half, paid });
+      // A partner in this household who has no entry of their own is covered by this one
+      const partnerFiled = regs.some((o) => o.id !== r.id && o.player_id === r.partner_id && o.category === r.category && o.status !== 'withdrawn' && o.status !== 'rejected');
+      if (r.partner_id && mine.has(r.partner_id) && !partnerFiled) lines.push({ key: r.id + 'b', personId: r.partner_id, label, note: `with ${r.player_profiles?.full_name ?? 'partner'} · half of ${fee}`, amount: half, paid });
     } else if (r.player_id && mine.has(r.player_id)) {
-      lines.push({ key: r.id, personId: r.player_id, label, note: r.partner_name ? `with ${r.partner_name} · pair fee` : '', amount: fee, paid });
+      lines.push({ key: r.id, personId: r.player_id, label, note: '', amount: fee, paid });
     }
   }
   return lines;
@@ -100,8 +102,9 @@ export default function FamilyBill({ people, regs }: { people: BillPerson[]; reg
           </div>
           {due > 0 && total !== due && <p className="text-[11px] text-stone-400 text-right mt-0.5">of QAR {total} in total</p>}
           <p className="text-[11px] text-stone-400 text-center mt-4">
-            Payment details come from the organizers once entries are approved. Thanks for playing 🏸
+            Payment details come from the organizers once entries are approved.
           </p>
+          <p className="text-[11px] text-stone-400 text-center mt-1 whitespace-nowrap">Thanks for playing 🏸</p>
         </div>
       </div>
     </div>

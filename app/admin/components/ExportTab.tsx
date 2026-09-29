@@ -135,7 +135,16 @@ export default function ExportTab() {
 
       {tournamentId && (
         <div className="bg-white rounded-xl border border-orange-200 p-5 mb-6">
-          <h3 className="text-sm font-bold text-stone-900">Live database export (CSV, opens in Excel)</h3>
+          <a
+            href={`/api/tournament/export?tournamentId=${tournamentId}&type=workbook`}
+            className="block p-4 mb-5 rounded-xl border-2 border-orange-300 bg-orange-50 hover:bg-orange-100 transition-colors"
+          >
+            <p className="text-sm font-bold text-orange-700">Download everything as one Excel file (.xlsx)</p>
+            <p className="text-xs text-stone-500 mt-1">
+              Tabs: Summary, Entries, Families (who owes what), one tab per category, Matches, All details, Change history, Emails sent.
+            </p>
+          </a>
+          <h3 className="text-sm font-bold text-stone-900">Or a single list (CSV, opens in Excel)</h3>
           <p className="text-xs text-stone-400 mt-1 mb-4">
             Pulled straight from the database, so it always has every registration, including withdrawn and rejected ones.
             Dates are day/month/year.
@@ -160,7 +169,7 @@ export default function ExportTab() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 ${tournamentId ? 'hidden' : ''}`}>
         {exports.map((exp) => (
           <button
             key={exp.label}

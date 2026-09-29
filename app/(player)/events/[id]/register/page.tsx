@@ -25,11 +25,12 @@ type Profile = {
   dob: string | null;
   qid: string | null;
   samanvayam_member: boolean;
+  samanvayam_id?: string | null;
   parent_id: string | null;
   relationship?: string | null;
 };
 
-const PROFILE_COLS = 'id,full_name,gender,dob,qid,samanvayam_member,parent_id,relationship';
+const PROFILE_COLS = 'id,full_name,gender,dob,qid,samanvayam_member,samanvayam_id,parent_id,relationship';
 
 const RELATIONSHIPS = [
   { value: 'spouse',   label: 'Wife / Husband' },
@@ -63,10 +64,11 @@ function RegisterPageInner() {
   const [qidSearch, setQidSearch] = useState<Record<string, string>>({});
   const [qidResults, setQidResults] = useState<Record<string, { id: string; name: string; gender: string | null; relationship: string | null }[]>>({});
   const [typedName, setTypedName] = useState<Record<string, boolean>>({});
+  const [nameDraft, setNameDraft] = useState<Record<string, string>>({});
   const [emergencyContact, setEmergencyContact] = useState('');
   const [existingRegs, setExistingRegs] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState<string[]>([]);
-  const [identityForm, setIdentityForm] = useState({ dob: '', qid: '', member: false });
+  const [identityForm, setIdentityForm] = useState({ dob: '', qid: '', member: false, sid: '' });
   const [savingIdentity, setSavingIdentity] = useState(false);
 
   // Samanvayam tournaments: the account holder can register family members too
@@ -110,7 +112,7 @@ function RegisterPageInner() {
       }
       if (selfRegistering && (sam || !p.dob || !p.qid)) {
         setStep('identity');
-        setIdentityForm({ dob: p.dob ?? '', qid: p.qid ?? '', member: p.samanvayam_member ?? false });
+        setIdentityForm({ dob: p.dob ?? '', qid: p.qid ?? '', member: p.samanvayam_member ?? false, sid: p.samanvayam_id ?? '' });
       }
       setLoading(false);
     });
@@ -128,7 +130,7 @@ function RegisterPageInner() {
     const qid = identityForm.qid.trim();
     const { data, error } = await supabase
       .from('player_profiles')
-      .update({ dob: identityForm.dob, qid, ...(samanvayam ? { samanvayam_member: identityForm.member } : {}) })
+      .update({ dob: identityForm.dob, qid, ...(samanvayam ? { samanvayam_member: identityForm.member, samanvayam_id: identityForm.sid.trim() || null } : {}) })
       .eq('id', profile.id)
       .select(PROFILE_COLS)
       .single();
@@ -192,12 +194,12 @@ function RegisterPageInner() {
   const partnerOptions = [account, ...family].filter((p): p is Profile => !!p && p.id !== profile?.id);
 
   // A doubles fee is per pair (30 + 30). With a linked partner in another household each pays their half;
-  // inside one family the pair is paid together, and with no linked partner the registrant covers the pair.
+  // inside one family the pair is paid together. A partner in another home files their own form and pays their own half.
   function shareOf(cat: string) {
     const fee = feeOf(cat);
     const partner = partners[cat];
-    if (isDoublesCategory(cat) && partner?.id && !familyIds.includes(partner.id)) return fee / 2;
-    return fee;
+    if (isDoublesCategory(cat) && partner?.id && familyIds.includes(partner.id)) return fee;
+    return isDoublesCategory(cat) ? fee / 2 : fee;
   }
 
   async function findPartner(cat: string) {
@@ -361,6 +363,18 @@ function RegisterPageInner() {
                 </span>
               </label>
             )}
+            {samanvayam && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-stone-700 mb-1.5">Samanvayam ID <span className="text-stone-400 font-normal">(optional)</span></label>
+                <input
+                  type="text"
+                  value={identityForm.sid}
+                  onChange={(e) => setIdentityForm((f) => ({ ...f, sid: e.target.value }))}
+                  className={inputCls}
+                  placeholder="Your membership number, if you have one"
+                />
+              </div>
+            )}
             <button
               onClick={saveIdentity}
               disabled={savingIdentity || !identityForm.qid.trim() || !identityForm.dob.trim()}
@@ -480,7 +494,7 @@ function RegisterPageInner() {
                       <span className="flex-1">
                         <span className="block font-medium">{CATEGORY_LABELS[cat] ?? cat}</span>
                         <span className="block text-xs text-stone-400 mt-0.5">
-                          {isDoublesCategory(cat) ? 'Requires a partner · ' : ''}{feeOf(cat) > 0 ? `QAR ${feeOf(cat)}${isDoublesCategory(cat) ? ' per pair' : ''}` : 'Free'}
+                          {isDoublesCategory(cat) ? 'Needs a partner · ' : ''}{feeOf(cat) > 0 ? (isDoublesCategory(cat) ? `QAR ${feeOf(cat)} per pair (${feeOf(cat) / 2} each)` : `QAR ${feeOf(cat)}`) : 'Free'}
                         </span>
                       </span>
                     </button>
@@ -573,13 +587,29 @@ function RegisterPageInner() {
                         </div>
 
                         {typedName[cat] ? (
-                          <input
-                            type="text"
-                            autoFocus
-                            onChange={(e) => setPartners((prev) => ({ ...prev, [cat]: { id: null, name: e.target.value } }))}
-                            className={inputCls}
-                            placeholder="Partner's full name"
-                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              autoFocus
+                              value={nameDraft[cat] ?? ''}
+                              onChange={(e) => setNameDraft((d) => ({ ...d, [cat]: e.target.value }))}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && (nameDraft[cat] ?? '').trim()) {
+                                  e.preventDefault();
+                                  setPartners((prev) => ({ ...prev, [cat]: { id: null, name: (nameDraft[cat] ?? '').trim() } }));
+                                }
+                              }}
+                              className={inputCls}
+                              placeholder="Partner's full name"
+                            />
+                            <button
+                              onClick={() => setPartners((prev) => ({ ...prev, [cat]: { id: null, name: (nameDraft[cat] ?? '').trim() } }))}
+                              disabled={!(nameDraft[cat] ?? '').trim()}
+                              className="px-4 rounded-xl bg-stone-900 text-white text-sm font-semibold shrink-0 disabled:opacity-40"
+                            >
+                              Use
+                            </button>
+                          </div>
                         ) : (
                           <button onClick={() => setTypedName((t) => ({ ...t, [cat]: true }))} className="text-xs text-orange-600 font-semibold">
                             Partner not on the platform? Type their name
@@ -627,7 +657,7 @@ function RegisterPageInner() {
                       {CATEGORY_LABELS[cat] ?? cat}
                       {isDoublesCategory(cat) && (
                         <span className="block text-xs text-stone-400">
-                          with {partners[cat]?.name}{shareOf(cat) !== feeOf(cat) ? ` · your half of QAR ${feeOf(cat)}` : ''}
+                          with {partners[cat]?.name} · pair QAR {feeOf(cat)} ({feeOf(cat) / 2} each){shareOf(cat) === feeOf(cat) ? ', both paid together' : ' · you pay ' + shareOf(cat)}
                         </span>
                       )}
                     </span>
