@@ -64,6 +64,7 @@ function RegisterPageInner() {
   const [qidSearch, setQidSearch] = useState<Record<string, string>>({});
   const [qidResults, setQidResults] = useState<Record<string, { id: string; name: string; gender: string | null; relationship: string | null }[]>>({});
   const [typedName, setTypedName] = useState<Record<string, boolean>>({});
+  const [candidates, setCandidates] = useState<Record<string, { id: string; name: string }[]>>({});
   const [nameDraft, setNameDraft] = useState<Record<string, string>>({});
   const [emergencyContact, setEmergencyContact] = useState('');
   const [existingRegs, setExistingRegs] = useState<string[]>([]);
@@ -117,6 +118,17 @@ function RegisterPageInner() {
       setLoading(false);
     });
   }, [id, router, profileId]);
+
+  // Anyone who already entered a doubles category and named this person, so the second partner just taps their name
+  useEffect(() => {
+    if (step !== 'partner' || !profile) return;
+    selected.filter(isDoublesCategory).forEach(async (cat) => {
+      const res = await fetch(`/api/partner-candidates?tournamentId=${id}&category=${encodeURIComponent(cat)}&playerId=${profile.id}`);
+      const d = await res.json().catch(() => ({ people: [] }));
+      setCandidates((c) => ({ ...c, [cat]: d.people ?? [] }));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, profile?.id]);
 
   async function loadRegsFor(personId: string) {
     const { data: regs } = await createClient().from('registrations').select('category').eq('tournament_id', id).eq('player_id', personId).neq('status', 'withdrawn');
@@ -539,6 +551,17 @@ function RegisterPageInner() {
                       </div>
                     ) : (
                       <div className="space-y-3">
+                        {(candidates[cat] ?? []).length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-emerald-700">Already entered and named you</p>
+                            {(candidates[cat] ?? []).map((c) => (
+                              <button key={c.id} onClick={() => setPartners((prev) => ({ ...prev, [cat]: { id: c.id, name: c.name } }))}
+                                className="w-full text-left px-4 py-2.5 rounded-xl border-2 border-emerald-300 bg-emerald-50 text-sm font-medium text-emerald-900 hover:bg-emerald-100 transition-colors">
+                                {c.name} <span className="text-xs font-normal text-emerald-700">· tap to pair up</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         {partnerOptions.length > 0 && (
                           <div className="space-y-2">
                             <p className="text-xs text-stone-400">Your family</p>

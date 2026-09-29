@@ -8,12 +8,14 @@ import BracketsTab from './components/BracketsTab';
 import CourtsTab from './components/CourtsTab';
 import ExportTab from './components/ExportTab';
 import BillingTab from './components/BillingTab';
+import PairsTab from './components/PairsTab';
 import AnalyticsTab from './components/AnalyticsTab';
 import { useTournamentStore } from '../tournament/store';
 import { formatDate } from '@/lib/format';
 
 const TABS = [
   { id: 'entries',   label: 'Entries' },
+  { id: 'pairs',     label: 'Pairs' },
   { id: 'brackets',  label: 'Brackets' },
   { id: 'courts',    label: 'Courts' },
   { id: 'billing',   label: 'Billing' },
@@ -204,6 +206,7 @@ function AdminPageInner() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {activeTab === 'entries'     && <EntriesTab />}
+        {activeTab === 'pairs'       && <PairsTab />}
         {activeTab === 'brackets'    && <BracketsTab />}
         {activeTab === 'courts'      && <CourtsTab />}
         {activeTab === 'billing'     && <BillingTab />}
