@@ -150,7 +150,8 @@ export default function ProfilePage() {
 
   async function signOut() {
     await createClient().auth.signOut();
-    router.push('/events');
+    // Full reload to the home page so no signed-in state lingers
+    window.location.href = '/';
   }
 
   if (loading) {
