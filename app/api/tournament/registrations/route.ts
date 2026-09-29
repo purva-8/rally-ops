@@ -38,7 +38,17 @@ export async function GET(req: NextRequest) {
 
     const profileMap = new Map(profiles?.map(p => [p.id, p]) ?? []);
 
-    const participants = regs?.map((reg: any) => {
+    // A doubles pair can have two entries (each partner filed their own form). Bracket lists show the pair once.
+    const seenTeams = new Set<string>();
+    const teams = (regs ?? []).filter((reg: any) => {
+      if (!reg.partner_id || !reg.player_id) return true;
+      const key = `${reg.category}|${[reg.player_id, reg.partner_id].sort().join('|')}`;
+      if (seenTeams.has(key)) return false;
+      seenTeams.add(key);
+      return true;
+    });
+
+    const participants = teams.map((reg: any) => {
       const profile = reg.player_id ? profileMap.get(reg.player_id) : null;
       const partnerProfile = reg.partner_id ? profileMap.get(reg.partner_id) : null;
 
@@ -56,7 +66,7 @@ export async function GET(req: NextRequest) {
         registrationId: reg.id,
         registeredAt: reg.created_at,
       };
-    }) ?? [];
+    });
 
     return NextResponse.json({ participants });
   } catch (err) {
