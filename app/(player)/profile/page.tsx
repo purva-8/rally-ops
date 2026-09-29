@@ -181,7 +181,7 @@ export default function ProfilePage() {
         <div className="max-w-2xl mx-auto px-4 pt-8 pb-10">
           {/* Avatar + identity */}
           <div className="flex items-center gap-4 mb-7">
-            <Avatar seed={profile.id} size={64} className="shadow-lg shadow-black/30" />
+            <Avatar seed={profile.id} size={64} gender={profile.gender as never} className="shadow-lg shadow-black/30" />
             <div>
               <h1 className="text-lg font-extrabold text-white tracking-tight leading-tight">{profile.full_name}</h1>
               <p className="text-sm text-white/40 mt-0.5">{email}</p>
@@ -322,19 +322,20 @@ export default function ProfilePage() {
 
           <div className="divide-y divide-stone-50">
             {[
-              { id: profile.id, name: profile.full_name, sub: 'Me (Samanvayam member)', self: true },
+              { id: profile.id, name: profile.full_name, sub: 'Me (Samanvayam member)', self: true, gender: profile.gender },
               ...kids.map((k) => ({
                 id: k.id,
                 name: k.full_name,
                 sub: `${relLabel(k.relationship)} · ${k.gender ?? '-'}${k.dob ? ` · Born ${formatDate(k.dob)}` : ''}`,
                 self: false,
+                gender: k.gender,
               })),
             ].map((person) => {
               const mine = entries.filter((e) => e.player_id === person.id);
               return (
                 <div key={person.id} className="px-5 py-3.5">
                   <div className="flex items-center justify-between gap-3">
-                    <Avatar seed={person.id} size={40} />
+                    <Avatar seed={person.id} size={40} gender={person.gender as never} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-stone-800">{person.name}</p>
                       <p className="text-xs text-stone-400 mt-0.5 capitalize">{person.sub}</p>

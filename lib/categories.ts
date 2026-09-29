@@ -87,3 +87,17 @@ export function entryLabel(fullName: string, partnerName: string | undefined | n
 export function isSamanvayamTournament(t: { is_samanvayam?: boolean | null; name?: string | null }) {
   return !!t.is_samanvayam || /samanvay/i.test(t.name ?? '');
 }
+
+// Cheapest entry across a tournament's categories, for "from QAR 30" labels
+export function startingFee(categories: string[] | null | undefined, fallback: number) {
+  const fees = (categories ?? []).map((c) => categoryFee(c, fallback));
+  return fees.length ? Math.min(...fees) : fallback;
+}
+
+export function feeLabel(categories: string[] | null | undefined, fallback: number) {
+  const fees = (categories ?? []).map((c) => categoryFee(c, fallback));
+  const min = fees.length ? Math.min(...fees) : fallback;
+  if (!min) return 'Free';
+  const varies = fees.some((f) => f !== min);
+  return `${varies ? 'From ' : ''}QAR ${min}`;
+}
