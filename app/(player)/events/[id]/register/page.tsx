@@ -193,12 +193,9 @@ function RegisterPageInner() {
   const familyIds = [account, ...family].filter(Boolean).map((p) => p!.id);
   const partnerOptions = [account, ...family].filter((p): p is Profile => !!p && p.id !== profile?.id);
 
-  // A doubles fee is per pair (30 + 30). With a linked partner in another household each pays their half;
-  // inside one family the pair is paid together. A partner in another home files their own form and pays their own half.
+  // A doubles fee is per pair (30 + 30): every entry carries its own half, whoever files it.
   function shareOf(cat: string) {
     const fee = feeOf(cat);
-    const partner = partners[cat];
-    if (isDoublesCategory(cat) && partner?.id && familyIds.includes(partner.id)) return fee;
     return isDoublesCategory(cat) ? fee / 2 : fee;
   }
 
@@ -657,7 +654,7 @@ function RegisterPageInner() {
                       {CATEGORY_LABELS[cat] ?? cat}
                       {isDoublesCategory(cat) && (
                         <span className="block text-xs text-stone-400">
-                          with {partners[cat]?.name} · pair QAR {feeOf(cat)} ({feeOf(cat) / 2} each){shareOf(cat) === feeOf(cat) ? ', both paid together' : ' · you pay ' + shareOf(cat)}
+                          with {partners[cat]?.name} · pair QAR {feeOf(cat)} ({feeOf(cat) / 2} each){' · this entry ' + shareOf(cat)}
                         </span>
                       )}
                     </span>

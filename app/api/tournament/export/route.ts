@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
         const parent = p?.parent_id ? profiles.get(p.parent_id) : null;
         const full = categoryFee(r.category, fee0);
         // A linked partner in a different household pays their own half
-        const due = isDoublesCategory(r.category) && !(r.partner_id && householdOf(r.partner_id) === householdOf(r.player_id)) ? full / 2 : full;
+        const due = isDoublesCategory(r.category) ? full / 2 : full;
         const partner = r.partner_id ? profiles.get(r.partner_id)?.full_name : null;
         return {
           '#': i + 1,
