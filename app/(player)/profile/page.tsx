@@ -115,8 +115,8 @@ export default function ProfilePage() {
       });
       const staff = staffRows ?? [];
       setRoles({
-        isOrganizer:  (ownedTournaments ?? []).length > 0,
-        isCoach:      staff.some((s) => s.role === 'coach'),
+        isOrganizer:  (ownedTournaments ?? []).length > 0 || staff.some((s) => s.role === 'admin'),
+        isCoach:      staff.some((s) => s.role === 'coach' || s.role === 'admin'),
         isAdminStaff: staff.some((s) => s.role === 'admin'),
       });
       setLoading(false);

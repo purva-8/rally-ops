@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { isEventOrganizer } from '@/lib/organizer';
 import * as XLSX from 'xlsx';
 import { toCsv } from '@/lib/csv';
 import { formatDate, formatDateTime } from '@/lib/format';
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   const { data: tournament } = await supabase
     .from('tournaments').select('id, name, created_by, event_date, entry_fee').eq('id', tournamentId).single();
-  if (!tournament || tournament.created_by !== user.id) {
+  if (!tournament || !(await isEventOrganizer(supabase, tournament.id, user.id, tournament.created_by))) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
   }
 
