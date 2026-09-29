@@ -36,9 +36,8 @@ export async function loadBills(admin: Admin, tournamentId: string, entryFee: nu
   for (const r of live) {
     const fee = categoryFee(r.category, entryFee);
     if (fee <= 0) continue;
-    const sameHome = !!r.partner_id && headOf(r.partner_id) === headOf(r.player_id);
     const doubles = isDoublesCategory(r.category);
-    const amount = doubles && !sameHome ? fee / 2 : fee;
+    const amount = doubles ? fee / 2 : fee;
     const hid = headOf(r.player_id);
     const head = profiles.get(hid);
     const f: FamilyBill = families.get(hid) ?? { headId: hid, head: head?.full_name ?? '', email: null, qid: head?.qid ?? null, mobile: head?.mobile ?? null, lines: [], due: 0, paid: 0, balance: 0 };
@@ -46,9 +45,14 @@ export async function loadBills(admin: Admin, tournamentId: string, entryFee: nu
     const paid = r.payment_status === 'paid';
     f.lines.push({
       regId: r.id, person: profiles.get(r.player_id)?.full_name ?? '', category: categoryLabel(r.category),
-      note: doubles ? `${partner ? `with ${partner} · ` : ''}${sameHome ? 'pair fee' : `half of ${fee}`}` : '', amount, paid,
+      note: doubles ? `${partner ? `with ${partner} · ` : ''}half of ${fee}` : '', amount, paid,
     });
     f.due += amount; if (paid) f.paid += amount;
+    const partnerFiled = !!r.partner_id && live.some((o) => o.id !== r.id && o.player_id === r.partner_id && o.category === r.category);
+    if (doubles && r.partner_id && headOf(r.partner_id) === hid && !partnerFiled) {
+      f.lines.push({ regId: r.id, person: profiles.get(r.partner_id)?.full_name ?? '', category: categoryLabel(r.category), note: `with ${profiles.get(r.player_id)?.full_name ?? 'partner'} · half of ${fee}`, amount, paid });
+      f.due += amount; if (paid) f.paid += amount;
+    }
     families.set(hid, f);
   }
 

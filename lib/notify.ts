@@ -101,8 +101,7 @@ async function sendDecisions(admin: Admin, t: { id: string; name: string; entry_
       // A linked partner in another household pays their own half of a doubles pair
       fee: (() => {
         const fee = categoryFee(r.category, Number(t.entry_fee ?? 0));
-        const partnerTo = r.partner_id ? recipientOf.get(r.partner_id) : null;
-        return isDoublesCategory(r.category) && !(partnerTo && partnerTo.email === to.email) ? fee / 2 : fee;
+        return isDoublesCategory(r.category) ? fee / 2 : fee;
       })(),
     });
     g.ids.push(r.id);
