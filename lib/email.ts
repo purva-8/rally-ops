@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 // Set EMAIL_FROM to a sender you verified with your provider (e.g. "Samanvayam Khel Utsav <sports@yourdomain.com>").
 // The default Resend sender only delivers to the Resend account owner.
 export const EMAIL_FROM = process.env.EMAIL_FROM ?? 'RallyOps <onboarding@resend.dev>';
+// Where replies go (optional), e.g. a coordinator's inbox, since the sender address may have no mailbox
+export const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO;
 
 export type Mail = { to: string; subject: string; html: string; kind: string; tournamentId?: string | null };
 export type SendResult = { ok: boolean; error?: string };
@@ -39,7 +41,13 @@ async function sendViaBrevo(mails: Mail[], key: string): Promise<SendResult[]> {
       const res = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: { 'api-key': key, 'content-type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify({ sender, to: [{ email: mails[i].to }], subject: mails[i].subject, htmlContent: mails[i].html }),
+        body: JSON.stringify({
+          sender,
+          to: [{ email: mails[i].to }],
+          subject: mails[i].subject,
+          htmlContent: mails[i].html,
+          ...(EMAIL_REPLY_TO ? { replyTo: { email: EMAIL_REPLY_TO } } : {}),
+        }),
       });
       if (res.ok) results[i] = { ok: true };
       else {
@@ -64,7 +72,7 @@ async function sendViaResend(mails: Mail[], key: string): Promise<SendResult[]> 
     const chunk = mails.slice(i, i + 100);
     try {
       const { error } = await resend.batch.send(
-        chunk.map((m) => ({ from: EMAIL_FROM, to: m.to, subject: m.subject, html: m.html })),
+        chunk.map((m) => ({ from: EMAIL_FROM, to: m.to, subject: m.subject, html: m.html, ...(EMAIL_REPLY_TO ? { replyTo: EMAIL_REPLY_TO } : {}) })),
       );
       const outcome: SendResult = error ? { ok: false, error: error.message } : { ok: true };
       if (error) console.error('Resend rejected a batch:', error);
