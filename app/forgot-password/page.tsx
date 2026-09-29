@@ -18,8 +18,12 @@ export default function ForgotPasswordPage() {
       redirectTo: `${window.location.origin}/auth/callback?redirect=/reset-password`,
     });
     setLoading(false);
-    if (error) setError(error.message);
-    else setSent(true);
+    if (error) {
+      const readable = error.message && !error.message.trim().startsWith('{');
+      setError(readable && !/sending recovery email/i.test(error.message)
+        ? error.message
+        : 'We could not send the reset email right now. Please try again in a few minutes, or contact +974 3311 5157 for help.');
+    } else setSent(true);
   }
 
   return (
