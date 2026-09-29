@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -11,7 +12,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const query = supabase
+  // The invite is matched to the signed-in user's verified email; the write runs server-side because
+  // the row-level rule for claiming an invite blocks the update once user_id is set.
+  const admin = createAdminClient();
+  const query = admin
     .from('tournament_staff')
     .select('*')
     .eq('email', user.email.toLowerCase())
@@ -26,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ids = pending.map((p) => p.id);
-  const { data: claimed, error } = await supabase
+  const { data: claimed, error } = await admin
     .from('tournament_staff')
     .update({ user_id: user.id, status: 'active' })
     .in('id', ids)
