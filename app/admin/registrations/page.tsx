@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '@/lib/categories';
 
 type Registration = {
   id: string;
@@ -23,6 +24,7 @@ type Registration = {
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
+  ...SHARED_CATEGORY_LABELS,
   male_singles:   'Male Singles',
   female_singles: 'Female Singles',
   male_doubles:   'Male Doubles',

@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { IconMapPin, IconCalendar, IconClock, IconUsers, IconChevronRight } from '@/components/icons';
+import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '@/lib/categories';
 
 type Tournament = {
   id: string;
@@ -23,6 +24,7 @@ type Tournament = {
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
+  ...SHARED_CATEGORY_LABELS,
   male_singles:   'Male Singles',
   female_singles: 'Female Singles',
   male_doubles:   'Male Doubles',
