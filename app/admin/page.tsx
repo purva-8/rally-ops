@@ -24,27 +24,53 @@ function AdminPageInner() {
   const { isSetup, _hasHydrated, tournamentName, organizerName, eventDate, venue, loadParticipants, loadMatches, setTournamentId, tournamentId } = useTournamentStore();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const dbTournamentId = searchParams.get('tournamentId');
+  const paramId = searchParams.get('tournamentId');
+  // /admin on its own opens your most recent event; ?tournamentId= is only needed to switch between several
+  const [latestId, setLatestId] = useState<string | null>(null);
+  const [resolved, setResolved] = useState(!!paramId);
+  const dbTournamentId = paramId ?? latestId;
   const [authChecked, setAuthChecked] = useState(false);
   const [authorized, setAuthorized] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [notifyState, setNotifyState] = useState<'idle' | 'sending' | string>('idle');
 
   useEffect(() => {
-    if (!_hasHydrated) return;
+    if (paramId) return;
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { setResolved(true); return; }
+      const { data } = await supabase.from('tournaments').select('id').eq('created_by', user.id).order('created_at', { ascending: false }).limit(1);
+      setLatestId(data?.[0]?.id ?? null);
+      setResolved(true);
+    });
+  }, [paramId]);
+
+  // Keep the address short when the id is just your latest event
+  useEffect(() => {
+    if (!paramId) return;
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data } = await supabase.from('tournaments').select('id').eq('created_by', user.id).order('created_at', { ascending: false }).limit(1);
+      if (data?.[0]?.id === paramId) window.history.replaceState(null, '', '/admin');
+    });
+  }, [paramId]);
+
+  useEffect(() => {
+    if (!_hasHydrated || !resolved) return;
     if (dbTournamentId) return; // ownership check below handles this case
     if (!isSetup) { router.replace('/rallyops'); return; }
     const { managerPassword } = useTournamentStore.getState();
     if (managerPassword && !sessionStorage.getItem('rally-unlocked')) {
       router.replace('/rallyops');
     }
-  }, [_hasHydrated, isSetup, router, dbTournamentId]);
+  }, [_hasHydrated, resolved, isSetup, router, dbTournamentId]);
 
   useEffect(() => {
     if (!dbTournamentId) return;
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { router.replace(`/login?redirect=/admin?tournamentId=${dbTournamentId}`); return; }
+      if (!user) { router.replace('/login?redirect=/admin'); return; }
       const { data: tournament } = await supabase
         .from('tournaments')
         .select('created_by, name, venue, event_date, registration_close_at, categories')
@@ -83,7 +109,7 @@ function AdminPageInner() {
       .catch((err) => console.error('Failed to load registrations:', err));
   }, [dbTournamentId, authorized, setTournamentId, loadParticipants, loadMatches]);
 
-  if (!_hasHydrated) return null;
+  if (!_hasHydrated || !resolved) return null;
   if (dbTournamentId && !authChecked) return null;
   if (!isSetup && !dbTournamentId) return null;
 
