@@ -1,3 +1,4 @@
+import { isEventOrganizer } from '@/lib/organizer';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
       .eq('id', tournamentId)
       .single();
 
-    if (!tournament || tournament.created_by !== user.id) {
+    if (!tournament || !(await isEventOrganizer(supabase, tournamentId, user.id, tournament.created_by))) {
       return NextResponse.json({ error: 'Not authorized to create brackets for this tournament' }, { status: 403 });
     }
 

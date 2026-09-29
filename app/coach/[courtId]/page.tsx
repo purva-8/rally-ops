@@ -1,5 +1,6 @@
 'use client';
 
+import { isEventOrganizer } from '@/lib/organizer';
 import { use, useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTournamentStore } from '../../tournament/store';
@@ -44,7 +45,7 @@ function CoachPageInner({ params }: { params: Promise<{ courtId: string }> }) {
       if (!user) { router.replace(`/login?redirect=/coach/${courtId}?tournamentId=${tournamentId}`); return; }
 
       const { data: tournament } = await supabase.from('tournaments').select('created_by, name').eq('id', tournamentId).single();
-      const isOrganizer = !!tournament && tournament.created_by === user.id;
+      const isOrganizer = !!tournament && await isEventOrganizer(supabase, tournamentId, user.id, tournament.created_by);
 
       const { data: staffRow } = await supabase
         .from('tournament_staff')

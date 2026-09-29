@@ -1,5 +1,6 @@
 'use client';
 
+import { isEventOrganizer } from '@/lib/organizer';
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -44,7 +45,12 @@ function AdminPageInner() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { setResolved(true); return; }
       const { data } = await supabase.from('tournaments').select('id').eq('created_by', user.id).order('created_at', { ascending: false }).limit(1);
-      setLatestId(data?.[0]?.id ?? null);
+      let id: string | null = data?.[0]?.id ?? null;
+      if (!id) {
+        const { data: st } = await supabase.from('tournament_staff').select('tournament_id').eq('user_id', user.id).eq('role', 'admin').eq('status', 'active').limit(1);
+        id = st?.[0]?.tournament_id ?? null;
+      }
+      setLatestId(id);
       setResolved(true);
     });
   }, [paramId]);
@@ -80,7 +86,7 @@ function AdminPageInner() {
         .select('created_by, name, venue, event_date, registration_close_at, categories')
         .eq('id', dbTournamentId)
         .single();
-      if (!tournament || tournament.created_by !== user.id) { router.replace('/events'); return; }
+      if (!tournament || !(await isEventOrganizer(supabase, dbTournamentId, user.id, tournament.created_by))) { router.replace('/events'); return; }
       // Always start from this tournament's own data, never whatever the browser held before
       if (useTournamentStore.getState().tournamentId !== dbTournamentId) useTournamentStore.getState().reset();
       useTournamentStore.setState({

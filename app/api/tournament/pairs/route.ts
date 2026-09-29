@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isEventOrganizer } from '@/lib/organizer';
 import { categoryLabel } from '@/lib/categories';
 
 const norm = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -12,7 +13,7 @@ async function authorize(tournamentId: string | null) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   const { data: t } = await supabase.from('tournaments').select('id, created_by').eq('id', tournamentId).single();
-  if (!t || t.created_by !== user.id) return { error: NextResponse.json({ error: 'Not authorized' }, { status: 403 }) };
+  if (!t || !(await isEventOrganizer(supabase, t.id, user.id, t.created_by))) return { error: NextResponse.json({ error: 'Not authorized' }, { status: 403 }) };
   return { t };
 }
 
