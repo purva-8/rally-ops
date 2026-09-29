@@ -342,61 +342,6 @@ export default function RallyOpsHome() {
       </section>
 
       {/* ── ACTIVE TOURNAMENT ── */}
-      {isSetup && (
-      <section
-        className="px-6 py-24 text-center"
-        style={{
-          backgroundColor: '#EEF2FF',
-          backgroundImage: 'radial-gradient(circle, #c7d2fe 1px, transparent 1px)',
-          backgroundSize: '28px 28px',
-        }}
-      >
-        <div className="max-w-xl mx-auto">
-          {(
-            <div className="mt-8 bg-white border border-slate-200 rounded-2xl p-6 text-left shadow-sm">
-              <p className="text-orange-600 text-xs font-bold uppercase tracking-widest mb-4">Active Tournament</p>
-              <div className="flex items-start gap-4 mb-5">
-                <div className="w-12 h-12 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center font-black text-orange-600 text-xl shrink-0">R</div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-extrabold text-slate-900 truncate tracking-tight">{tournamentName}</h3>
-                  <p className="text-slate-500 text-sm">{organizerName}</p>
-                  <div className="flex gap-3 mt-1 text-xs text-slate-400">
-                    {venue && <span>{venue}</span>}
-                    {eventDate && <span>{formatDate(eventDate)}</span>}
-                  </div>
-                </div>
-                {managerPassword && <div className="text-slate-400"><IconLock className="w-4 h-4" /></div>}
-              </div>
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                {[
-                  { label: 'Players',   value: participants.length,  color: 'text-slate-800' },
-                  { label: liveMatches > 0 ? 'Live' : 'Matches', value: liveMatches > 0 ? liveMatches : matches.length, color: liveMatches > 0 ? 'text-orange-500' : 'text-slate-800' },
-                  { label: 'Done',      value: completedMatches,     color: 'text-emerald-600' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
-                    <p className={`text-2xl font-black ${color}`}>{value}</p>
-                    <p className="text-slate-400 text-xs mt-0.5">{label}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <button onClick={openDashboard} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm">
-                  {managerPassword && <IconLock className="w-4 h-4" />}
-                  Open Dashboard
-                </button>
-                <button
-                  onClick={() => { const url = `${window.location.origin}/tournament`; navigator.clipboard.writeText(url).then(() => alert('Player link copied!')).catch(() => {}); }}
-                  className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 font-medium py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
-                >
-                  <IconLink className="w-4 h-4" />
-                  Copy Link
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-      )}
 
       {/* ── FOOTER ── */}
       <footer className="px-6 py-5 border-t border-slate-100 bg-white">
