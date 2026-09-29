@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '@/lib/categories';
 
 const FROM_EMAIL = 'RallyOps <onboarding@resend.dev>';
 
@@ -14,6 +15,7 @@ interface ConfirmationPayload {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
+  ...SHARED_CATEGORY_LABELS,
   male_singles:   'Male Singles',
   female_singles: 'Female Singles',
   male_doubles:   'Male Doubles',

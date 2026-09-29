@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { CATEGORY_LABELS, isDoublesCategory, isEligible } from '@/lib/categories';
 
 type Tournament = {
   id: string;
@@ -37,52 +38,6 @@ const RELATIONSHIPS = [
   { value: 'other',    label: 'Other family member' },
 ];
 const relLabel = (v?: string | null) => RELATIONSHIPS.find((r) => r.value === v)?.label ?? 'Family member';
-
-const CATEGORY_LABELS: Record<string, string> = {
-  male_singles:   'Male Singles',
-  female_singles: 'Female Singles',
-  male_doubles:   'Male Doubles',
-  female_doubles: 'Female Doubles',
-  spouse_doubles: 'Spouse Doubles',
-  boys_u13: 'Boys U13',
-  boys_u15: 'Boys U15',
-  boys_u18: 'Boys U18',
-  girls_u13: 'Girls U13',
-  girls_u15: 'Girls U15',
-  girls_u18: 'Girls U18',
-};
-
-const DOUBLES_CATEGORIES = ['male_doubles', 'female_doubles', 'spouse_doubles'];
-
-// Which genders are eligible per category
-const GENDER_ELIGIBILITY: Record<string, string[]> = {
-  male_singles:   ['male'],
-  female_singles: ['female'],
-  male_doubles:   ['male'],
-  female_doubles: ['female'],
-  spouse_doubles: ['male', 'female'],
-  boys_u13:  ['male'],
-  boys_u15:  ['male'],
-  boys_u18:  ['male'],
-  girls_u13: ['female'],
-  girls_u15: ['female'],
-  girls_u18: ['female'],
-};
-
-// Max age (inclusive) allowed per junior category, as of the tournament date
-const AGE_ELIGIBILITY: Record<string, number> = {
-  boys_u13: 13, boys_u15: 15, boys_u18: 18,
-  girls_u13: 13, girls_u15: 15, girls_u18: 18,
-};
-
-function ageOn(dob: string, onDate: string) {
-  const birth = new Date(dob);
-  const ref = new Date(onDate);
-  let age = ref.getFullYear() - birth.getFullYear();
-  const hadBirthday = ref.getMonth() > birth.getMonth() || (ref.getMonth() === birth.getMonth() && ref.getDate() >= birth.getDate());
-  if (!hadBirthday) age--;
-  return age;
-}
 
 type Step = 'identity' | 'who' | 'category' | 'partner' | 'confirm' | 'done';
 
@@ -217,16 +172,10 @@ function RegisterPageInner() {
   const eligibleCategories = tournament?.categories.filter((cat) => {
     if (existingRegs.includes(cat)) return false;
     if (!profile) return false;
-    if (!(GENDER_ELIGIBILITY[cat]?.includes(profile.gender) ?? true)) return false;
-    const maxAge = AGE_ELIGIBILITY[cat];
-    if (maxAge && profile.dob) {
-      const eventDate = tournament?.event_date ?? new Date().toISOString();
-      if (ageOn(profile.dob, eventDate) > maxAge) return false;
-    }
-    return true;
+    return isEligible(cat, profile.gender, profile.dob, tournament?.event_date ?? new Date().toISOString());
   }) ?? [];
 
-  const isDoubles = DOUBLES_CATEGORIES.includes(selectedCategory);
+  const isDoubles = isDoublesCategory(selectedCategory);
 
   async function handleSubmit() {
     if (!profile || !tournament || !selectedCategory) return;
@@ -497,8 +446,8 @@ function RegisterPageInner() {
                         : 'border-stone-200 bg-white text-stone-700 hover:border-orange-300'
                     }`}
                   >
-                    <div className="font-medium">{CATEGORY_LABELS[cat]}</div>
-                    {DOUBLES_CATEGORIES.includes(cat) && (
+                    <div className="font-medium">{CATEGORY_LABELS[cat] ?? cat}</div>
+                    {isDoublesCategory(cat) && (
                       <div className="text-xs text-stone-400 mt-0.5">Requires a partner</div>
                     )}
                   </button>
@@ -567,7 +516,7 @@ function RegisterPageInner() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-stone-500">Category</span>
-                <span className="font-medium text-stone-900">{CATEGORY_LABELS[selectedCategory]}</span>
+                <span className="font-medium text-stone-900">{CATEGORY_LABELS[selectedCategory] ?? selectedCategory}</span>
               </div>
               {isDoubles && partnerName && (
                 <div className="flex justify-between text-sm">
@@ -626,7 +575,7 @@ function RegisterPageInner() {
             <div className="text-6xl mb-4">🎉</div>
             <h2 className="text-2xl font-bold text-stone-900 mb-2">{profile && account && profile.id !== account.id ? `${profile.full_name} is registered!` : 'You\u2019re registered!'}</h2>
             <p className="text-stone-500 text-sm mb-2">
-              Your registration for <strong>{CATEGORY_LABELS[selectedCategory]}</strong> has been submitted.
+              Your registration for <strong>{CATEGORY_LABELS[selectedCategory] ?? selectedCategory}</strong> has been submitted.
             </p>
             <p className="text-stone-400 text-sm mb-8">
               The organizer will review and approve your entry. You&apos;ll be notified once confirmed.

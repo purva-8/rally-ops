@@ -3,23 +3,37 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { CATEGORY_LABELS } from '@/lib/categories';
 
 type Step = 'categories' | 'details' | 'rules' | 'review';
 
-const CATEGORIES = [
-  { id: 'male_singles',   label: "Men's Singles",   icon: '🏸' },
-  { id: 'female_singles', label: "Women's Singles",  icon: '🏸' },
-  { id: 'male_doubles',   label: "Men's Doubles",    icon: '🏸' },
-  { id: 'female_doubles', label: "Women's Doubles",  icon: '🏸' },
-  { id: 'mixed_doubles',  label: 'Mixed Doubles',    icon: '🏸' },
-  { id: 'spouse_doubles', label: 'Spouse Doubles',   icon: '🏸' },
-  { id: 'boys_u13',       label: 'Boys U13',         icon: '🧒' },
-  { id: 'boys_u15',       label: 'Boys U15',         icon: '🧒' },
-  { id: 'boys_u18',       label: 'Boys U18',         icon: '🧑' },
-  { id: 'girls_u13',      label: 'Girls U13',        icon: '👧' },
-  { id: 'girls_u15',      label: 'Girls U15',        icon: '👧' },
-  { id: 'girls_u18',      label: 'Girls U18',        icon: '👩' },
-];
+const CATEGORIES = Object.entries(CATEGORY_LABELS).map(([id, label]) => ({ id, label }));
+
+const SAMANVAYAM_PRESET = {
+  name: 'Samanvayam Khel Utsav',
+  categories: [
+    'female_singles_18plus', 'female_singles_kids', 'female_singles_youth',
+    'male_singles_18plus', 'male_singles_kids', 'male_singles_youth',
+    'male_doubles_18plus', 'mixed_doubles_kids', 'mixed_doubles_youth',
+    'mixed_doubles_open', 'spouse_doubles_open', 'female_doubles_open',
+  ],
+  eligibility: `1. Open to Samanvayam members and their families.
+2. Each Samanvayam member registers on behalf of their family (wife or husband, sons, daughters and other family members) from one account, under the member's Qatar ID. Family members do not need separate accounts.
+3. Age is counted on the day of the tournament: Kids 10 to 14 years, Youth over 14 up to 18 years, Adults 18 years and above.
+4. Singles categories are by gender. Men's Open Doubles (18+) is for men, and Doubles - Women is for women. Mixed Open categories and Spouse Doubles are open to any gender.
+5. Spouse Doubles requires a married couple. Family members can be entered in any category they qualify for.
+6. For doubles, the registering player enters their partner's name. The partner does not need to register separately.
+7. A player may enter more than one category, as long as the schedule allows.`,
+  rules: `1. Matches follow BWF rules: rally point scoring, best of 3 games to 21 points.
+2. Players must report to the desk 10 minutes before their scheduled match. A no-show after 10 minutes is a walkover.
+3. Players bring their own racquets. Shuttles are provided by the organizers.
+4. The umpire's and organizers' decisions are final.
+5. Age and identity may be checked against the Qatar ID given at registration. Wrong information can lead to disqualification.
+6. Categories with very few entries may be merged or cancelled by the organizers. Affected players will be informed.
+7. The organizers may adjust the schedule and draw to suit the venue and timing.
+8. Players take part at their own risk and must be medically fit to play. Parents are responsible for their children at the venue.
+9. Play in a fair and sporting way. Poor conduct can lead to disqualification.`,
+};
 
 const STEP_ORDER: Step[] = ['categories', 'details', 'rules', 'review'];
 
@@ -79,6 +93,13 @@ export default function CreateEventPage() {
     if (!id || categories.includes(id)) return;
     setCategories((prev) => [...prev, id]);
     setCustomCategory('');
+  }
+
+  function applySamanvayamPreset() {
+    setCategories(SAMANVAYAM_PRESET.categories);
+    setForm((f) => ({ ...f, name: SAMANVAYAM_PRESET.name, is_samanvayam: true }));
+    setEligibility(SAMANVAYAM_PRESET.eligibility);
+    setRules(SAMANVAYAM_PRESET.rules);
   }
 
   function set(field: string, value: string) {
@@ -150,7 +171,14 @@ export default function CreateEventPage() {
           {step === 'categories' && (
             <div>
               <h1 className="text-2xl font-extrabold text-white text-center mb-1">Select categories</h1>
-              <p className="text-sm text-white/40 text-center mb-8">Choose which events players can register for.</p>
+              <p className="text-sm text-white/40 text-center mb-4">Choose which events players can register for.</p>
+              <button
+                type="button"
+                onClick={applySamanvayamPreset}
+                className="w-full mb-6 py-3 rounded-2xl border border-dashed border-orange-500/60 text-orange-400 hover:bg-orange-500/10 text-sm font-semibold transition-colors"
+              >
+                Use Samanvayam Khel Utsav preset
+              </button>
               <div className="space-y-2 mb-4">
                 {CATEGORIES.map((c) => {
                   const selected = categories.includes(c.id);

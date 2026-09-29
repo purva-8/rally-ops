@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { IconCalendar, IconMapPin } from '@/components/icons';
+import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '@/lib/categories';
 
 type Entry = {
   id: string;
@@ -26,6 +27,7 @@ type Entry = {
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
+  ...SHARED_CATEGORY_LABELS,
   male_singles:   'Male Singles',
   female_singles: 'Female Singles',
   male_doubles:   'Male Doubles',
