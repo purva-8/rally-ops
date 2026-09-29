@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { IconEdit, IconLogout, IconUser } from '@/components/icons';
 import { formatDate } from '@/lib/format';
+import { CATEGORY_LABELS } from '@/lib/categories';
+import Avatar from '@/components/Avatar';
 
 type Profile = {
   id: string;
@@ -13,6 +15,7 @@ type Profile = {
   gender: string | null;
   qid: string | null;
   samanvayam_member: boolean;
+  dob: string | null;
 };
 
 type Kid = {
@@ -32,12 +35,17 @@ const RELATIONSHIPS = [
 ];
 const relLabel = (v: string | null) => RELATIONSHIPS.find((r) => r.value === v)?.label ?? 'Family member';
 
+type Entry = {
+  id: string;
+  player_id: string;
+  category: string;
+  status: string;
+  payment_status: string | null;
+  tournaments: { name: string } | null;
+};
+
 type Stats = { total: number; approved: number; pending: number };
 type Roles = { isOrganizer: boolean; isCoach: boolean; isAdminStaff: boolean };
-
-function initials(name: string) {
-  return name.split(' ').slice(0, 2).map((n) => n[0]?.toUpperCase() ?? '').join('');
-}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -48,8 +56,9 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ full_name: '', mobile: '' });
+  const [form, setForm] = useState({ full_name: '', mobile: '', qid: '', dob: '' });
   const [kids, setKids] = useState<Kid[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
   const [showAddKid, setShowAddKid] = useState(false);
   const [addingKid, setAddingKid] = useState(false);
   const [kidForm, setKidForm] = useState({ full_name: '', relationship: '', gender: '', dob: '' });
@@ -59,19 +68,28 @@ export default function ProfilePage() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.push('/login?redirect=/profile'); return; }
       setEmail(user.email ?? '');
-      const [{ data: prof }, { data: regs }, { data: ownedTournaments }, { data: staffRows }] = await Promise.all([
+      const [{ data: prof }, { data: ownedTournaments }, { data: staffRows }] = await Promise.all([
         supabase.from('player_profiles').select('*').eq('auth_user_id', user.id).single(),
-        supabase.from('registrations').select('status').eq('player_id', user.id),
         supabase.from('tournaments').select('id').eq('created_by', user.id).limit(1),
         supabase.from('tournament_staff').select('role').eq('user_id', user.id).eq('status', 'active'),
       ]);
+      let rows: Entry[] = [];
       if (prof) {
         setProfile(prof);
-        setForm({ full_name: prof.full_name, mobile: prof.mobile ?? '' });
+        setForm({ full_name: prof.full_name, mobile: prof.mobile ?? '', qid: prof.qid ?? '', dob: prof.dob ?? '' });
         const { data: kidRows } = await supabase.from('player_profiles').select('id,full_name,gender,dob,relationship').eq('parent_id', prof.id);
         setKids(kidRows ?? []);
+        // Entries for the account holder and every family member
+        const ids = [prof.id, ...(kidRows ?? []).map((k) => k.id)];
+        const { data: regs } = await supabase
+          .from('registrations')
+          .select('id, player_id, category, status, payment_status, tournaments ( name )')
+          .in('player_id', ids)
+          .neq('status', 'withdrawn')
+          .order('created_at', { ascending: false });
+        rows = (regs as unknown as Entry[]) ?? [];
+        setEntries(rows);
       }
-      const rows = regs ?? [];
       setStats({
         total:    rows.length,
         approved: rows.filter((r) => r.status === 'approved').length,
@@ -92,11 +110,14 @@ export default function ProfilePage() {
     setSaving(true);
     const { data, error } = await createClient()
       .from('player_profiles')
-      .update({ full_name: form.full_name, mobile: form.mobile || null })
+      .update({ full_name: form.full_name, mobile: form.mobile || null, qid: form.qid.trim() || null, dob: form.dob || null })
       .eq('id', profile.id)
       .select()
       .single();
     if (!error && data) {
+      if ((data.qid ?? null) !== (profile.qid ?? null)) {
+        await createClient().from('player_profiles').update({ qid: data.qid }).eq('parent_id', profile.id);
+      }
       setProfile(data);
       setEditing(false);
     }
@@ -159,9 +180,7 @@ export default function ProfilePage() {
         <div className="max-w-2xl mx-auto px-4 pt-8 pb-10">
           {/* Avatar + identity */}
           <div className="flex items-center gap-4 mb-7">
-            <div className="w-16 h-16 bg-orange-600 rounded-2xl flex items-center justify-center text-white text-xl font-extrabold tracking-tight shadow-lg shadow-orange-900/40">
-              {initials(profile.full_name)}
-            </div>
+            <Avatar seed={profile.id} size={64} className="shadow-lg shadow-black/30" />
             <div>
               <h1 className="text-lg font-extrabold text-white tracking-tight leading-tight">{profile.full_name}</h1>
               <p className="text-sm text-white/40 mt-0.5">{email}</p>
@@ -187,11 +206,6 @@ export default function ProfilePage() {
                 {profile.samanvayam_member && (
                   <span className="inline-block text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">
                     Samanvayam Member
-                  </span>
-                )}
-                {profile.gender && (
-                  <span className="inline-block text-[11px] bg-white/10 text-white/60 px-2 py-0.5 rounded-full capitalize">
-                    {profile.gender}
                   </span>
                 )}
               </div>
@@ -235,6 +249,9 @@ export default function ProfilePage() {
               {[
                 { label: 'Full Name', value: profile.full_name },
                 { label: 'Mobile',    value: profile.mobile ?? '-' },
+                { label: 'Qatar ID',  value: profile.qid ?? '-' },
+                { label: 'Date of birth', value: profile.dob ? formatDate(profile.dob) : '-' },
+                { label: 'Samanvayam member', value: profile.samanvayam_member ? 'Yes' : 'No' },
                 {
                   label: 'Gender',
                   value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '-',
@@ -251,12 +268,14 @@ export default function ProfilePage() {
               {[
                 { key: 'full_name', label: 'Full Name', type: 'text' },
                 { key: 'mobile',    label: 'Mobile',    type: 'tel' },
+                { key: 'qid',       label: 'Qatar ID',  type: 'text' },
+                { key: 'dob',       label: 'Date of birth', type: 'date' },
               ].map(({ key, label, type }) => (
                 <div key={key}>
                   <label className="block text-xs font-semibold text-stone-400 uppercase tracking-widest mb-1.5">{label}</label>
                   <input
                     type={type}
-                    value={form[key as 'full_name' | 'mobile']}
+                    value={form[key as 'full_name' | 'mobile' | 'qid' | 'dob']}
                     onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                     className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
@@ -282,10 +301,10 @@ export default function ProfilePage() {
         </div>
 
         {/* Family (Samanvayam members only; the flag is set when registering for a Samanvayam tournament) */}
-        {profile.samanvayam_member && (
+        {(profile.samanvayam_member || kids.length > 0) && (
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
-            <h2 className="text-xs font-bold text-stone-400 uppercase tracking-widest">Family</h2>
+            <h2 className="text-xs font-bold text-stone-400 uppercase tracking-widest">Family &amp; entries</h2>
             {profile.samanvayam_member && !showAddKid && (
               <button
                 onClick={() => setShowAddKid(true)}
@@ -300,26 +319,53 @@ export default function ProfilePage() {
             <p className="px-5 py-4 text-sm text-stone-400">No family members yet. Add your wife, husband, sons or daughters; they register under your Qatar ID.</p>
           )}
 
-          {kids.length > 0 && (
-            <div className="divide-y divide-stone-50">
-              {kids.map((kid) => (
-                <div key={kid.id} className="flex items-center justify-between px-5 py-3.5">
-                  <div>
-                    <p className="text-sm font-semibold text-stone-800">{kid.full_name}</p>
-                    <p className="text-xs text-stone-400 mt-0.5">
-                      {relLabel(kid.relationship)} · <span className="capitalize">{kid.gender ?? '-'}</span>{kid.dob ? ` · Born ${formatDate(kid.dob)}` : ''}
-                    </p>
+          <div className="divide-y divide-stone-50">
+            {[
+              { id: profile.id, name: profile.full_name, sub: 'Me (Samanvayam member)', self: true },
+              ...kids.map((k) => ({
+                id: k.id,
+                name: k.full_name,
+                sub: `${relLabel(k.relationship)} · ${k.gender ?? '-'}${k.dob ? ` · Born ${formatDate(k.dob)}` : ''}`,
+                self: false,
+              })),
+            ].map((person) => {
+              const mine = entries.filter((e) => e.player_id === person.id);
+              return (
+                <div key={person.id} className="px-5 py-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <Avatar seed={person.id} size={40} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-stone-800">{person.name}</p>
+                      <p className="text-xs text-stone-400 mt-0.5 capitalize">{person.sub}</p>
+                    </div>
+                    <a
+                      href={person.self ? '/events' : `/events?profileId=${person.id}`}
+                      className="text-xs text-orange-600 font-semibold hover:text-orange-700 shrink-0"
+                    >
+                      Register →
+                    </a>
                   </div>
-                  <a
-                    href={`/events?profileId=${kid.id}`}
-                    className="text-xs text-orange-600 font-semibold hover:text-orange-700 shrink-0"
-                  >
-                    Register →
-                  </a>
+                  {mine.length > 0 ? (
+                    <ul className="mt-2.5 space-y-1.5">
+                      {mine.map((e) => (
+                        <li key={e.id} className="flex items-center justify-between gap-3 text-xs bg-stone-50 rounded-lg px-3 py-2">
+                          <span className="text-stone-600 truncate">
+                            {CATEGORY_LABELS[e.category] ?? e.category}
+                            <span className="text-stone-400"> · {e.tournaments?.name}</span>
+                          </span>
+                          <span className={`shrink-0 font-semibold ${e.status === 'approved' ? 'text-emerald-600' : e.status === 'rejected' ? 'text-red-500' : 'text-amber-600'}`}>
+                            {e.status === 'approved' ? 'Confirmed' : e.status === 'rejected' ? 'Rejected' : 'Pending'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-xs text-stone-300">No entries yet</p>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
 
           {profile.samanvayam_member && showAddKid && (
             <div className="p-5 space-y-4 border-t border-stone-100">
