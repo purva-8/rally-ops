@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { IconMapPin, IconCalendar, IconClock, IconUsers, IconChevronRight } from '@/components/icons';
 import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '@/lib/categories';
+import { formatDate } from '@/lib/format';
 
 type Tournament = {
   id: string;
@@ -90,10 +91,10 @@ function TournamentDetailPageInner() {
   const isOpen = tournament.status === 'open';
   const scfg = STATUS_CONFIG[tournament.status];
   const eventDate = tournament.event_date
-    ? new Date(tournament.event_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    ? formatDate(tournament.event_date)
     : null;
   const closeDate = tournament.registration_close_at
-    ? new Date(tournament.registration_close_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    ? formatDate(tournament.registration_close_at)
     : null;
 
   return (

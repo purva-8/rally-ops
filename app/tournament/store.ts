@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { entryLabel } from '@/lib/categories';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import type { TournamentState, Participant, Match, Court, User, Category, Set } from './types';
@@ -55,14 +56,6 @@ const DEFAULT_COURTS: Court[] = [
   { id: 'court-4', name: 'Court 4' },
 ];
 
-const DEFAULT_USERS: User[] = [
-  { id: 'admin-1', name: 'Admin', email: 'admin@tournament.com', role: 'admin' },
-  { id: 'coach-1', name: 'Coach Raj', email: 'raj@tournament.com', role: 'coach', courtId: 'court-1' },
-  { id: 'coach-2', name: 'Coach Priya', email: 'priya@tournament.com', role: 'coach', courtId: 'court-2' },
-  { id: 'coach-3', name: 'Coach Arjun', email: 'arjun@tournament.com', role: 'coach', courtId: 'court-3' },
-  { id: 'coach-4', name: 'Coach Meera', email: 'meera@tournament.com', role: 'coach', courtId: 'court-4' },
-];
-
 const initialState: TournamentState & { tournamentId: string | null } = {
   tournamentId: null,
   isSetup: false,
@@ -77,7 +70,7 @@ const initialState: TournamentState & { tournamentId: string | null } = {
   participants: [],
   matches: [],
   courts: DEFAULT_COURTS,
-  users: DEFAULT_USERS,
+  users: [],
   bracketGenerated: false,
 };
 
@@ -142,11 +135,11 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
           round: 0,
           roundName,
           player1Id: p.id,
-          player1Name: p.fullName,
+          player1Name: entryLabel(p.fullName, p.partnerName, category),
           status: 'completed',
           isBye: true,
           winnerId: p.id,
-          winnerName: p.fullName,
+          winnerName: entryLabel(p.fullName, p.partnerName, category),
           sets: [],
         }));
 
@@ -159,9 +152,9 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
             round: 0,
             roundName,
             player1Id: p1.id,
-            player1Name: p1.fullName,
+            player1Name: entryLabel(p1.fullName, p1.partnerName, category),
             player2Id: p2.id,
-            player2Name: p2.fullName,
+            player2Name: entryLabel(p2.fullName, p2.partnerName, category),
             status: 'upcoming',
             sets: [],
           });
@@ -348,6 +341,9 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
     }),
     {
       name: 'tournament-store',
+      // Bumping this discards anything an older build left in the browser (demo/seed data, old tournaments)
+      version: 2,
+      migrate: () => ({ ...initialState }) as never,
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
       },

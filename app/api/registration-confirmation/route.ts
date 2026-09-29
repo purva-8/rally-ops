@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '@/lib/categories';
+import { formatDate } from '@/lib/format';
 
 const FROM_EMAIL = 'RallyOps <onboarding@resend.dev>';
 
@@ -32,7 +33,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 function confirmationEmail(data: ConfirmationPayload) {
   const categoryLabel = CATEGORY_LABELS[data.category] ?? data.category;
   const dateStr = data.eventDate
-    ? new Date(data.eventDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    ? formatDate(data.eventDate)
     : null;
 
   return `

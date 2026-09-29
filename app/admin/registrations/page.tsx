@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '@/lib/categories';
+import { formatDateTime } from '@/lib/format';
 
 type Registration = {
   id: string;
@@ -229,7 +230,7 @@ export default function AdminRegistrationsPage() {
                     {reg.player_profiles?.mobile && <p>{reg.player_profiles.mobile}</p>}
                     {reg.emergency_contact && <p>Emergency: {reg.emergency_contact}</p>}
                     <p className="text-xs text-stone-400 mt-1">
-                      {reg.registration_code} · {new Date(reg.created_at).toLocaleString()}
+                      {reg.registration_code} · {formatDateTime(reg.created_at)}
                     </p>
                   </div>
                 </div>

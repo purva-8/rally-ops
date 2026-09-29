@@ -83,6 +83,11 @@ function LoginForm() {
                 placeholder="••••••••"
                 className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               />
+              <div className="text-right mt-1.5">
+                <Link href="/forgot-password" className="text-xs text-orange-600 font-semibold hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             {error && (

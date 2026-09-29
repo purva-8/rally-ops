@@ -5,6 +5,7 @@ import { Reorder } from 'framer-motion';
 import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../tournament/types';
 import type { Category, Participant } from '../../tournament/types';
+import { entryLabel } from '@/lib/categories';
 
 type Staff = { id: string; name: string; email: string; role: 'coach' | 'admin'; status: 'invited' | 'active' };
 
@@ -235,6 +236,7 @@ function SeedBuilder({ category, players, persisting, onGenerate }: {
   persisting: boolean;
   onGenerate: (category: Category, orderedIds: string[], byeIds: string[]) => void;
 }) {
+  const [mode, setMode] = useState<'manual' | 'seed'>('manual');
   const [seedOrder, setSeedOrder] = useState<Participant[]>(players);
   const [byeIds, setByeIds] = useState<Set<string>>(new Set());
 
@@ -258,6 +260,23 @@ function SeedBuilder({ category, players, persisting, onGenerate }: {
         <p className="text-sm text-stone-400 mt-2">Need at least 2 approved participants in this category.</p>
       ) : (
         <>
+          <div className="inline-flex rounded-lg border border-stone-200 p-0.5 mb-4 bg-stone-50">
+            {([['manual', 'Pick who plays whom'], ['seed', 'Drag to seed']] as const).map(([m, label]) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${mode === m ? 'bg-white shadow-sm text-stone-900' : 'text-stone-400'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {mode === 'manual' && (
+            <ManualPairing category={category} players={players} persisting={persisting} onGenerate={onGenerate} />
+          )}
+
+          {mode === 'seed' && (<>
           <p className="text-stone-400 text-sm mb-4">
             Drag to set the order, then flag byes for any players skipping Round 1. Remaining players pair up 1v2, 3v4, etc.
           </p>
@@ -270,7 +289,7 @@ function SeedBuilder({ category, players, persisting, onGenerate }: {
               >
                 <span className="text-stone-300 select-none" aria-hidden>⠿</span>
                 <span className="text-xs font-mono text-stone-400 w-5">{i + 1}</span>
-                <span className="flex-1 font-medium text-stone-900 text-sm">{p.fullName}</span>
+                <span className="flex-1 font-medium text-stone-900 text-sm">{entryLabel(p.fullName, p.partnerName, category)}</span>
                 <label className="flex items-center gap-1.5 text-xs text-stone-500 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -298,8 +317,115 @@ function SeedBuilder({ category, players, persisting, onGenerate }: {
               {persisting ? 'Generating…' : 'Generate Round 1'}
             </button>
           </div>
+          </>)}
         </>
       )}
+    </div>
+  );
+}
+
+// Organizer decides every Round 1 match by hand. Anyone left unpaired gets a bye.
+function ManualPairing({ category, players, persisting, onGenerate }: {
+  category: Category;
+  players: Participant[];
+  persisting: boolean;
+  onGenerate: (category: Category, orderedIds: string[], byeIds: string[]) => void;
+}) {
+  const [pairs, setPairs] = useState<[string, string][]>([]);
+  const [a, setA] = useState('');
+  const [b, setB] = useState('');
+
+  const size = nextPowerOf2(players.length);
+  const requiredByes = size - players.length;
+  const used = new Set(pairs.flat());
+  const free = players.filter((p) => !used.has(p.id));
+  const label = (p: Participant) => entryLabel(p.fullName, p.partnerName, category);
+  const byName = (id: string) => { const p = players.find((x) => x.id === id); return p ? label(p) : ''; };
+  const byesOk = free.length === requiredByes;
+
+  const addPair = () => {
+    if (!a || !b || a === b) return;
+    setPairs((prev) => [...prev, [a, b]]);
+    setA(''); setB('');
+  };
+
+  const generate = () => {
+    const ordered = [...pairs.flat(), ...free.map((p) => p.id)];
+    onGenerate(category, ordered, free.map((p) => p.id));
+  };
+
+  const selectCls = 'flex-1 min-w-0 border border-stone-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500';
+
+  return (
+    <div>
+      <p className="text-stone-400 text-sm mb-4">
+        Choose the two players for each Round 1 match. Players you leave out get a bye into Round 2.
+      </p>
+
+      {pairs.length > 0 && (
+        <div className="space-y-2 mb-4">
+          {pairs.map(([x, y], i) => (
+            <div key={i} className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2.5">
+              <span className="text-xs font-mono text-stone-400 w-14">Match {i + 1}</span>
+              <span className="flex-1 text-sm font-medium text-stone-900 truncate">{byName(x)}</span>
+              <span className="text-xs text-stone-400">vs</span>
+              <span className="flex-1 text-sm font-medium text-stone-900 truncate text-right">{byName(y)}</span>
+              <button onClick={() => setPairs((prev) => prev.filter((_, j) => j !== i))} className="text-xs text-stone-300 hover:text-red-500 shrink-0">
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {free.length >= 2 && (
+        <div className="flex flex-col sm:flex-row gap-2 mb-4">
+          <select value={a} onChange={(e) => setA(e.target.value)} className={selectCls}>
+            <option value="">Player 1…</option>
+            {free.filter((p) => p.id !== b).map((p) => <option key={p.id} value={p.id}>{label(p)}</option>)}
+          </select>
+          <span className="hidden sm:block text-xs text-stone-400 self-center">vs</span>
+          <select value={b} onChange={(e) => setB(e.target.value)} className={selectCls}>
+            <option value="">Player 2…</option>
+            {free.filter((p) => p.id !== a).map((p) => <option key={p.id} value={p.id}>{label(p)}</option>)}
+          </select>
+          <button
+            onClick={addPair}
+            disabled={!a || !b}
+            className="bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-sm font-semibold shrink-0"
+          >
+            Add match
+          </button>
+        </div>
+      )}
+
+      {free.length > 0 && (
+        <p className="text-xs text-stone-400 mb-4">
+          Not yet placed ({free.length}): {free.map(label).join(', ')}
+        </p>
+      )}
+
+      <div className="flex items-center justify-between">
+        <p className={`text-xs ${byesOk ? 'text-stone-400' : 'text-amber-600'}`}>
+          {byesOk
+            ? (free.length === 0 ? 'Everyone is placed.' : `${free.length} player${free.length > 1 ? 's' : ''} will get a bye.`)
+            : `This draw needs exactly ${requiredByes} bye${requiredByes === 1 ? '' : 's'}, so leave ${requiredByes} player${requiredByes === 1 ? '' : 's'} unpaired (${free.length} left now).`}
+        </p>
+        <div className="flex gap-2">
+          {pairs.length > 0 && (
+            <button onClick={() => setPairs([])} className="px-3 py-2 rounded-lg text-xs font-semibold text-stone-500 border border-stone-200 hover:bg-stone-50">
+              Clear
+            </button>
+          )}
+          <button
+            disabled={!byesOk || pairs.length === 0 || persisting}
+            onClick={generate}
+            className="bg-[#111827] hover:bg-[#1F2937] disabled:opacity-50 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors shrink-0"
+          >
+            {persisting ? 'Saving…' : 'Create Round 1'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTournamentStore } from '../tournament/store';
 import type { Category } from '../tournament/types';
 import { CATEGORY_LABELS } from '../tournament/types';
+import { formatDate } from '@/lib/format';
 
 type Step = 'categories' | 'details' | 'courts';
 type View = 'home' | 'setup';
@@ -250,7 +251,7 @@ export default function RallyOpsHome() {
                     <Row label="Tournament"  value={form.tournamentName} />
                     <Row label="Organizer"   value={form.organizerName} />
                     {form.venue    && <Row label="Venue"  value={form.venue} />}
-                    {form.eventDate && <Row label="Date"  value={new Date(form.eventDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })} />}
+                    {form.eventDate && <Row label="Date"  value={formatDate(form.eventDate)} />}
                     <Row label="Courts"      value={`${form.courtCount} courts`} />
                     {form.managerPassword && <Row label="Password" value="••••••••" />}
                   </div>
@@ -361,7 +362,7 @@ export default function RallyOpsHome() {
                   <p className="text-slate-500 text-sm">{organizerName}</p>
                   <div className="flex gap-3 mt-1 text-xs text-slate-400">
                     {venue && <span>{venue}</span>}
-                    {eventDate && <span>{new Date(eventDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                    {eventDate && <span>{formatDate(eventDate)}</span>}
                   </div>
                 </div>
                 {managerPassword && <div className="text-slate-400"><IconLock className="w-4 h-4" /></div>}

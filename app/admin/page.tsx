@@ -8,8 +8,8 @@ import BracketsTab from './components/BracketsTab';
 import CourtsTab from './components/CourtsTab';
 import ExportTab from './components/ExportTab';
 import AnalyticsTab from './components/AnalyticsTab';
-import SeedButton from './components/SeedButton';
 import { useTournamentStore } from '../tournament/store';
+import { formatDate } from '@/lib/format';
 
 const TABS = [
   { id: 'entries',   label: 'Entries' },
@@ -44,8 +44,23 @@ function AdminPageInner() {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace(`/login?redirect=/admin?tournamentId=${dbTournamentId}`); return; }
-      const { data: tournament } = await supabase.from('tournaments').select('created_by').eq('id', dbTournamentId).single();
+      const { data: tournament } = await supabase
+        .from('tournaments')
+        .select('created_by, name, venue, event_date, registration_close_at, categories')
+        .eq('id', dbTournamentId)
+        .single();
       if (!tournament || tournament.created_by !== user.id) { router.replace('/events'); return; }
+      // Always start from this tournament's own data, never whatever the browser held before
+      if (useTournamentStore.getState().tournamentId !== dbTournamentId) useTournamentStore.getState().reset();
+      useTournamentStore.setState({
+        isSetup: true,
+        sport: 'badminton',
+        tournamentName: tournament.name,
+        venue: tournament.venue ?? '',
+        eventDate: tournament.event_date ?? '',
+        registrationDeadline: tournament.registration_close_at ?? '',
+        selectedCategories: (tournament.categories ?? []) as never,
+      });
       setAuthorized(true);
       setAuthChecked(true);
     });
@@ -72,7 +87,7 @@ function AdminPageInner() {
   if (!isSetup && !dbTournamentId) return null;
 
   const formattedDate = eventDate
-    ? new Date(eventDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+    ? formatDate(eventDate)
     : null;
 
   return (
@@ -96,7 +111,6 @@ function AdminPageInner() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <SeedButton />
             <button
               onClick={() => {
                 const link = dbTournamentId

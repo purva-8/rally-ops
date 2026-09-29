@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '@/lib/categories';
+import { formatDateTime } from '@/lib/format';
 
 type Registration = {
   id: string;
@@ -287,7 +288,7 @@ export default function EntriesTab() {
                   {reg.partner_name && <p>Partner: {reg.partner_name}</p>}
                   {(reg.player_profiles?.mobile || reg.manual_mobile) && <p>{reg.player_profiles?.mobile ?? reg.manual_mobile}</p>}
                   {reg.emergency_contact && <p>Emergency: {reg.emergency_contact}</p>}
-                  <p className="text-xs text-stone-400 mt-1">{displayQid(reg)} · {new Date(reg.created_at).toLocaleString()}</p>
+                  <p className="text-xs text-stone-400 mt-1">{displayQid(reg)} · {formatDateTime(reg.created_at)}</p>
                 </div>
               </div>
 

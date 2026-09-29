@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { IconCalendar, IconMapPin } from '@/components/icons';
 import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '@/lib/categories';
+import { formatDate } from '@/lib/format';
 
 type Entry = {
   id: string;
@@ -157,7 +158,7 @@ export default function MyEntriesPage() {
             {entries.map((entry) => {
               const scfg = STATUS_CONFIG[entry.status];
               const dateStr = entry.tournaments?.event_date
-                ? new Date(entry.tournaments.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                ? formatDate(entry.tournaments.event_date)
                 : null;
 
               return (
