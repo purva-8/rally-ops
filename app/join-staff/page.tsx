@@ -32,7 +32,7 @@ function JoinStaffInner() {
       const data = await res.json();
       if (!res.ok || !data.claimed?.length) {
         setStatus('error');
-        setErrorMsg('This invite doesn\'t match your logged-in email, or has already been used.');
+        setErrorMsg(`You're signed in as ${user.email}, but this invite is for ${email ?? 'another email'}. Sign out (or use a private window), sign in with the invited email, and open the link again.`);
         return;
       }
       const staffRow = data.claimed[0];
