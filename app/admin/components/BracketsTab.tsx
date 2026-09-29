@@ -82,17 +82,27 @@ export default function BracketsTab() {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-6">
         {categories.map((cat) => {
           const count = participants.filter((p) => p.categories.includes(cat)).length;
+          const made = matches.filter((m) => m.category === cat).length;
+          const active = selectedCat === cat;
           return (
-            <div key={cat} className="bg-white rounded-xl border border-stone-200 p-3 text-center">
+            <button
+              key={cat}
+              type="button"
+              onClick={() => {
+                setSelectedCat(cat);
+                setTimeout(() => document.getElementById('bracket-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+              }}
+              className={`rounded-xl border p-3 text-center transition-colors cursor-pointer ${active ? 'bg-orange-50 border-orange-400 ring-2 ring-orange-200' : 'bg-white border-stone-200 hover:border-orange-300'}`}
+            >
               <p className="text-2xl font-bold text-stone-900">{count}</p>
               <p className="text-xs text-stone-400 mt-1">{CATEGORY_LABELS[cat]}</p>
-              {count < 2 && <p className="text-xs text-amber-500 mt-1">Need 2+</p>}
-            </div>
+              {made > 0 ? <p className="text-xs text-emerald-600 font-medium mt-1">{made} match{made === 1 ? '' : 'es'}</p> : count < 2 && <p className="text-xs text-amber-500 mt-1">Need 2+</p>}
+            </button>
           );
         })}
       </div>
 
-      <div className="mb-6">
+      <div id="bracket-detail" className="mb-6 scroll-mt-4">
         <label className="block text-xs font-medium text-stone-500 mb-1.5">Category</label>
         <select
           value={selectedCat}
@@ -110,7 +120,7 @@ export default function BracketsTab() {
 
       {!selectedCat && (
         <div className="text-center py-16 text-stone-400 bg-white rounded-xl border border-stone-200">
-          <p>Pick a category above to build or view its bracket.</p>
+          <p>Tap a category above, or pick one from the list, to build or view its bracket.</p>
         </div>
       )}
 
