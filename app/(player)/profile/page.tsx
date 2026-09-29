@@ -17,6 +17,7 @@ type Profile = {
   qid: string | null;
   samanvayam_member: boolean;
   dob: string | null;
+  samanvayam_id?: string | null;
 };
 
 type Kid = {
@@ -57,7 +58,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ full_name: '', mobile: '', qid: '', dob: '' });
+  const [form, setForm] = useState({ full_name: '', mobile: '', qid: '', dob: '', sid: '' });
   const [kids, setKids] = useState<Kid[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [billRegs, setBillRegs] = useState<BillRegistration[]>([]);
@@ -79,7 +80,7 @@ export default function ProfilePage() {
       let rows: Entry[] = [];
       if (prof) {
         setProfile(prof);
-        setForm({ full_name: prof.full_name, mobile: prof.mobile ?? '', qid: prof.qid ?? '', dob: prof.dob ?? '' });
+        setForm({ full_name: prof.full_name, mobile: prof.mobile ?? '', qid: prof.qid ?? '', dob: prof.dob ?? '', sid: prof.samanvayam_id ?? '' });
         const { data: kidRows } = await supabase.from('player_profiles').select('id,full_name,gender,dob,relationship').eq('parent_id', prof.id);
         setKids(kidRows ?? []);
         // Entries for the account holder and every family member
@@ -121,7 +122,7 @@ export default function ProfilePage() {
     setSaving(true);
     const { data, error } = await createClient()
       .from('player_profiles')
-      .update({ full_name: form.full_name, mobile: form.mobile || null, qid: form.qid.trim() || null, dob: form.dob || null })
+      .update({ full_name: form.full_name, mobile: form.mobile || null, qid: form.qid.trim() || null, dob: form.dob || null, samanvayam_id: form.sid.trim() || null })
       .eq('id', profile.id)
       .select()
       .single();
@@ -292,38 +293,68 @@ export default function ProfilePage() {
               {[
                 { label: 'Full Name', value: profile.full_name },
                 { label: 'Mobile',    value: profile.mobile ?? '-' },
-                { label: 'Qatar ID',  value: profile.qid ?? '-' },
-                { label: 'Date of birth', value: profile.dob ? formatDate(profile.dob) : '-' },
-                { label: 'Samanvayam member', value: profile.samanvayam_member ? 'Yes' : 'No' },
-                {
-                  label: 'Gender',
-                  value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '-',
-                },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-center justify-between px-5 py-3.5">
                   <span className="text-xs text-stone-400 font-medium">{label}</span>
                   <span className="text-sm text-stone-800 font-medium">{value}</span>
                 </div>
               ))}
+              {/* Qatar ID and date of birth side by side */}
+              <div className="grid grid-cols-2 divide-x divide-stone-50">
+                <div className="px-5 py-3.5">
+                  <p className="text-xs text-stone-400 font-medium mb-0.5">Qatar ID</p>
+                  <p className="text-sm text-stone-800 font-medium">{profile.qid ?? '-'}</p>
+                </div>
+                <div className="px-5 py-3.5">
+                  <p className="text-xs text-stone-400 font-medium mb-0.5">Date of birth</p>
+                  <p className="text-sm text-stone-800 font-medium">{profile.dob ? formatDate(profile.dob) : '-'}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 divide-x divide-stone-50">
+                <div className="px-5 py-3.5">
+                  <p className="text-xs text-stone-400 font-medium mb-0.5">Samanvayam member</p>
+                  <p className="text-sm text-stone-800 font-medium">{profile.samanvayam_member ? 'Yes' : 'No'}</p>
+                </div>
+                <div className="px-5 py-3.5">
+                  <p className="text-xs text-stone-400 font-medium mb-0.5">Samanvayam ID</p>
+                  <p className="text-sm text-stone-800 font-medium">{profile.samanvayam_id || '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between px-5 py-3.5">
+                <span className="text-xs text-stone-400 font-medium">Gender</span>
+                <span className="text-sm text-stone-800 font-medium">
+                  {profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '-'}
+                </span>
+              </div>
             </div>
           ) : (
             <div className="p-5 space-y-4">
-              {[
-                { key: 'full_name', label: 'Full Name', type: 'text' },
-                { key: 'mobile',    label: 'Mobile',    type: 'tel' },
-                { key: 'qid',       label: 'Qatar ID',  type: 'text' },
-                { key: 'dob',       label: 'Date of birth', type: 'date' },
-              ].map(({ key, label, type }) => (
-                <div key={key}>
-                  <label className="block text-xs font-semibold text-stone-400 uppercase tracking-widest mb-1.5">{label}</label>
-                  <input
-                    type={type}
-                    value={form[key as 'full_name' | 'mobile' | 'qid' | 'dob']}
-                    onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  />
-                </div>
-              ))}
+              {(() => {
+                const field = (key: 'full_name' | 'mobile' | 'qid' | 'dob' | 'sid', label: string, type: string, hint?: string) => (
+                  <div key={key}>
+                    <label className="block text-xs font-semibold text-stone-400 uppercase tracking-widest mb-1.5">
+                      {label}{hint && <span className="normal-case tracking-normal font-normal"> {hint}</span>}
+                    </label>
+                    <input
+                      type={type}
+                      value={form[key]}
+                      onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    />
+                  </div>
+                );
+                return (
+                  <>
+                    {field('full_name', 'Full Name', 'text')}
+                    {field('mobile', 'Mobile', 'tel')}
+                    <div className="grid grid-cols-2 gap-3">
+                      {field('qid', 'Qatar ID', 'text')}
+                      {field('dob', 'Date of birth', 'date')}
+                    </div>
+                    {field('sid', 'Samanvayam ID', 'text', '(optional)')}
+                  </>
+                );
+              })()}
               <div className="flex gap-3 pt-1">
                 <button
                   onClick={() => setEditing(false)}

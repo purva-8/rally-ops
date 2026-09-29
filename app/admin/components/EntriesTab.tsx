@@ -64,6 +64,18 @@ export default function EntriesTab() {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [comments, setComments] = useState<Record<string, string>>({});
   const [bulkComment, setBulkComment] = useState('');
+  const [mailNote, setMailNote] = useState('');
+
+  async function emailDecisions(ids: string[]) {
+    setMailNote('Sending...');
+    const res = await fetch('/api/tournament/notify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tournamentId, registrationIds: ids }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMailNote(res.ok ? `Emailed ${d.decisions} player${d.decisions === 1 ? '' : 's'}${d.failed ? `, ${d.failed} failed` : ''}` : (d.error ?? 'Failed'));
+    setTimeout(() => setMailNote(''), 6000);
+  }
   const [showAddForm, setShowAddForm] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addForm, setAddForm] = useState({ name: '', email: '', mobile: '', qid: '', category: '', partnerName: '' });
@@ -219,6 +231,7 @@ export default function EntriesTab() {
         ))}
       </div>
 
+      {mailNote && <p className="text-sm bg-green-50 border border-green-200 text-green-800 rounded-lg px-3 py-2 mb-3">{mailNote}</p>}
       {!loading && filtered.length > 0 && (
         <div className="bg-white rounded-xl border border-stone-200 p-3 mb-4 flex items-center justify-between shadow-sm">
           <label className="flex items-center gap-2 text-sm text-stone-600 font-medium cursor-pointer select-none">
@@ -236,6 +249,10 @@ export default function EntriesTab() {
                 placeholder="Comment for the player (optional)"
                 className="hidden sm:block w-56 px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
+              <button onClick={() => emailDecisions(Array.from(selectedIds))}
+                className="px-4 py-2 border border-stone-300 text-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50 transition-colors">
+                Email {selectedIds.size}
+              </button>
               <button onClick={() => bulkUpdateStatus('rejected')} disabled={bulkUpdating}
                 className="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-40">
                 Reject {selectedIds.size}
@@ -304,6 +321,13 @@ export default function EntriesTab() {
                     {updating === reg.id ? '...' : 'Approve'}
                   </button>
                 </div>
+              )}
+
+              {reg.status !== 'pending' && (
+                <button onClick={() => emailDecisions([reg.id])}
+                  className="px-3 py-1.5 border border-stone-200 text-stone-600 rounded-lg text-xs hover:bg-stone-50 transition-colors shrink-0">
+                  Email
+                </button>
               )}
 
               {reg.status === 'approved' && (

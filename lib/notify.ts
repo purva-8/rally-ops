@@ -53,7 +53,7 @@ function scoreString(sets: { player1_score: number; player2_score: number }[], f
   return sets.map((s) => (flip ? `${s.player2_score}-${s.player1_score}` : `${s.player1_score}-${s.player2_score}`)).join(', ');
 }
 
-export async function runNotifications(opts: { tournamentId?: string } = {}): Promise<Summary> {
+export async function runNotifications(opts: { tournamentId?: string; registrationIds?: string[] } = {}): Promise<Summary> {
   const admin = createAdminClient();
   const summary: Summary = { decisions: 0, fixtures: 0, results: 0, failed: 0, skipped: 0 };
 
@@ -62,20 +62,23 @@ export async function runNotifications(opts: { tournamentId?: string } = {}): Pr
   const { data: tournaments } = await tq;
 
   for (const t of tournaments ?? []) {
-    await sendDecisions(admin, t, summary);
+    // With specific entries, only their decision email goes out (resent even if sent before)
+    await sendDecisions(admin, t, summary, opts.registrationIds);
+    if (opts.registrationIds) continue;
     await sendFixtures(admin, t, summary);
     await sendResults(admin, t, summary);
   }
   return summary;
 }
 
-async function sendDecisions(admin: Admin, t: { id: string; name: string; entry_fee: number }, summary: Summary) {
-  const { data: regs } = await admin
+async function sendDecisions(admin: Admin, t: { id: string; name: string; entry_fee: number }, summary: Summary, only?: string[]) {
+  let rq = admin
     .from('registrations')
     .select('id, player_id, partner_id, category, partner_name, status, review_comment, manual_name, manual_email')
     .eq('tournament_id', t.id)
-    .in('status', ['approved', 'rejected'])
-    .is('decision_notified_at', null);
+    .in('status', ['approved', 'rejected']);
+  rq = only ? rq.in('id', only) : rq.is('decision_notified_at', null);
+  const { data: regs } = await rq;
   if (!regs?.length) return;
 
   const { recipientOf, nameOf } = await resolveRecipients(admin, regs.flatMap((r) => [r.player_id, r.partner_id]).filter(Boolean));
@@ -99,7 +102,7 @@ async function sendDecisions(admin: Admin, t: { id: string; name: string; entry_
       fee: (() => {
         const fee = categoryFee(r.category, Number(t.entry_fee ?? 0));
         const partnerTo = r.partner_id ? recipientOf.get(r.partner_id) : null;
-        return isDoublesCategory(r.category) && partnerTo && partnerTo.email !== to.email ? fee / 2 : fee;
+        return isDoublesCategory(r.category) && !(partnerTo && partnerTo.email === to.email) ? fee / 2 : fee;
       })(),
     });
     g.ids.push(r.id);
