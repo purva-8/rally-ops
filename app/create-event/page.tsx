@@ -61,6 +61,7 @@ export default function CreateEventPage() {
     entry_fee: '',
     status: 'open' as 'upcoming' | 'open',
     max_participants: '',
+    is_samanvayam: false,
   });
   const [rules, setRules] = useState('');
   const [eligibility, setEligibility] = useState('');
@@ -110,6 +111,7 @@ export default function CreateEventPage() {
       status: form.status,
       entry_fee: form.entry_fee ? Number(form.entry_fee) : 0,
       max_participants: form.max_participants ? Number(form.max_participants) : null,
+      is_samanvayam: form.is_samanvayam,
       categories,
       rules: rules.trim() || null,
       eligibility: eligibility.trim() || null,
@@ -289,6 +291,18 @@ export default function CreateEventPage() {
                     />
                   </div>
                 </div>
+                <label className="flex items-start gap-3 cursor-pointer select-none bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={form.is_samanvayam}
+                    onChange={(e) => setForm((f) => ({ ...f, is_samanvayam: e.target.checked }))}
+                    className="mt-0.5 w-4 h-4 rounded border-white/20 text-orange-600 focus:ring-orange-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-white/80">Samanvayam tournament</span>
+                    <span className="block text-xs text-white/40 mt-0.5">Members can register their spouse and children from one account</span>
+                  </span>
+                </label>
                 <div>
                   <label className="block text-xs font-semibold text-white/40 mb-1.5">Registration status *</label>
                   <div className="grid grid-cols-2 gap-2">
