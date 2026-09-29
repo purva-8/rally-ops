@@ -7,7 +7,7 @@ import { IconEdit, IconLogout, IconUser } from '@/components/icons';
 import { formatDate } from '@/lib/format';
 import { CATEGORY_LABELS } from '@/lib/categories';
 import Avatar from '@/components/Avatar';
-import FamilyBill, { type BillRegistration } from '@/components/FamilyBill';
+import FamilyBill, { buildLines, type BillRegistration } from '@/components/FamilyBill';
 
 type Profile = {
   id: string;
@@ -61,6 +61,7 @@ export default function ProfilePage() {
   const [kids, setKids] = useState<Kid[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [billRegs, setBillRegs] = useState<BillRegistration[]>([]);
+  const [tab, setTab] = useState<'me' | 'family' | 'bill'>('me');
   const [showAddKid, setShowAddKid] = useState(false);
   const [addingKid, setAddingKid] = useState(false);
   const [kidForm, setKidForm] = useState({ full_name: '', relationship: '', gender: '', dob: '' });
@@ -240,6 +241,37 @@ export default function ProfilePage() {
       </div>
 
       <main className="max-w-2xl mx-auto px-4 -mt-3 pb-10 space-y-3">
+        {(() => {
+          const billPeople = [
+            { id: profile.id, name: profile.full_name, gender: profile.gender },
+            ...kids.map((k) => ({ id: k.id, name: k.full_name, gender: k.gender })),
+          ];
+          const billLines = buildLines(billPeople, billRegs);
+          const due = billLines.filter((l) => !l.paid).reduce((sum, l) => sum + l.amount, 0);
+          const tabs = [
+            { id: 'me' as const, label: 'Me' },
+            ...(profile.samanvayam_member || kids.length > 0 ? [{ id: 'family' as const, label: 'Family' }] : []),
+            ...(billLines.length > 0 ? [{ id: 'bill' as const, label: due > 0 ? `Bill · QAR ${due}` : 'Bill' }] : []),
+          ];
+          if (tabs.length < 2) return null;
+          return (
+            <div className="flex gap-1 bg-white rounded-2xl border border-stone-200 shadow-sm p-1">
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                    tab === t.id ? 'bg-[#111827] text-white' : 'text-stone-400 hover:text-stone-700'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
+
+        {tab === 'me' && (<>
         {/* Player info card */}
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
@@ -311,8 +343,10 @@ export default function ProfilePage() {
           )}
         </div>
 
+        </>)}
+
         {/* Family (Samanvayam members only; the flag is set when registering for a Samanvayam tournament) */}
-        {(profile.samanvayam_member || kids.length > 0) && (
+        {tab === 'family' && (profile.samanvayam_member || kids.length > 0) && (
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
             <h2 className="text-xs font-bold text-stone-400 uppercase tracking-widest">Family &amp; entries</h2>
@@ -446,14 +480,15 @@ export default function ProfilePage() {
         )}
 
         {/* Bill */}
-        <FamilyBill
+        {tab === 'bill' && <FamilyBill
           people={[
             { id: profile.id, name: profile.full_name, gender: profile.gender },
             ...kids.map((k) => ({ id: k.id, name: k.full_name, gender: k.gender })),
           ]}
           regs={billRegs}
-        />
+        />}
 
+        {tab === 'me' && (<>
         {/* Quick nav */}
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm divide-y divide-stone-100 overflow-hidden">
           {[
@@ -483,6 +518,7 @@ export default function ProfilePage() {
           <IconLogout className="w-4 h-4" />
           Sign out
         </button>
+        </>)}
       </main>
     </div>
   );
