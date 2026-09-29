@@ -43,13 +43,14 @@ const ACTIONS: ((k: string) => ReactNode)[] = [
       <path d="M58 30 L60 28 M59 35 L62 35" />
     </g>
   ),
-  // thumbs up
+  // waving a flag
   (k) => (
     <g key={k} fill="none">
       <path d="M18 50 L14 60" />
-      <path d="M46 50 L52 42" />
-      <rect x="49" y="36" width="8" height="7" rx="2" fill="#fff" />
-      <path d="M53 36 L53 30" />
+      <path d="M46 50 L51 41" />
+      <circle cx="51" cy="38" r="2.6" fill="#fff" />
+      <path d="M51 35 L51 14" />
+      <path d="M51 14 L61 18 L51 22 Z" fill="#fff" />
     </g>
   ),
   // shrug
@@ -166,10 +167,12 @@ const pick = (h: number, salt: number, n: number) => {
   return (x >>> 0) % n;
 };
 
-export default function Avatar({ seed, size = 64, className = '' }: { seed: string; size?: number; className?: string }) {
+export const ACTION_NAMES = ['racquet', 'wave', 'flag', 'shrug', 'trophy', 'coffee', 'shuttlecock', 'flex', 'whistle', 'clipboard', 'peace', 'cheer', 'headphones'];
+
+export default function Avatar({ seed, size = 64, className = '', variant }: { seed: string; size?: number; className?: string; variant?: number }) {
   const h = hash(seed || 'x');
   const bg = BACKGROUNDS[pick(h, 1, BACKGROUNDS.length)];
-  const action = ACTIONS[pick(h, 2, ACTIONS.length)];
+  const action = ACTIONS[variant ?? pick(h, 2, ACTIONS.length)];
   const hair = HAIR[pick(h, 3, HAIR.length)];
   const smile = pick(h, 4, 3); // 0 smile, 1 grin, 2 straight
 
