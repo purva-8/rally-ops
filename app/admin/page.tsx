@@ -138,11 +138,9 @@ function AdminPageInner() {
                 {notifyState === 'idle' ? 'Send updates' : notifyState === 'sending' ? 'Sending...' : notifyState}
               </button>
             )}
-            <button
+            {dbTournamentId && <button
               onClick={() => {
-                const link = dbTournamentId
-                  ? `${window.location.origin}/events/${dbTournamentId}`
-                  : `${window.location.origin}/tournament`;
+                const link = `${window.location.origin}/events/${dbTournamentId}`;
                 navigator.clipboard.writeText(link);
                 setLinkCopied(true);
                 setTimeout(() => setLinkCopied(false), 2000);
@@ -150,7 +148,7 @@ function AdminPageInner() {
               className="flex items-center gap-1.5 text-xs font-medium bg-orange-600 hover:bg-orange-500 text-white px-3 py-1.5 rounded-lg transition-colors"
             >
               {linkCopied ? 'Link copied!' : 'Player Link'}
-            </button>
+            </button>}
           </div>
         </div>
       </header>
