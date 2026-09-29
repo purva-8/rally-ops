@@ -6,22 +6,49 @@ import type { ReactNode } from 'react';
 const INK = '#111827';
 const BACKGROUNDS = ['#FED7AA', '#BFDBFE', '#BBF7D0', '#FBCFE8', '#DDD6FE', '#FDE68A', '#A5F3FC', '#FECACA'];
 
-const HAIR: ((k: string) => ReactNode)[] = [
+type Gender = 'male' | 'female' | null | undefined;
+
+const HAIR_MALE: ((k: string) => ReactNode)[] = [
   // bald
   () => null,
   // spiky
   (k) => <path key={k} d="M21 21 L23 11 L27 17 L31 8 L35 17 L40 10 L42 19 L43 22" fill="none" />,
+  // cap
+  (k) => <g key={k} fill="none"><path d="M21 21 Q32 6 43 21 Z" fill="#fff" /><path d="M43 21 L53 22" /></g>,
+  // short and neat
+  (k) => <path key={k} d="M21 22 Q20 10 32 11 Q44 10 43 22 Q38 15 32 16 Q26 15 21 22" fill="none" />,
+  // side parting
+  (k) => <g key={k} fill="none"><path d="M21 22 Q20 9 33 10 Q44 11 43 22" /><path d="M27 12 Q28 17 22 19" /></g>,
+  // short curls
+  (k) => <g key={k} fill="none"><circle cx="25" cy="14" r="3.5" /><circle cx="32" cy="11.5" r="3.5" /><circle cx="39" cy="14" r="3.5" /></g>,
+  // buzz cut
+  (k) => <path key={k} d="M21.5 20 Q32 8 42.5 20" fill="none" strokeWidth="1.4" />,
+];
+
+const HAIR_FEMALE: ((k: string) => ReactNode)[] = [
+  // long
+  (k) => <g key={k} fill="none"><path d="M21 24 Q20 9 32 10 Q44 9 43 24" /><path d="M21 24 L20 40" /><path d="M43 24 L44 40" /></g>,
   // ponytail
   (k) => <g key={k} fill="none"><path d="M22 20 Q32 9 42 20" /><path d="M42 18 Q52 20 49 32" /></g>,
   // bun
   (k) => <g key={k} fill="none"><path d="M22 20 Q32 10 42 20" /><circle cx="32" cy="9" r="4" /></g>,
-  // cap
-  (k) => <g key={k} fill="none"><path d="M21 21 Q32 6 43 21 Z" fill="#fff" /><path d="M43 21 L53 22" /></g>,
   // curly
-  (k) => <g key={k} fill="none"><circle cx="24" cy="15" r="4" /><circle cx="32" cy="12" r="4" /><circle cx="40" cy="15" r="4" /></g>,
-  // long
-  (k) => <g key={k} fill="none"><path d="M21 24 Q20 9 32 10 Q44 9 43 24" /><path d="M21 24 L20 38" /><path d="M43 24 L44 38" /></g>,
+  (k) => <g key={k} fill="none"><circle cx="24" cy="15" r="4" /><circle cx="32" cy="12" r="4" /><circle cx="40" cy="15" r="4" /><circle cx="21" cy="24" r="3" /><circle cx="43" cy="24" r="3" /></g>,
+  // pigtails
+  (k) => <g key={k} fill="none"><path d="M22 20 Q32 9 42 20" /><circle cx="17" cy="21" r="3.5" /><circle cx="47" cy="21" r="3.5" /></g>,
+  // bob
+  (k) => <g key={k} fill="none"><path d="M21 30 Q19 9 32 10 Q45 9 43 30" /><path d="M24 15 Q32 20 40 15" /></g>,
+  // side braid
+  (k) => <g key={k} fill="none"><path d="M21 22 Q21 10 32 10 Q43 10 43 22" /><path d="M42 24 Q46 30 42 36 Q46 42 43 47" /></g>,
 ];
+
+const glassesShape = (k: string) => (
+  <g key={k} fill="none" strokeWidth="1.5">
+    <circle cx="27.5" cy="23" r="3.6" fill="#fff" fillOpacity="0.4" />
+    <circle cx="36.5" cy="23" r="3.6" fill="#fff" fillOpacity="0.4" />
+    <path d="M31.1 23 L32.9 23" />
+  </g>
+);
 
 // Each action draws the arms and any prop. Lines start from the shoulders at (18,50) and (46,50).
 const ACTIONS: ((k: string) => ReactNode)[] = [
@@ -169,12 +196,20 @@ const pick = (h: number, salt: number, n: number) => {
 
 export const ACTION_NAMES = ['racquet', 'wave', 'flag', 'shrug', 'trophy', 'coffee', 'shuttlecock', 'flex', 'whistle', 'clipboard', 'peace', 'cheer', 'headphones'];
 
-export default function Avatar({ seed, size = 64, className = '', variant }: { seed: string; size?: number; className?: string; variant?: number }) {
+export default function Avatar({ seed, size = 64, className = '', variant, gender }: { seed: string; size?: number; className?: string; variant?: number; gender?: Gender }) {
   const h = hash(seed || 'x');
   const bg = BACKGROUNDS[pick(h, 1, BACKGROUNDS.length)];
-  const action = ACTIONS[variant ?? pick(h, 2, ACTIONS.length)];
-  const hair = HAIR[pick(h, 3, HAIR.length)];
+  const actionIndex = variant ?? pick(h, 2, ACTIONS.length);
+  const action = ACTIONS[actionIndex];
+  // Unknown gender gets a mix of both looks
+  const female = gender === 'female' || (gender !== 'male' && pick(h, 9, 2) === 0);
+  const pool = female ? HAIR_FEMALE : HAIR_MALE;
+  const hair = pool[pick(h, 3, pool.length)];
   const smile = pick(h, 4, 3); // 0 smile, 1 grin, 2 straight
+  const glasses = pick(h, 5, 4) === 0;
+  const beard = !female && pick(h, 6, 5) < 2;
+  const lashes = female;
+  const hasHeadphones = actionIndex === ACTIONS.length - 1;
 
   return (
     <svg
@@ -190,15 +225,19 @@ export default function Avatar({ seed, size = 64, className = '', variant }: { s
         {/* torso and neck */}
         <path d="M32 35 L32 41" />
         <path d="M10 66 Q12 44 32 42 Q52 44 54 66" />
+        {female && <path d="M26 42 Q32 47 38 42" strokeWidth="1.4" />}
         {/* head */}
         <circle cx="32" cy="24" r="11" fill="#fff" />
+        {beard && <path d="M22.5 27 Q32 40 41.5 27" strokeWidth="3.2" />}
         {hair('hair')}
         {/* face */}
         <circle cx="28" cy="23" r="1.1" fill={INK} stroke="none" />
         <circle cx="36" cy="23" r="1.1" fill={INK} stroke="none" />
-        {smile === 0 && <path d="M28 28 Q32 31 36 28" strokeWidth="1.6" />}
-        {smile === 1 && <path d="M27.5 27.5 Q32 33 36.5 27.5 Z" strokeWidth="1.4" fill="#fff" />}
-        {smile === 2 && <path d="M28.5 29 L35.5 29" strokeWidth="1.6" />}
+        {lashes && <path d="M25.6 21.6 L24.4 20.6 M30.4 21.6 L31.4 20.6 M33.6 21.6 L32.6 20.6 M38.4 21.6 L39.6 20.6" strokeWidth="1.1" />}
+        {smile === 0 && <path d="M28 28 Q32 31 36 28" strokeWidth="1.6" stroke={INK} />}
+        {smile === 1 && <path d="M27.5 27.5 Q32 33 36.5 27.5 Z" strokeWidth="1.4" fill="#fff" stroke={INK} />}
+        {smile === 2 && <path d="M28.5 29 L35.5 29" strokeWidth="1.6" stroke={INK} />}
+        {glasses && !hasHeadphones && glassesShape('glasses')}
         {action('action')}
       </g>
     </svg>

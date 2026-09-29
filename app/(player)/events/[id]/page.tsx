@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { IconMapPin, IconCalendar, IconClock, IconUsers, IconChevronRight } from '@/components/icons';
-import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '@/lib/categories';
+import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS, feeLabel } from '@/lib/categories';
 import { formatDate } from '@/lib/format';
 
 type Tournament = {
@@ -161,7 +161,7 @@ function TournamentDetailPageInner() {
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-2.5 mb-5">
           {[
-            { label: 'Entry Fee', value: tournament.entry_fee ? String(tournament.entry_fee) : 'Free' },
+            { label: 'Entry Fee', value: feeLabel(tournament.categories, tournament.entry_fee) },
             { label: 'Categories', value: String(tournament.categories?.length ?? 0) },
             { label: 'Registered', value: String(regCount) },
           ].map(({ label, value }) => (

@@ -358,7 +358,7 @@ function RegisterPageInner() {
                   onClick={() => chooseMember(person)}
                   className="w-full text-left px-5 py-4 rounded-xl border border-stone-200 bg-white hover:border-orange-400 transition-colors flex items-center justify-between"
                 >
-                  <Avatar seed={person.id} size={40} className="mr-3" />
+                  <Avatar seed={person.id} size={40} gender={person.gender as never} className="mr-3" />
                   <div className="flex-1">
                     <div className="font-medium text-stone-800">{person.full_name}</div>
                     <div className="text-xs text-stone-400 mt-0.5 capitalize">

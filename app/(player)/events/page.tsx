@@ -1,5 +1,6 @@
 'use client';
 
+import { feeLabel } from '@/lib/categories';
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -181,8 +182,8 @@ function EventsPageInner() {
                         <span className="text-[11px] text-stone-400 font-medium">{SPORT_LABEL}</span>
                       )}
                     </div>
-                    {t.entry_fee ? (
-                      <span className="text-xs font-bold text-stone-800">{t.entry_fee} <span className="font-normal text-stone-400">entry</span></span>
+                    {feeLabel(t.categories, t.entry_fee) !== 'Free' ? (
+                      <span className="text-xs font-bold text-stone-800">{feeLabel(t.categories, t.entry_fee)}</span>
                     ) : (
                       <span className="text-xs font-semibold text-emerald-600">Free</span>
                     )}
