@@ -11,7 +11,6 @@ export default function ResetPasswordPage() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
 
   // The email link signs the user in through /auth/callback, so a session means the link was valid
   useEffect(() => {
@@ -27,10 +26,12 @@ export default function ResetPasswordPage() {
     if (password.length < 8) { setError('Use at least 8 characters.'); return; }
     if (password !== confirm) { setError('The two passwords do not match.'); return; }
     setLoading(true);
-    const { error } = await createClient().auth.updateUser({ password });
-    setLoading(false);
-    if (error) setError(error.message);
-    else setDone(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) { setLoading(false); setError(error.message); return; }
+    // The reset link signs the person in temporarily; end that session so they sign in with the new password
+    await supabase.auth.signOut();
+    window.location.href = '/login?reset=success';
   }
 
   if (!checked) return null;
@@ -46,15 +47,6 @@ export default function ResetPasswordPage() {
           <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-4 rounded-xl">
             This reset link is invalid or has expired.{' '}
             <Link href="/forgot-password" className="font-semibold underline">Request a new one</Link>. Open the link in the same browser you used to request it.
-          </div>
-        ) : done ? (
-          <div className="space-y-4">
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-4 rounded-xl">
-              Your password has been updated.
-            </div>
-            <Link href="/events" className="block w-full text-center bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-xl font-bold text-sm transition-colors">
-              Continue
-            </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">

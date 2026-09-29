@@ -9,6 +9,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') ?? '/events';
+  const passwordJustReset = searchParams.get('reset') === 'success';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,6 +60,12 @@ function LoginForm() {
             <h2 className="text-2xl font-extrabold text-stone-900 tracking-tight">Welcome back</h2>
             <p className="text-sm text-stone-400 mt-1">Sign in to your player account</p>
           </div>
+
+          {passwordJustReset && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-3 rounded-xl mb-4">
+              Your password has been updated. Sign in with your new password.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
