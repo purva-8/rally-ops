@@ -122,3 +122,28 @@ ${d.items.map((i) => row(
 <p style="margin:18px 0 0;font-size:13px;color:#57534e;">Winners move on to the next round. We will email you the next fixture as soon as it is set.</p>`,
   });
 }
+
+// 5. The family bill, receipt style
+export type BillLineMail = { person: string; category: string; note: string; amount: number; paid: boolean };
+export function billEmail(d: { name: string; tournamentName: string; lines: BillLineMail[]; paymentNote?: string | null }) {
+  const due = d.lines.filter((l) => !l.paid).reduce((s, l) => s + l.amount, 0);
+  const paid = d.lines.filter((l) => l.paid).reduce((s, l) => s + l.amount, 0);
+  const people = Array.from(new Set(d.lines.map((l) => l.person)));
+  const sections = people.map((p) => `
+<h3 style="margin:20px 0 4px;font-size:14px;color:#ea580c;text-transform:uppercase;letter-spacing:1px;">${esc(p)}</h3>
+<table width="100%" style="border-collapse:collapse;">
+${d.lines.filter((l) => l.person === p).map((l) => row(esc(l.category), l.paid ? `<span style="color:#16a34a;">Paid</span>` : `QAR ${l.amount}`, l.note ? esc(l.note) : undefined)).join('')}
+</table>`).join('');
+  return layout({
+    banner: '#ea580c', emoji: '🧾', title: 'Your bill', subtitle: d.tournamentName,
+    body: `
+<p style="margin:0 0 8px;">Hi ${esc(d.name)}, here is the bill for your family's approved entries.</p>
+${sections}
+<table width="100%" style="border-collapse:collapse;margin-top:18px;border-top:2px dashed #d6d3d1;">
+${paid > 0 ? row('Paid so far', `QAR ${paid}`) : ''}
+<tr><td style="padding:14px 0 0;font-size:16px;font-weight:800;">Amount due</td><td style="padding:14px 0 0;font-size:20px;font-weight:800;text-align:right;color:#ea580c;">QAR ${due}</td></tr>
+</table>
+<p style="margin:18px 0 0;font-size:13px;color:#57534e;">${esc(d.paymentNote ?? 'The organizers will share payment details. Please keep this email for your records.')}</p>
+<p style="margin:14px 0 0;text-align:center;font-size:14px;">Thanks for playing 🏸</p>`,
+  });
+}

@@ -7,6 +7,7 @@ import EntriesTab from './components/EntriesTab';
 import BracketsTab from './components/BracketsTab';
 import CourtsTab from './components/CourtsTab';
 import ExportTab from './components/ExportTab';
+import BillingTab from './components/BillingTab';
 import AnalyticsTab from './components/AnalyticsTab';
 import { useTournamentStore } from '../tournament/store';
 import { formatDate } from '@/lib/format';
@@ -15,6 +16,7 @@ const TABS = [
   { id: 'entries',   label: 'Entries' },
   { id: 'brackets',  label: 'Brackets' },
   { id: 'courts',    label: 'Courts' },
+  { id: 'billing',   label: 'Billing' },
   { id: 'analytics', label: 'Analytics' },
   { id: 'export',    label: 'Export' },
 ];
@@ -204,6 +206,7 @@ function AdminPageInner() {
         {activeTab === 'entries'     && <EntriesTab />}
         {activeTab === 'brackets'    && <BracketsTab />}
         {activeTab === 'courts'      && <CourtsTab />}
+        {activeTab === 'billing'     && <BillingTab />}
         {activeTab === 'analytics'   && <AnalyticsTab />}
         {activeTab === 'export'      && <ExportTab />}
       </main>

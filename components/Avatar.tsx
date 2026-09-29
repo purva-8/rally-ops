@@ -207,8 +207,6 @@ export default function Avatar({ seed, size = 64, className = '', variant, gende
   const hair = pool[pick(h, 3, pool.length)];
   const smile = pick(h, 4, 3); // 0 smile, 1 grin, 2 straight
   const glasses = pick(h, 5, 4) === 0;
-  const beard = !female && pick(h, 6, 5) < 2;
-  const lashes = female;
   const hasHeadphones = actionIndex === ACTIONS.length - 1;
 
   return (
@@ -228,12 +226,10 @@ export default function Avatar({ seed, size = 64, className = '', variant, gende
         {female && <path d="M26 42 Q32 47 38 42" strokeWidth="1.4" />}
         {/* head */}
         <circle cx="32" cy="24" r="11" fill="#fff" />
-        {beard && <path d="M22.5 27 Q32 40 41.5 27" strokeWidth="3.2" />}
         {hair('hair')}
         {/* face */}
         <circle cx="28" cy="23" r="1.1" fill={INK} stroke="none" />
         <circle cx="36" cy="23" r="1.1" fill={INK} stroke="none" />
-        {lashes && <path d="M25.6 21.6 L24.4 20.6 M30.4 21.6 L31.4 20.6 M33.6 21.6 L32.6 20.6 M38.4 21.6 L39.6 20.6" strokeWidth="1.1" />}
         {smile === 0 && <path d="M28 28 Q32 31 36 28" strokeWidth="1.6" stroke={INK} />}
         {smile === 1 && <path d="M27.5 27.5 Q32 33 36.5 27.5 Z" strokeWidth="1.4" fill="#fff" stroke={INK} />}
         {smile === 2 && <path d="M28.5 29 L35.5 29" strokeWidth="1.6" stroke={INK} />}
