@@ -28,6 +28,7 @@ function AdminPageInner() {
   const [authChecked, setAuthChecked] = useState(false);
   const [authorized, setAuthorized] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [notifyState, setNotifyState] = useState<'idle' | 'sending' | string>('idle');
 
   useEffect(() => {
     if (!_hasHydrated) return;
@@ -111,6 +112,32 @@ function AdminPageInner() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {dbTournamentId && (
+              <button
+                onClick={async () => {
+                  setNotifyState('sending');
+                  try {
+                    const res = await fetch('/api/tournament/notify', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ tournamentId: dbTournamentId }),
+                    });
+                    const d = await res.json();
+                    if (!res.ok) throw new Error(d.error ?? 'Failed');
+                    const sent = d.decisions + d.fixtures + d.results;
+                    setNotifyState(`${sent} sent${d.failed ? `, ${d.failed} failed` : ''}`);
+                  } catch (e) {
+                    setNotifyState(e instanceof Error ? e.message : 'Failed');
+                  }
+                  setTimeout(() => setNotifyState('idle'), 5000);
+                }}
+                disabled={notifyState === 'sending'}
+                className="text-xs font-medium bg-white/10 hover:bg-white/15 text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                title="Email players their approval decisions, fixtures and results now instead of waiting for the daily run"
+              >
+                {notifyState === 'idle' ? 'Send updates' : notifyState === 'sending' ? 'Sending...' : notifyState}
+              </button>
+            )}
             <button
               onClick={() => {
                 const link = dbTournamentId

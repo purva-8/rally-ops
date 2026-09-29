@@ -140,11 +140,12 @@ export default function ExportTab() {
             Pulled straight from the database, so it always has every registration, including withdrawn and rejected ones.
             Dates are day/month/year.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               { type: 'registrations', label: 'All registrations', desc: 'Every person, member, family link, category, fee and payment' },
               { type: 'matches', label: 'Fixtures & results', desc: 'Who plays whom, courts, scores and winners' },
               { type: 'audit', label: 'Change history', desc: 'Every add, edit and delete, with before and after' },
+              { type: 'emails', label: 'Email log', desc: 'Every email sent to players, and any that failed' },
             ].map((e) => (
               <a
                 key={e.type}

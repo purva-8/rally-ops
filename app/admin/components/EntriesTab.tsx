@@ -11,6 +11,7 @@ type Registration = {
   player_id: string | null;
   category: string;
   status: 'pending' | 'approved' | 'rejected';
+  review_comment?: string | null;
   partner_name: string | null;
   emergency_contact: string | null;
   registration_code: string;
@@ -61,6 +62,8 @@ export default function EntriesTab() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [comments, setComments] = useState<Record<string, string>>({});
+  const [bulkComment, setBulkComment] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addForm, setAddForm] = useState({ name: '', email: '', mobile: '', qid: '', category: '', partnerName: '' });
@@ -79,7 +82,7 @@ export default function EntriesTab() {
     const { data } = await supabase
       .from('registrations')
       .select(`
-        id, player_id, category, status, partner_name, emergency_contact, registration_code, created_at,
+        id, player_id, category, status, review_comment, partner_name, emergency_contact, registration_code, created_at,
         manual_name, manual_email, manual_mobile, manual_qid,
         player_profiles!registrations_player_id_fkey ( full_name, mobile, gender, qid )
       `)
@@ -89,33 +92,15 @@ export default function EntriesTab() {
     setLoading(false);
   }
 
-  async function sendApprovalEmail(reg: Registration) {
-    const payload: Record<string, string> = {
-      playerName: displayName(reg),
-      tournamentName,
-      category: reg.category,
-      registrationCode: displayQid(reg),
-    };
-    if (reg.manual_email) payload.to = reg.manual_email;
-    else if (reg.player_id) payload.playerId = reg.player_id;
-    else return;
-    fetch('/api/registration-approved', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }).catch(() => {});
-  }
-
   async function updateStatus(id: string, status: 'approved' | 'rejected') {
     setUpdating(id);
     const supabase = createClient();
     await supabase
       .from('registrations')
-      .update({ status, approved_at: status === 'approved' ? new Date().toISOString() : null })
+      .update({ status, approved_at: status === 'approved' ? new Date().toISOString() : null, review_comment: comments[id]?.trim() || null })
       .eq('id', id);
-    const reg = registrations.find((r) => r.id === id);
-    if (status === 'approved' && reg) sendApprovalEmail(reg);
-    setRegistrations((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    // The player gets one email covering all their decided entries (daily, or via Send updates)
+    setRegistrations((prev) => prev.map((r) => (r.id === id ? { ...r, status, review_comment: comments[id]?.trim() || null } : r)));
     setUpdating(null);
   }
 
@@ -126,13 +111,11 @@ export default function EntriesTab() {
     const supabase = createClient();
     await supabase
       .from('registrations')
-      .update({ status, approved_at: status === 'approved' ? new Date().toISOString() : null })
+      .update({ status, approved_at: status === 'approved' ? new Date().toISOString() : null, review_comment: bulkComment.trim() || null })
       .in('id', ids);
-    if (status === 'approved') {
-      registrations.filter((r) => ids.includes(r.id)).forEach(sendApprovalEmail);
-    }
-    setRegistrations((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, status } : r)));
+    setRegistrations((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, status, review_comment: bulkComment.trim() || null } : r)));
     setSelectedIds(new Set());
+    setBulkComment('');
     setBulkUpdating(false);
   }
 
@@ -245,7 +228,14 @@ export default function EntriesTab() {
             {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
           </label>
           {selectedIds.size > 0 && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                value={bulkComment}
+                onChange={(e) => setBulkComment(e.target.value)}
+                placeholder="Comment for the player (optional)"
+                className="hidden sm:block w-56 px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
               <button onClick={() => bulkUpdateStatus('rejected')} disabled={bulkUpdating}
                 className="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-40">
                 Reject {selectedIds.size}
@@ -289,6 +279,17 @@ export default function EntriesTab() {
                   {(reg.player_profiles?.mobile || reg.manual_mobile) && <p>{reg.player_profiles?.mobile ?? reg.manual_mobile}</p>}
                   {reg.emergency_contact && <p>Emergency: {reg.emergency_contact}</p>}
                   <p className="text-xs text-stone-400 mt-1">{displayQid(reg)} · {formatDateTime(reg.created_at)}</p>
+                  {reg.status === 'pending' ? (
+                    <input
+                      type="text"
+                      value={comments[reg.id] ?? ''}
+                      onChange={(e) => setComments((c) => ({ ...c, [reg.id]: e.target.value }))}
+                      placeholder="Comment for the player (optional)"
+                      className="mt-2 w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  ) : reg.review_comment ? (
+                    <p className="text-xs text-stone-500 mt-2 italic">Comment: {reg.review_comment}</p>
+                  ) : null}
                 </div>
               </div>
 
