@@ -37,7 +37,7 @@ function SignupForm() {
     }
 
     const { error: profileErr } = await supabase.from('player_profiles').insert({
-      id: data.user.id,
+      auth_user_id: data.user.id,
       full_name: form.fullName,
       mobile: form.mobile,
       gender: form.gender,

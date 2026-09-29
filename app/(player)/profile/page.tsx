@@ -10,7 +10,26 @@ type Profile = {
   full_name: string;
   mobile: string | null;
   gender: string | null;
+  qid: string | null;
+  samanvayam_member: boolean;
 };
+
+type Kid = {
+  id: string;
+  full_name: string;
+  gender: string | null;
+  dob: string | null;
+  relationship: string | null;
+};
+
+const RELATIONSHIPS = [
+  { value: 'spouse',   label: 'Wife / Husband' },
+  { value: 'son',      label: 'Son' },
+  { value: 'daughter', label: 'Daughter' },
+  { value: 'parent',   label: 'Parent' },
+  { value: 'other',    label: 'Other family member' },
+];
+const relLabel = (v: string | null) => RELATIONSHIPS.find((r) => r.value === v)?.label ?? 'Family member';
 
 type Stats = { total: number; approved: number; pending: number };
 type Roles = { isOrganizer: boolean; isCoach: boolean; isAdminStaff: boolean };
@@ -28,7 +47,11 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ full_name: '', mobile: '' });
+  const [form, setForm] = useState({ full_name: '', mobile: '', samanvayam_member: false });
+  const [kids, setKids] = useState<Kid[]>([]);
+  const [showAddKid, setShowAddKid] = useState(false);
+  const [addingKid, setAddingKid] = useState(false);
+  const [kidForm, setKidForm] = useState({ full_name: '', relationship: '', gender: '', dob: '' });
 
   useEffect(() => {
     const supabase = createClient();
@@ -36,14 +59,16 @@ export default function ProfilePage() {
       if (!user) { router.push('/login?redirect=/profile'); return; }
       setEmail(user.email ?? '');
       const [{ data: prof }, { data: regs }, { data: ownedTournaments }, { data: staffRows }] = await Promise.all([
-        supabase.from('player_profiles').select('*').eq('id', user.id).single(),
+        supabase.from('player_profiles').select('*').eq('auth_user_id', user.id).single(),
         supabase.from('registrations').select('status').eq('player_id', user.id),
         supabase.from('tournaments').select('id').eq('created_by', user.id).limit(1),
         supabase.from('tournament_staff').select('role').eq('user_id', user.id).eq('status', 'active'),
       ]);
       if (prof) {
         setProfile(prof);
-        setForm({ full_name: prof.full_name, mobile: prof.mobile ?? '' });
+        setForm({ full_name: prof.full_name, mobile: prof.mobile ?? '', samanvayam_member: prof.samanvayam_member ?? false });
+        const { data: kidRows } = await supabase.from('player_profiles').select('id,full_name,gender,dob,relationship').eq('parent_id', prof.id);
+        setKids(kidRows ?? []);
       }
       const rows = regs ?? [];
       setStats({
@@ -66,12 +91,43 @@ export default function ProfilePage() {
     setSaving(true);
     const { data, error } = await createClient()
       .from('player_profiles')
-      .update({ full_name: form.full_name, mobile: form.mobile || null })
+      .update({ full_name: form.full_name, mobile: form.mobile || null, samanvayam_member: form.samanvayam_member })
       .eq('id', profile.id)
       .select()
       .single();
-    if (!error && data) { setProfile(data); setEditing(false); }
+    if (!error && data) {
+      setProfile(data);
+      setEditing(false);
+      // Family members share the account holder's membership status
+      if (data.samanvayam_member !== profile.samanvayam_member) {
+        await createClient().from('player_profiles').update({ samanvayam_member: data.samanvayam_member }).eq('parent_id', profile.id);
+      }
+    }
     setSaving(false);
+  }
+
+  async function addKid() {
+    if (!profile?.samanvayam_member || !kidForm.full_name.trim() || !kidForm.relationship || !kidForm.gender || !kidForm.dob) return;
+    setAddingKid(true);
+    const { data, error } = await createClient()
+      .from('player_profiles')
+      .insert({
+        parent_id: profile.id,
+        full_name: kidForm.full_name.trim(),
+        relationship: kidForm.relationship,
+        gender: kidForm.gender,
+        dob: kidForm.dob,
+        qid: profile.qid,
+        samanvayam_member: profile.samanvayam_member,
+      })
+      .select('id,full_name,gender,dob,relationship')
+      .single();
+    if (!error && data) {
+      setKids((prev) => [...prev, data]);
+      setKidForm({ full_name: '', relationship: '', gender: '', dob: '' });
+      setShowAddKid(false);
+    }
+    setAddingKid(false);
   }
 
   async function signOut() {
@@ -133,6 +189,11 @@ export default function ProfilePage() {
                     Player
                   </span>
                 )}
+                {profile.samanvayam_member && (
+                  <span className="inline-block text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">
+                    Samanvayam Member
+                  </span>
+                )}
                 {profile.gender && (
                   <span className="inline-block text-[11px] bg-white/10 text-white/60 px-2 py-0.5 rounded-full capitalize">
                     {profile.gender}
@@ -183,6 +244,7 @@ export default function ProfilePage() {
                   label: 'Gender',
                   value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '-',
                 },
+                { label: 'Samanvayam member', value: profile.samanvayam_member ? 'Yes' : 'No' },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-center justify-between px-5 py-3.5">
                   <span className="text-xs text-stone-400 font-medium">{label}</span>
@@ -200,12 +262,21 @@ export default function ProfilePage() {
                   <label className="block text-xs font-semibold text-stone-400 uppercase tracking-widest mb-1.5">{label}</label>
                   <input
                     type={type}
-                    value={form[key as keyof typeof form]}
+                    value={form[key as 'full_name' | 'mobile']}
                     onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                     className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
                 </div>
               ))}
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.samanvayam_member}
+                  onChange={(e) => setForm((f) => ({ ...f, samanvayam_member: e.target.checked }))}
+                  className="w-4 h-4 rounded border-stone-300 text-orange-600 focus:ring-orange-500"
+                />
+                <span className="text-sm text-stone-700">I am a Samanvayam member</span>
+              </label>
               <div className="flex gap-3 pt-1">
                 <button
                   onClick={() => setEditing(false)}
@@ -219,6 +290,116 @@ export default function ProfilePage() {
                   className="flex-1 bg-orange-600 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-orange-500 transition-colors disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : 'Save changes'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Family */}
+        <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
+            <h2 className="text-xs font-bold text-stone-400 uppercase tracking-widest">Family</h2>
+            {profile.samanvayam_member && !showAddKid && (
+              <button
+                onClick={() => setShowAddKid(true)}
+                className="text-xs text-orange-600 font-semibold hover:text-orange-700"
+              >
+                + Add family member
+              </button>
+            )}
+          </div>
+
+          {!profile.samanvayam_member && (
+            <p className="px-5 py-4 text-sm text-stone-400">
+              Family registration is for Samanvayam members. Tick &quot;I am a Samanvayam member&quot; in Player Info above to register your spouse and children.
+            </p>
+          )}
+
+          {profile.samanvayam_member && kids.length === 0 && !showAddKid && (
+            <p className="px-5 py-4 text-sm text-stone-400">No family members yet. Add your wife, husband, sons or daughters; they register under your Qatar ID.</p>
+          )}
+
+          {kids.length > 0 && (
+            <div className="divide-y divide-stone-50">
+              {kids.map((kid) => (
+                <div key={kid.id} className="flex items-center justify-between px-5 py-3.5">
+                  <div>
+                    <p className="text-sm font-semibold text-stone-800">{kid.full_name}</p>
+                    <p className="text-xs text-stone-400 mt-0.5">
+                      {relLabel(kid.relationship)} · <span className="capitalize">{kid.gender ?? '-'}</span>{kid.dob ? ` · Born ${new Date(kid.dob).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}` : ''}
+                    </p>
+                  </div>
+                  <a
+                    href={`/events?profileId=${kid.id}`}
+                    className="text-xs text-orange-600 font-semibold hover:text-orange-700 shrink-0"
+                  >
+                    Register →
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {profile.samanvayam_member && showAddKid && (
+            <div className="p-5 space-y-4 border-t border-stone-100">
+              <div>
+                <label className="block text-xs font-semibold text-stone-400 uppercase tracking-widest mb-1.5">Full Name</label>
+                <input
+                  type="text"
+                  value={kidForm.full_name}
+                  onChange={(e) => setKidForm((f) => ({ ...f, full_name: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-stone-400 uppercase tracking-widest mb-1.5">Relationship</label>
+                <select
+                  value={kidForm.relationship}
+                  onChange={(e) => {
+                    const relationship = e.target.value;
+                    setKidForm((f) => ({ ...f, relationship, gender: relationship === 'son' ? 'male' : relationship === 'daughter' ? 'female' : f.gender }));
+                  }}
+                  className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                >
+                  <option value="">Select relationship</option>
+                  {RELATIONSHIPS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-stone-400 uppercase tracking-widest mb-1.5">Gender</label>
+                <select
+                  value={kidForm.gender}
+                  onChange={(e) => setKidForm((f) => ({ ...f, gender: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                >
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-stone-400 uppercase tracking-widest mb-1.5">Date of Birth</label>
+                <input
+                  type="date"
+                  value={kidForm.dob}
+                  onChange={(e) => setKidForm((f) => ({ ...f, dob: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 border border-stone-200 rounded-xl text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => { setShowAddKid(false); setKidForm({ full_name: '', relationship: '', gender: '', dob: '' }); }}
+                  className="flex-1 py-2.5 border border-stone-200 rounded-xl text-sm font-medium text-stone-500 hover:bg-stone-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={addKid}
+                  disabled={addingKid || !kidForm.full_name.trim() || !kidForm.relationship || !kidForm.gender || !kidForm.dob}
+                  className="flex-1 bg-orange-600 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-orange-500 transition-colors disabled:opacity-50"
+                >
+                  {addingKid ? 'Adding...' : 'Add member'}
                 </button>
               </div>
             </div>
