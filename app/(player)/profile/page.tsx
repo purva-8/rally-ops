@@ -57,6 +57,8 @@ export default function ProfilePage() {
   const [stats, setStats] = useState<Stats>({ total: 0, approved: 0, pending: 0 });
   const [roles, setRoles] = useState<Roles>({ isOrganizer: false, isCoach: false, isAdminStaff: false });
   const [loading, setLoading] = useState(true);
+  const [isDev, setIsDev] = useState(false);
+  useEffect(() => { fetch('/api/dev/me').then((r) => r.json()).then((d) => setIsDev(!!d.ok)).catch(() => {}); }, []);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ full_name: '', mobile: '', qid: '', dob: '', sid: '' });
@@ -225,6 +227,11 @@ export default function ProfilePage() {
                   <span className="inline-block text-[11px] font-semibold bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">
                     Coach
                   </span>
+                )}
+                {isDev && (
+                  <a href="/dev" className="inline-block text-[11px] font-semibold bg-pink-500/20 text-pink-300 px-2 py-0.5 rounded-full hover:bg-pink-500/30">
+                    Developer
+                  </a>
                 )}
                 <span className="inline-block text-[11px] font-semibold bg-white/10 text-white/70 px-2 py-0.5 rounded-full">
                   Player
