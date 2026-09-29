@@ -145,9 +145,10 @@ export default function ProfilePage() {
   async function saveKidQid(id: string) {
     const qid = qidDraft.trim();
     if (qid && !/^\d{11}$/.test(qid)) { setQidMsg('Qatar ID is 11 digits'); return; }
-    const { error } = await createClient().from('player_profiles').update({ qid: qid || null }).eq('id', id);
-    if (error) { setQidMsg(error.message); return; }
-    setKids((ks) => ks.map((k) => (k.id === id ? { ...k, qid: qid || null } : k)));
+    const res = await fetch('/api/family/qid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ profileId: id, qid }) });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { setQidMsg(d.error ?? 'Could not save'); return; }
+    setKids((ks) => ks.map((k) => (k.id === id ? { ...k, qid: d.qid } : k)));
     setQidEdit(null); setQidMsg('');
   }
 
