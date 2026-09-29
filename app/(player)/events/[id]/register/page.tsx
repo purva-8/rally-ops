@@ -65,6 +65,7 @@ function RegisterPageInner() {
   const [qidResults, setQidResults] = useState<Record<string, { id: string; name: string; gender: string | null; relationship: string | null }[]>>({});
   const [typedName, setTypedName] = useState<Record<string, boolean>>({});
   const [candidates, setCandidates] = useState<Record<string, { id: string; name: string }[]>>({});
+  const [nameMatches, setNameMatches] = useState<Record<string, { id: string; name: string; hint: string }[] | null>>({});
   const [nameDraft, setNameDraft] = useState<Record<string, string>>({});
   const [emergencyContact, setEmergencyContact] = useState('');
   const [existingRegs, setExistingRegs] = useState<string[]>([]);
@@ -209,6 +210,21 @@ function RegisterPageInner() {
   function shareOf(cat: string) {
     const fee = feeOf(cat);
     return isDoublesCategory(cat) ? fee / 2 : fee;
+  }
+
+  // "Use" looks the typed name up on the platform first (typos and case are fine); only if nobody is found is it kept as plain text
+  async function useTypedName(cat: string) {
+    const typed = (nameDraft[cat] ?? '').trim();
+    if (!typed) return;
+    const res = await fetch(`/api/partner-search?q=${encodeURIComponent(typed)}`);
+    const d = await res.json().catch(() => ({ people: [] }));
+    const found = (d.people ?? []).filter((p: { id: string }) => p.id !== profile?.id);
+    if (found.length === 0) {
+      setPartners((prev) => ({ ...prev, [cat]: { id: null, name: typed } }));
+      setNameMatches((m) => ({ ...m, [cat]: null }));
+    } else {
+      setNameMatches((m) => ({ ...m, [cat]: found }));
+    }
   }
 
   async function findPartner(cat: string) {
@@ -607,6 +623,7 @@ function RegisterPageInner() {
                         </div>
 
                         {typedName[cat] ? (
+                          <div>
                           <div className="flex gap-2">
                             <input
                               type="text"
@@ -616,19 +633,33 @@ function RegisterPageInner() {
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' && (nameDraft[cat] ?? '').trim()) {
                                   e.preventDefault();
-                                  setPartners((prev) => ({ ...prev, [cat]: { id: null, name: (nameDraft[cat] ?? '').trim() } }));
+                                  useTypedName(cat);
                                 }
                               }}
                               className={inputCls}
                               placeholder="Partner's full name"
                             />
                             <button
-                              onClick={() => setPartners((prev) => ({ ...prev, [cat]: { id: null, name: (nameDraft[cat] ?? '').trim() } }))}
+                              onClick={() => useTypedName(cat)}
                               disabled={!(nameDraft[cat] ?? '').trim()}
                               className="px-4 rounded-xl bg-stone-900 text-white text-sm font-semibold shrink-0 disabled:opacity-40"
                             >
                               Use
                             </button>
+                          </div>
+                          {nameMatches[cat] && (
+                            <div className="mt-2 space-y-2">
+                              <p className="text-xs font-semibold text-emerald-700">Is this who you mean?</p>
+                              {nameMatches[cat]!.map((m) => (
+                                <button key={m.id} onClick={() => { setPartners((prev) => ({ ...prev, [cat]: { id: m.id, name: m.name } })); setNameMatches((x) => ({ ...x, [cat]: null })); }}
+                                  className="w-full text-left px-4 py-2.5 rounded-xl border-2 border-emerald-300 bg-emerald-50 text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+                                  {m.name} {m.hint && <span className="text-xs font-normal text-emerald-700">· {m.hint}</span>}
+                                </button>
+                              ))}
+                              <button onClick={() => { setPartners((prev) => ({ ...prev, [cat]: { id: null, name: (nameDraft[cat] ?? '').trim() } })); setNameMatches((x) => ({ ...x, [cat]: null })); }}
+                                className="text-xs text-stone-500 underline">None of these, use "{(nameDraft[cat] ?? '').trim()}" as typed</button>
+                            </div>
+                          )}
                           </div>
                         ) : (
                           <button onClick={() => setTypedName((t) => ({ ...t, [cat]: true }))} className="text-xs text-orange-600 font-semibold">
