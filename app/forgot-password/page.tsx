@@ -34,8 +34,11 @@ export default function ForgotPasswordPage() {
 
         {sent ? (
           <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-4 rounded-xl">
-            If an account exists for <strong>{email}</strong>, a reset link is on its way. Open it in this same browser.
-            Check your spam folder if you do not see it within a few minutes.
+            <p>If an account exists for <strong>{email}</strong>, a reset link is on its way.</p>
+            <ul className="list-disc pl-5 mt-3 space-y-1.5">
+              <li>Check your spam folder if you do not see it within a few minutes.</li>
+              <li>Reach out to +974 3311 5157 for any technical assistance or if the issue persists.</li>
+            </ul>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
