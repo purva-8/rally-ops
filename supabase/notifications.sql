@@ -65,3 +65,27 @@ create trigger matches_notify before update on matches
   for each row execute function matches_track_notifications();
 
 notify pgrst, 'reload schema';
+
+-- Withdrawing marks an entry as withdrawn instead of deleting it. The old policy only allowed
+-- rows to stay 'pending', so it blocked that change.
+drop policy if exists "registrations_own_withdraw" on registrations;
+create policy "registrations_own_withdraw" on registrations
+  for update
+  using (
+    status = 'pending'
+    and exists (
+      select 1 from player_profiles p
+      where p.id = registrations.player_id
+      and (p.auth_user_id = auth.uid()
+        or exists (select 1 from player_profiles parent where parent.id = p.parent_id and parent.auth_user_id = auth.uid()))
+    )
+  )
+  with check (
+    status = 'withdrawn'
+    and exists (
+      select 1 from player_profiles p
+      where p.id = registrations.player_id
+      and (p.auth_user_id = auth.uid()
+        or exists (select 1 from player_profiles parent where parent.id = p.parent_id and parent.auth_user_id = auth.uid()))
+    )
+  );
