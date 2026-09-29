@@ -58,7 +58,11 @@ function RegisterPageInner() {
   const [error, setError] = useState('');
 
   const [selected, setSelected] = useState<string[]>([]);
-  const [partners, setPartners] = useState<Record<string, string>>({});
+  // Doubles partner per category: linked profile (id) when known, otherwise just a typed name
+  const [partners, setPartners] = useState<Record<string, { id: string | null; name: string }>>({});
+  const [qidSearch, setQidSearch] = useState<Record<string, string>>({});
+  const [qidResults, setQidResults] = useState<Record<string, { id: string; name: string; gender: string | null; relationship: string | null }[]>>({});
+  const [typedName, setTypedName] = useState<Record<string, boolean>>({});
   const [emergencyContact, setEmergencyContact] = useState('');
   const [existingRegs, setExistingRegs] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState<string[]>([]);
@@ -182,7 +186,27 @@ function RegisterPageInner() {
 
   const doublesSelected = selected.filter(isDoublesCategory);
   const feeOf = (cat: string) => categoryFee(cat, tournament?.entry_fee ?? 0);
-  const totalFee = selected.reduce((sum, cat) => sum + feeOf(cat), 0);
+  const totalFee = selected.reduce((sum, cat) => sum + shareOf(cat), 0);
+
+  const familyIds = [account, ...family].filter(Boolean).map((p) => p!.id);
+  const partnerOptions = [account, ...family].filter((p): p is Profile => !!p && p.id !== profile?.id);
+
+  // A doubles fee is per pair (30 + 30). With a linked partner in another household each pays their half;
+  // inside one family the pair is paid together, and with no linked partner the registrant covers the pair.
+  function shareOf(cat: string) {
+    const fee = feeOf(cat);
+    const partner = partners[cat];
+    if (isDoublesCategory(cat) && partner?.id && !familyIds.includes(partner.id)) return fee / 2;
+    return fee;
+  }
+
+  async function findPartner(cat: string) {
+    const qid = (qidSearch[cat] ?? '').trim();
+    if (qid.length < 6) return;
+    const res = await fetch(`/api/partner-lookup?qid=${encodeURIComponent(qid)}`);
+    const data = await res.json().catch(() => ({ people: [] }));
+    setQidResults((r) => ({ ...r, [cat]: (data.people ?? []).filter((p: { id: string }) => p.id !== profile?.id) }));
+  }
 
   function toggleCategory(cat: string) {
     setSelected((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]);
@@ -200,10 +224,11 @@ function RegisterPageInner() {
         tournament_id: tournament.id,
         player_id: profile.id,
         category: cat,
-        partner_name: isDoublesCategory(cat) ? (partners[cat] ?? '').trim() : null,
+        partner_id: isDoublesCategory(cat) ? partners[cat]?.id ?? null : null,
+        partner_name: isDoublesCategory(cat) ? (partners[cat]?.name ?? '').trim() : null,
         emergency_contact: emergencyContact || null,
         status: 'pending',
-        payment_status: feeOf(cat) > 0 ? 'unpaid' : 'waived',
+        payment_status: shareOf(cat) > 0 ? 'unpaid' : 'waived',
       })));
     if (error) {
       setError(error.code === '23505' ? 'This person is already registered in one of these categories.' : error.message);
@@ -224,8 +249,8 @@ function RegisterPageInner() {
           eventDate: tournament.event_date,
           entries: selected.map((cat) => ({
             label: CATEGORY_LABELS[cat] ?? cat,
-            partner: isDoublesCategory(cat) ? (partners[cat] ?? '').trim() : null,
-            fee: feeOf(cat),
+            partner: isDoublesCategory(cat) ? (partners[cat]?.name ?? '').trim() : null,
+            fee: shareOf(cat),
           })),
         }),
       }).catch(() => {});
@@ -487,21 +512,84 @@ function RegisterPageInner() {
         {/* Step: Partners (one per doubles category) */}
         {step === 'partner' && (
           <div>
-            <h2 className="text-base font-semibold text-stone-800 mb-1">Partner details</h2>
-            <p className="text-sm text-stone-500 mb-6">Enter the partner&apos;s name for each doubles category. They don&apos;t need to register separately.</p>
-            <div className="space-y-4 mb-6">
-              {doublesSelected.map((cat) => (
-                <div key={cat}>
-                  <label className="block text-sm font-medium text-stone-700 mb-1.5">{CATEGORY_LABELS[cat] ?? cat}: partner&apos;s full name</label>
-                  <input
-                    type="text"
-                    value={partners[cat] ?? ''}
-                    onChange={(e) => setPartners((p) => ({ ...p, [cat]: e.target.value }))}
-                    className={inputCls}
-                    placeholder="Full name"
-                  />
-                </div>
-              ))}
+            <h2 className="text-base font-semibold text-stone-800 mb-1">Choose your partners</h2>
+            <p className="text-sm text-stone-500 mb-6">Pick from your family, or find a partner by their Qatar ID. A linked partner pays and sees their own half.</p>
+            <div className="space-y-6 mb-6">
+              {doublesSelected.map((cat) => {
+                const chosen = partners[cat];
+                return (
+                  <div key={cat} className="bg-white rounded-2xl border border-stone-200 p-4">
+                    <p className="text-sm font-semibold text-stone-800 mb-3">{CATEGORY_LABELS[cat] ?? cat}</p>
+
+                    {chosen?.name ? (
+                      <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
+                        <span className="text-sm font-medium text-orange-800">{chosen.name}{chosen.id ? '' : ' (not on the platform)'}</span>
+                        <button onClick={() => setPartners((p) => ({ ...p, [cat]: { id: null, name: '' } }))} className="text-xs text-orange-600 font-semibold">Change</button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {partnerOptions.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs text-stone-400">Your family</p>
+                            {partnerOptions.map((p) => (
+                              <button
+                                key={p.id}
+                                onClick={() => setPartners((prev) => ({ ...prev, [cat]: { id: p.id, name: p.full_name } }))}
+                                className="w-full text-left px-4 py-2.5 rounded-xl border border-stone-200 text-sm hover:border-orange-400 transition-colors"
+                              >
+                                {p.full_name} <span className="text-xs text-stone-400">· {p.id === account?.id ? 'Me' : relLabel(p.relationship)}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        <div>
+                          <p className="text-xs text-stone-400 mb-1.5">Someone else, by Qatar ID</p>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={qidSearch[cat] ?? ''}
+                              onChange={(e) => setQidSearch((q) => ({ ...q, [cat]: e.target.value }))}
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); findPartner(cat); } }}
+                              className={inputCls}
+                              placeholder="Partner's Qatar ID"
+                            />
+                            <button onClick={() => findPartner(cat)} className="px-4 rounded-xl bg-stone-900 text-white text-sm font-semibold shrink-0">Find</button>
+                          </div>
+                          {qidResults[cat] && (
+                            <div className="mt-2 space-y-2">
+                              {qidResults[cat].length === 0 && <p className="text-xs text-stone-400">No one found with that ID yet.</p>}
+                              {qidResults[cat].map((p) => (
+                                <button
+                                  key={p.id}
+                                  onClick={() => setPartners((prev) => ({ ...prev, [cat]: { id: p.id, name: p.name } }))}
+                                  className="w-full text-left px-4 py-2.5 rounded-xl border border-stone-200 text-sm hover:border-orange-400 transition-colors"
+                                >
+                                  {p.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {typedName[cat] ? (
+                          <input
+                            type="text"
+                            autoFocus
+                            onChange={(e) => setPartners((prev) => ({ ...prev, [cat]: { id: null, name: e.target.value } }))}
+                            className={inputCls}
+                            placeholder="Partner's full name"
+                          />
+                        ) : (
+                          <button onClick={() => setTypedName((t) => ({ ...t, [cat]: true }))} className="text-xs text-orange-600 font-semibold">
+                            Partner not on the platform? Type their name
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <div className="flex gap-3">
               <button onClick={() => setStep('category')} className="flex-1 py-3 rounded-xl border border-stone-200 text-sm font-medium text-stone-600 hover:border-stone-300">
@@ -509,7 +597,7 @@ function RegisterPageInner() {
               </button>
               <button
                 onClick={() => setStep('confirm')}
-                disabled={doublesSelected.some((c) => !(partners[c] ?? '').trim())}
+                disabled={doublesSelected.some((c) => !(partners[c]?.name ?? '').trim())}
                 className="flex-1 bg-orange-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-orange-700 transition-colors disabled:opacity-40"
               >
                 Continue →
@@ -537,9 +625,13 @@ function RegisterPageInner() {
                   <div key={cat} className="flex justify-between gap-4 text-sm">
                     <span className="text-stone-700">
                       {CATEGORY_LABELS[cat] ?? cat}
-                      {isDoublesCategory(cat) && <span className="block text-xs text-stone-400">with {partners[cat]}</span>}
+                      {isDoublesCategory(cat) && (
+                        <span className="block text-xs text-stone-400">
+                          with {partners[cat]?.name}{shareOf(cat) !== feeOf(cat) ? ` · your half of QAR ${feeOf(cat)}` : ''}
+                        </span>
+                      )}
                     </span>
-                    <span className="font-medium text-stone-900 shrink-0">{feeOf(cat) > 0 ? `QAR ${feeOf(cat)}` : 'Free'}</span>
+                    <span className="font-medium text-stone-900 shrink-0">{shareOf(cat) > 0 ? `QAR ${shareOf(cat)}` : 'Free'}</span>
                   </div>
                 ))}
               </div>
