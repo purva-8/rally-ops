@@ -315,6 +315,8 @@ alter table player_profiles add column if not exists parent_id uuid references p
 alter table player_profiles add column if not exists samanvayam_member boolean not null default false;
 -- Samanvayam members can add family (spouse, son, daughter, ...) under their own account
 alter table player_profiles add column if not exists relationship text;
+-- Only Samanvayam tournaments offer family registration
+alter table tournaments add column if not exists is_samanvayam boolean not null default false;
 
 -- Existing rows were created with id = the owning auth user's id
 update player_profiles set auth_user_id = id where auth_user_id is null;

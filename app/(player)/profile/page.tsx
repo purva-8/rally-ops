@@ -47,7 +47,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ full_name: '', mobile: '', samanvayam_member: false });
+  const [form, setForm] = useState({ full_name: '', mobile: '' });
   const [kids, setKids] = useState<Kid[]>([]);
   const [showAddKid, setShowAddKid] = useState(false);
   const [addingKid, setAddingKid] = useState(false);
@@ -66,7 +66,7 @@ export default function ProfilePage() {
       ]);
       if (prof) {
         setProfile(prof);
-        setForm({ full_name: prof.full_name, mobile: prof.mobile ?? '', samanvayam_member: prof.samanvayam_member ?? false });
+        setForm({ full_name: prof.full_name, mobile: prof.mobile ?? '' });
         const { data: kidRows } = await supabase.from('player_profiles').select('id,full_name,gender,dob,relationship').eq('parent_id', prof.id);
         setKids(kidRows ?? []);
       }
@@ -91,17 +91,13 @@ export default function ProfilePage() {
     setSaving(true);
     const { data, error } = await createClient()
       .from('player_profiles')
-      .update({ full_name: form.full_name, mobile: form.mobile || null, samanvayam_member: form.samanvayam_member })
+      .update({ full_name: form.full_name, mobile: form.mobile || null })
       .eq('id', profile.id)
       .select()
       .single();
     if (!error && data) {
       setProfile(data);
       setEditing(false);
-      // Family members share the account holder's membership status
-      if (data.samanvayam_member !== profile.samanvayam_member) {
-        await createClient().from('player_profiles').update({ samanvayam_member: data.samanvayam_member }).eq('parent_id', profile.id);
-      }
     }
     setSaving(false);
   }
@@ -244,7 +240,6 @@ export default function ProfilePage() {
                   label: 'Gender',
                   value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '-',
                 },
-                { label: 'Samanvayam member', value: profile.samanvayam_member ? 'Yes' : 'No' },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-center justify-between px-5 py-3.5">
                   <span className="text-xs text-stone-400 font-medium">{label}</span>
@@ -268,15 +263,6 @@ export default function ProfilePage() {
                   />
                 </div>
               ))}
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={form.samanvayam_member}
-                  onChange={(e) => setForm((f) => ({ ...f, samanvayam_member: e.target.checked }))}
-                  className="w-4 h-4 rounded border-stone-300 text-orange-600 focus:ring-orange-500"
-                />
-                <span className="text-sm text-stone-700">I am a Samanvayam member</span>
-              </label>
               <div className="flex gap-3 pt-1">
                 <button
                   onClick={() => setEditing(false)}
@@ -296,7 +282,8 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Family */}
+        {/* Family (Samanvayam members only; the flag is set when registering for a Samanvayam tournament) */}
+        {profile.samanvayam_member && (
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
             <h2 className="text-xs font-bold text-stone-400 uppercase tracking-widest">Family</h2>
@@ -309,12 +296,6 @@ export default function ProfilePage() {
               </button>
             )}
           </div>
-
-          {!profile.samanvayam_member && (
-            <p className="px-5 py-4 text-sm text-stone-400">
-              Family registration is for Samanvayam members. Tick &quot;I am a Samanvayam member&quot; in Player Info above to register your spouse and children.
-            </p>
-          )}
 
           {profile.samanvayam_member && kids.length === 0 && !showAddKid && (
             <p className="px-5 py-4 text-sm text-stone-400">No family members yet. Add your wife, husband, sons or daughters; they register under your Qatar ID.</p>
@@ -405,6 +386,7 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+        )}
 
         {/* Quick nav */}
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm divide-y divide-stone-100 overflow-hidden">

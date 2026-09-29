@@ -13,6 +13,7 @@ type Tournament = {
   status: string;
   venue: string;
   event_date: string;
+  is_samanvayam: boolean;
 };
 
 type Profile = {
@@ -23,7 +24,19 @@ type Profile = {
   qid: string | null;
   samanvayam_member: boolean;
   parent_id: string | null;
+  relationship?: string | null;
 };
+
+const PROFILE_COLS = 'id,full_name,gender,dob,qid,samanvayam_member,parent_id,relationship';
+
+const RELATIONSHIPS = [
+  { value: 'spouse',   label: 'Wife / Husband' },
+  { value: 'son',      label: 'Son' },
+  { value: 'daughter', label: 'Daughter' },
+  { value: 'parent',   label: 'Parent' },
+  { value: 'other',    label: 'Other family member' },
+];
+const relLabel = (v?: string | null) => RELATIONSHIPS.find((r) => r.value === v)?.label ?? 'Family member';
 
 const CATEGORY_LABELS: Record<string, string> = {
   male_singles:   'Male Singles',
@@ -71,7 +84,7 @@ function ageOn(dob: string, onDate: string) {
   return age;
 }
 
-type Step = 'identity' | 'category' | 'partner' | 'confirm' | 'done';
+type Step = 'identity' | 'who' | 'category' | 'partner' | 'confirm' | 'done';
 
 function RegisterPageInner() {
   const { id } = useParams<{ id: string }>();
@@ -90,7 +103,14 @@ function RegisterPageInner() {
   const [partnerName, setPartnerName] = useState('');
   const [emergencyContact, setEmergencyContact] = useState('');
   const [existingRegs, setExistingRegs] = useState<string[]>([]);
-  const [identityForm, setIdentityForm] = useState({ dob: '', qid: '', samanvayamMember: false });
+  const [identityForm, setIdentityForm] = useState({ dob: '', qid: '' });
+  // Samanvayam tournaments: the account holder can register family members too
+  const [account, setAccount] = useState<Profile | null>(null);
+  const [family, setFamily] = useState<Profile[]>([]);
+  const [isMember, setIsMember] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addingMember, setAddingMember] = useState(false);
+  const [memberForm, setMemberForm] = useState({ full_name: '', relationship: '', gender: '', dob: '' });
   const [savingIdentity, setSavingIdentity] = useState(false);
 
   useEffect(() => {
@@ -101,11 +121,11 @@ function RegisterPageInner() {
         return;
       }
       const profileFilter = profileId
-        ? supabase.from('player_profiles').select('id,full_name,gender,dob,qid,samanvayam_member,parent_id').eq('id', profileId).single()
-        : supabase.from('player_profiles').select('id,full_name,gender,dob,qid,samanvayam_member,parent_id').eq('auth_user_id', user.id).single();
+        ? supabase.from('player_profiles').select(PROFILE_COLS).eq('id', profileId).single()
+        : supabase.from('player_profiles').select(PROFILE_COLS).eq('auth_user_id', user.id).single();
 
       const [{ data: t }, { data: p }] = await Promise.all([
-        supabase.from('tournaments').select('id,name,categories,entry_fee,status,venue,event_date').eq('id', id).single(),
+        supabase.from('tournaments').select('id,name,categories,entry_fee,status,venue,event_date,is_samanvayam').eq('id', id).single(),
         profileFilter,
       ]);
       setTournament(t);
@@ -116,9 +136,18 @@ function RegisterPageInner() {
       }
       // Kids inherit QID/DOB/membership from the parent at creation, so only the
       // self-registration path (no parent_id) ever needs the one-time identity step.
-      if (p && !p.parent_id && (!p.dob || !p.qid)) {
+      const selfRegistering = !!p && !p.parent_id;
+      if (selfRegistering && t?.is_samanvayam) {
+        setAccount(p);
+        setIsMember(p.samanvayam_member ?? false);
+        const { data: kids } = await supabase.from('player_profiles').select(PROFILE_COLS).eq('parent_id', p.id);
+        setFamily(kids ?? []);
+      }
+      if (selfRegistering && (!p.dob || !p.qid)) {
         setStep('identity');
-        setIdentityForm({ dob: p.dob ?? '', qid: p.qid ?? '', samanvayamMember: p.samanvayam_member ?? false });
+        setIdentityForm({ dob: p.dob ?? '', qid: p.qid ?? '' });
+      } else if (selfRegistering && t?.is_samanvayam) {
+        setStep('who');
       }
       setLoading(false);
     });
@@ -129,15 +158,60 @@ function RegisterPageInner() {
     setSavingIdentity(true);
     const { data, error } = await createClient()
       .from('player_profiles')
-      .update({ dob: identityForm.dob, qid: identityForm.qid.trim(), samanvayam_member: identityForm.samanvayamMember })
+      .update({ dob: identityForm.dob, qid: identityForm.qid.trim() })
       .eq('id', profile.id)
       .select()
       .single();
     if (!error && data) {
       setProfile(data);
-      setStep('category');
+      if (tournament?.is_samanvayam) { setAccount(data); setStep('who'); }
+      else setStep('category');
     }
     setSavingIdentity(false);
+  }
+
+  async function chooseMember(person: Profile) {
+    setProfile(person);
+    setSelectedCategory('');
+    setPartnerName('');
+    const { data: regs } = await createClient().from('registrations').select('category').eq('tournament_id', id).eq('player_id', person.id);
+    setExistingRegs(regs?.map((r) => r.category) ?? []);
+    setStep('category');
+  }
+
+  async function confirmMembership(checked: boolean) {
+    if (!account) return;
+    if (checked) {
+      const { data } = await createClient()
+        .from('player_profiles').update({ samanvayam_member: true }).eq('id', account.id).select(PROFILE_COLS).single();
+      if (data) { setAccount(data); setIsMember(true); }
+    }
+    // Non-members just register themselves
+    else chooseMember(account);
+  }
+
+  async function addFamilyMember() {
+    if (!account || !memberForm.full_name.trim() || !memberForm.relationship || !memberForm.gender || !memberForm.dob) return;
+    setAddingMember(true);
+    const { data, error } = await createClient()
+      .from('player_profiles')
+      .insert({
+        parent_id: account.id,
+        full_name: memberForm.full_name.trim(),
+        relationship: memberForm.relationship,
+        gender: memberForm.gender,
+        dob: memberForm.dob,
+        qid: account.qid,
+        samanvayam_member: true,
+      })
+      .select(PROFILE_COLS)
+      .single();
+    if (!error && data) {
+      setFamily((prev) => [...prev, data]);
+      setMemberForm({ full_name: '', relationship: '', gender: '', dob: '' });
+      setShowAdd(false);
+    }
+    setAddingMember(false);
   }
 
   const eligibleCategories = tournament?.categories.filter((cat) => {
@@ -239,7 +313,7 @@ function RegisterPageInner() {
         {/* Progress */}
         {step !== 'done' && (
           <div className="flex gap-2 mb-8">
-            {(['identity', 'category', ...(isDoubles ? ['partner'] : []), 'confirm'] as Step[])
+            {(['identity', ...(tournament.is_samanvayam && account ? ['who'] : []), 'category', ...(isDoubles ? ['partner'] : []), 'confirm'] as Step[])
               .filter((s) => s !== 'identity' || step === 'identity')
               .map((s, i, arr) => (
                 <div key={s} className={`h-1.5 flex-1 rounded-full ${step === s ? 'bg-orange-600' : i < arr.indexOf(step) ? 'bg-orange-300' : 'bg-stone-200'}`} />
@@ -274,15 +348,6 @@ function RegisterPageInner() {
                 className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
-            <label className="flex items-center gap-2.5 mb-6 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={identityForm.samanvayamMember}
-                onChange={(e) => setIdentityForm((f) => ({ ...f, samanvayamMember: e.target.checked }))}
-                className="w-4 h-4 rounded border-stone-300 text-orange-600 focus:ring-orange-500"
-              />
-              <span className="text-sm text-stone-700">I am a Samanvayam member</span>
-            </label>
             <button
               onClick={saveIdentity}
               disabled={savingIdentity || !identityForm.qid.trim() || !identityForm.dob.trim()}
@@ -290,6 +355,125 @@ function RegisterPageInner() {
             >
               {savingIdentity ? 'Saving...' : 'Continue →'}
             </button>
+          </div>
+        )}
+
+        {/* Step: Who (Samanvayam tournaments: register yourself or family) */}
+        {step === 'who' && account && (
+          <div>
+            {!isMember ? (
+              <>
+                <h2 className="text-base font-semibold text-stone-800 mb-1">Samanvayam membership</h2>
+                <p className="text-sm text-stone-500 mb-6">
+                  Samanvayam members can register their wife/husband, sons and daughters from one account.
+                </p>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => confirmMembership(true)}
+                    className="w-full text-left px-5 py-4 rounded-xl border border-stone-200 bg-white hover:border-orange-400 transition-colors"
+                  >
+                    <div className="font-medium text-stone-800">Yes, I am a Samanvayam member</div>
+                    <div className="text-xs text-stone-400 mt-0.5">Register myself and my family</div>
+                  </button>
+                  <button
+                    onClick={() => confirmMembership(false)}
+                    className="w-full text-left px-5 py-4 rounded-xl border border-stone-200 bg-white hover:border-orange-400 transition-colors"
+                  >
+                    <div className="font-medium text-stone-800">No, just me</div>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="text-base font-semibold text-stone-800 mb-1">Who are you registering?</h2>
+                <p className="text-sm text-stone-500 mb-4">Everyone registers under your Qatar ID ({account.qid}).</p>
+                <div className="space-y-2 mb-4">
+                  {[account, ...family].map((person) => (
+                    <button
+                      key={person.id}
+                      onClick={() => chooseMember(person)}
+                      className="w-full text-left px-5 py-4 rounded-xl border border-stone-200 bg-white hover:border-orange-400 transition-colors flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="font-medium text-stone-800">{person.full_name}</div>
+                        <div className="text-xs text-stone-400 mt-0.5 capitalize">
+                          {person.id === account.id ? 'Myself' : relLabel(person.relationship)} · {person.gender}
+                        </div>
+                      </div>
+                      <span className="text-orange-600 text-sm font-semibold">Register →</span>
+                    </button>
+                  ))}
+                </div>
+
+                {!showAdd ? (
+                  <button
+                    onClick={() => setShowAdd(true)}
+                    className="w-full border border-dashed border-orange-300 text-orange-600 py-3 rounded-xl font-medium text-sm hover:bg-orange-50 transition-colors"
+                  >
+                    + Add family member
+                  </button>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">Full name</label>
+                      <input
+                        type="text"
+                        value={memberForm.full_name}
+                        onChange={(e) => setMemberForm((f) => ({ ...f, full_name: e.target.value }))}
+                        className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">Relationship</label>
+                      <select
+                        value={memberForm.relationship}
+                        onChange={(e) => {
+                          const relationship = e.target.value;
+                          setMemberForm((f) => ({ ...f, relationship, gender: relationship === 'son' ? 'male' : relationship === 'daughter' ? 'female' : f.gender }));
+                        }}
+                        className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="">Select relationship</option>
+                        {RELATIONSHIPS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">Gender</label>
+                      <select
+                        value={memberForm.gender}
+                        onChange={(e) => setMemberForm((f) => ({ ...f, gender: e.target.value }))}
+                        className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="">Select gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">Date of birth</label>
+                      <input
+                        type="date"
+                        value={memberForm.dob}
+                        onChange={(e) => setMemberForm((f) => ({ ...f, dob: e.target.value }))}
+                        className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={() => setShowAdd(false)} className="flex-1 py-3 rounded-xl border border-stone-200 text-sm font-medium text-stone-600">
+                        Cancel
+                      </button>
+                      <button
+                        onClick={addFamilyMember}
+                        disabled={addingMember || !memberForm.full_name.trim() || !memberForm.relationship || !memberForm.gender || !memberForm.dob}
+                        className="flex-1 bg-orange-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-orange-700 transition-colors disabled:opacity-40"
+                      >
+                        {addingMember ? 'Adding...' : 'Add member'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -320,6 +504,11 @@ function RegisterPageInner() {
                   </button>
                 ))}
               </div>
+            )}
+            {account && (
+              <button onClick={() => setStep('who')} className="w-full mb-3 py-3 rounded-xl border border-stone-200 text-sm font-medium text-stone-600 hover:border-stone-300">
+                ← Change person
+              </button>
             )}
             {selectedCategory && (
               <button
@@ -435,7 +624,7 @@ function RegisterPageInner() {
         {step === 'done' && (
           <div className="text-center py-8">
             <div className="text-6xl mb-4">🎉</div>
-            <h2 className="text-2xl font-bold text-stone-900 mb-2">You&apos;re registered!</h2>
+            <h2 className="text-2xl font-bold text-stone-900 mb-2">{profile && account && profile.id !== account.id ? `${profile.full_name} is registered!` : 'You\u2019re registered!'}</h2>
             <p className="text-stone-500 text-sm mb-2">
               Your registration for <strong>{CATEGORY_LABELS[selectedCategory]}</strong> has been submitted.
             </p>
@@ -455,6 +644,14 @@ function RegisterPageInner() {
               >
                 Register for another category
               </Link>
+              {account && (
+                <button
+                  onClick={() => { setSelectedCategory(''); setPartnerName(''); setStep('who'); }}
+                  className="block w-full border border-orange-300 text-orange-600 py-3 rounded-xl font-medium text-sm hover:bg-orange-50 transition-colors"
+                >
+                  Register a family member
+                </button>
+              )}
               <Link
                 href={`/events/${id}`}
                 className="block w-full bg-stone-100 text-stone-700 py-3 rounded-xl font-medium text-sm hover:bg-stone-200 transition-colors"
