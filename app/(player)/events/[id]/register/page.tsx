@@ -149,8 +149,8 @@ function RegisterPageInner() {
       .single();
     if (!error && data) {
       // Family registers under the same Qatar ID and membership
-      if (family.length || data.qid !== profile.qid || data.samanvayam_member !== profile.samanvayam_member) {
-        await supabase.from('player_profiles').update({ qid, samanvayam_member: data.samanvayam_member }).eq('parent_id', profile.id);
+      if (family.length && data.samanvayam_member !== profile.samanvayam_member) {
+        await supabase.from('player_profiles').update({ samanvayam_member: data.samanvayam_member }).eq('parent_id', profile.id);
       }
       setProfile(data);
       setAccount(data);
