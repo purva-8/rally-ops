@@ -48,14 +48,14 @@ type Entry = {
 };
 
 type Stats = { total: number; approved: number; pending: number };
-type Roles = { isOrganizer: boolean; isCoach: boolean; isAdminStaff: boolean };
+type Roles = { isOwner: boolean; isOrganizer: boolean; isCoach: boolean; isAdminStaff: boolean };
 
 export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [email, setEmail] = useState('');
   const [stats, setStats] = useState<Stats>({ total: 0, approved: 0, pending: 0 });
-  const [roles, setRoles] = useState<Roles>({ isOrganizer: false, isCoach: false, isAdminStaff: false });
+  const [roles, setRoles] = useState<Roles>({ isOwner: false, isOrganizer: false, isCoach: false, isAdminStaff: false });
   const [loading, setLoading] = useState(true);
   const [isDev, setIsDev] = useState(false);
   useEffect(() => { fetch('/api/dev/me').then((r) => r.json()).then((d) => setIsDev(!!d.ok)).catch(() => {}); }, []);
@@ -115,8 +115,9 @@ export default function ProfilePage() {
       });
       const staff = staffRows ?? [];
       setRoles({
+        isOwner:      (ownedTournaments ?? []).length > 0,
         isOrganizer:  (ownedTournaments ?? []).length > 0 || staff.some((s) => s.role === 'admin'),
-        isCoach:      staff.some((s) => s.role === 'coach' || s.role === 'admin'),
+        isCoach:      staff.some((s) => s.role === 'coach'),
         isAdminStaff: staff.some((s) => s.role === 'admin'),
       });
       setLoading(false);
@@ -224,7 +225,7 @@ export default function ProfilePage() {
                     Admin
                   </span>
                 )}
-                {(roles.isOrganizer || roles.isCoach) && (
+                {(roles.isOwner || roles.isCoach) && (
                   <span className="inline-block text-[11px] font-semibold bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">
                     Coach
                   </span>
