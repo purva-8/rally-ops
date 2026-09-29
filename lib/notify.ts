@@ -22,7 +22,7 @@ async function inChunks<T>(ids: string[], run: (part: string[]) => PromiseLike<{
 }
 
 // person (player profile id) -> the account holder who gets the email
-async function resolveRecipients(admin: Admin, personIds: string[]) {
+export async function resolveRecipients(admin: Admin, personIds: string[]) {
   const unique = Array.from(new Set(personIds.filter(Boolean)));
   const people = await inChunks<any>(unique, (p) => admin.from('player_profiles').select('id, full_name, parent_id, auth_user_id').in('id', p));
   const parentIds = Array.from(new Set(people.map((p) => p.parent_id).filter(Boolean)));

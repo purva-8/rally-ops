@@ -208,6 +208,11 @@ export async function GET(req: NextRequest) {
       // Entries: the main sheet, first useful columns only, everything else on "All details"
       const simple = ['#', 'Player', 'Category', 'Partner', 'Pairing', 'Status', 'Fee due (QAR)', 'Payment', 'Registered by (family head)', 'Mobile'];
       addSheet('Entries', tableSheet({ headers: simple, rows: reg.rows }));
+      const billLines = live.filter((r) => Number(r['Fee due (QAR)']) > 0).map((r, i) => ({
+        '#': i + 1, 'Family head': r['Registered by (family head)'] || r.Player, Person: r.Player, Category: r.Category,
+        'Partner': r.Partner, 'Amount (QAR)': Number(r['Fee due (QAR)']), Payment: r.Payment || 'unpaid', Status: r.Status,
+      }));
+      addSheet('Bill lines', tableSheet({ headers: ['#', 'Family head', 'Person', 'Category', 'Partner', 'Amount (QAR)', 'Payment', 'Status'], rows: billLines }));
       addSheet('Families', tableSheet({ headers: ['Family head', 'Qatar ID', 'Mobile', 'Samanvayam ID', 'People playing', 'Entries', 'Due (QAR)', 'Paid (QAR)', 'Balance (QAR)'], rows: famRows }));
       cats.forEach((c) => {
         const rows = live.filter((r) => r.Category === c).map((r, i) => ({ '#': i + 1, Player: r.Player, Partner: r.Partner, Status: r.Status, Gender: r.Gender, Age: r['Age on event day'], Mobile: r.Mobile, Payment: r.Payment }));
