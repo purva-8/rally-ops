@@ -216,13 +216,17 @@ function RegisterPageInner() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: user.email,
           playerName: profile.full_name,
+          tournamentId: tournament.id,
           tournamentName: tournament.name,
-          category: selected.map((c) => CATEGORY_LABELS[c] ?? c).join(', '),
           registrationCode: profile.qid ?? '',
           venue: tournament.venue,
           eventDate: tournament.event_date,
+          entries: selected.map((cat) => ({
+            label: CATEGORY_LABELS[cat] ?? cat,
+            partner: isDoublesCategory(cat) ? (partners[cat] ?? '').trim() : null,
+            fee: feeOf(cat),
+          })),
         }),
       }).catch(() => {});
     }

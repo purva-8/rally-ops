@@ -123,6 +123,14 @@ export async function GET(req: NextRequest) {
         'After': l.new_row ? JSON.stringify(l.new_row) : '',
       }));
       csv = toCsv(rows, ['When', 'Action', 'Table', 'Row id', 'Actor', 'Before', 'After']);
+    } else if (type === 'emails') {
+      const log = await fetchAll<any>((from, to) =>
+        supabase.from('email_log').select('*').eq('tournament_id', tournamentId)
+          .order('at', { ascending: false }).range(from, to));
+      csv = toCsv(
+        log.map((l) => ({ 'When': formatDateTime(l.at), 'Type': l.kind, 'To': l.to_email, 'Subject': l.subject, 'Status': l.status, 'Error': l.error ?? '' })),
+        ['When', 'Type', 'To', 'Subject', 'Status', 'Error'],
+      );
     } else {
       return NextResponse.json({ error: 'Unknown export type' }, { status: 400 });
     }
