@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { IconMapPin, IconCalendar, IconClock, IconUsers } from '@/components/icons';
 
@@ -30,7 +31,9 @@ const FILTERS = ['all', 'open', 'live', 'upcoming', 'completed'] as const;
 type Filter = typeof FILTERS[number];
 const FILTER_LABELS: Record<Filter, string> = { all: 'All', open: 'Registering', live: 'Live', upcoming: 'Upcoming', completed: 'Completed' };
 
-export default function EventsPage() {
+function EventsPageInner() {
+  const searchParams = useSearchParams();
+  const profileId = searchParams.get('profileId');
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
@@ -162,7 +165,7 @@ export default function EventsPage() {
             return (
               <Link
                 key={t.id}
-                href={`/events/${t.id}`}
+                href={profileId ? `/events/${t.id}?profileId=${profileId}` : `/events/${t.id}`}
                 className={`block bg-white rounded-2xl border border-stone-200 border-l-4 ${cfg.bar} hover:shadow-md hover:-translate-y-px transition-all duration-150 overflow-hidden`}
               >
                 <div className="p-5">
@@ -230,5 +233,13 @@ export default function EventsPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function EventsPage() {
+  return (
+    <Suspense fallback={null}>
+      <EventsPageInner />
+    </Suspense>
   );
 }

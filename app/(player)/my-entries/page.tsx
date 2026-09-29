@@ -14,6 +14,7 @@ type Entry = {
   partner_name: string | null;
   payment_status: string;
   created_at: string;
+  player_id: string | null;
   tournaments: {
     id: string;
     name: string;
@@ -48,6 +49,7 @@ export default function MyEntriesPage() {
   const router = useRouter();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [qid, setQid] = useState<string | null>(null);
+  const [names, setNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
 
@@ -55,17 +57,21 @@ export default function MyEntriesPage() {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.push('/login?redirect=/my-entries'); return; }
-      const [{ data }, { data: prof }] = await Promise.all([
-        supabase
-          .from('registrations')
-          .select(`id, category, status, registration_code, partner_name, payment_status, created_at,
-            tournaments ( id, name, venue, entry_fee, sport, event_date )`)
-          .eq('player_id', user.id)
-          .order('created_at', { ascending: false }),
-        supabase.from('player_profiles').select('qid').eq('id', user.id).single(),
-      ]);
+      const { data: prof } = await supabase.from('player_profiles').select('id,qid').eq('auth_user_id', user.id).single();
+      if (!prof) { setLoading(false); return; }
+      setQid(prof.qid ?? null);
+
+      const { data: kids } = await supabase.from('player_profiles').select('id,full_name').eq('parent_id', prof.id);
+      const profileIds = [prof.id, ...(kids ?? []).map((k) => k.id)];
+      setNames(Object.fromEntries((kids ?? []).map((k) => [k.id, k.full_name])));
+
+      const { data } = await supabase
+        .from('registrations')
+        .select(`id, category, status, registration_code, partner_name, payment_status, created_at, player_id,
+          tournaments ( id, name, venue, entry_fee, sport, event_date )`)
+        .in('player_id', profileIds)
+        .order('created_at', { ascending: false });
       setEntries((data as unknown as Entry[]) ?? []);
-      setQid(prof?.qid ?? null);
       setLoading(false);
     });
   }, [router]);
@@ -168,6 +174,9 @@ export default function MyEntriesPage() {
                     <h3 className="text-base font-bold text-stone-900 leading-snug mb-1">
                       {entry.tournaments?.name ?? 'Unknown tournament'}
                     </h3>
+                    {entry.player_id && names[entry.player_id] && (
+                      <p className="text-xs text-orange-600 font-medium mb-1">For {names[entry.player_id]}</p>
+                    )}
 
                     {/* Category */}
                     <p className="text-sm text-stone-500 mb-3">

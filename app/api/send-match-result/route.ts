@@ -213,7 +213,9 @@ export async function POST(req: NextRequest) {
     }),
   ]);
 
-  const errors = results.filter((r) => r.status === 'rejected');
+  const errors = results.filter(
+    (r) => r.status === 'rejected' || (r.status === 'fulfilled' && r.value.error)
+  );
   if (errors.length > 0) {
     console.error('Email send errors:', errors);
     return NextResponse.json({ ok: false, errors }, { status: 500 });

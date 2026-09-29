@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { IconMapPin, IconCalendar, IconClock, IconUsers, IconChevronRight } from '@/components/icons';
@@ -45,9 +45,11 @@ const STATUS_CONFIG = {
 
 const SPORT_LABEL = 'Badminton';
 
-export default function TournamentDetailPage() {
+function TournamentDetailPageInner() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const profileId = searchParams.get('profileId');
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [regCount, setRegCount] = useState(0);
@@ -221,7 +223,7 @@ export default function TournamentDetailPage() {
         <div className="max-w-2xl mx-auto">
           {isOpen ? (
             <button
-              onClick={() => router.push(`/events/${id}/register`)}
+              onClick={() => router.push(profileId ? `/events/${id}/register?profileId=${profileId}` : `/events/${id}/register`)}
               className="w-full bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white py-4 rounded-2xl font-bold text-base transition-colors shadow-xl shadow-orange-900/20"
             >
               Register for this Tournament
@@ -235,5 +237,13 @@ export default function TournamentDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TournamentDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <TournamentDetailPageInner />
+    </Suspense>
   );
 }

@@ -308,3 +308,85 @@ alter table matches alter column player2_name drop not null;
 alter table player_profiles add column if not exists qid text;
 create index if not exists player_profiles_qid_idx on player_profiles(qid);
 alter table registrations add column if not exists manual_qid text;
+
+-- ─── Family accounts: kid profiles managed by a parent, no login of their own ──
+alter table player_profiles add column if not exists auth_user_id uuid references auth.users(id) on delete cascade;
+alter table player_profiles add column if not exists parent_id uuid references player_profiles(id) on delete cascade;
+alter table player_profiles add column if not exists samanvayam_member boolean not null default false;
+-- Samanvayam members can add family (spouse, son, daughter, ...) under their own account
+alter table player_profiles add column if not exists relationship text;
+
+-- Existing rows were created with id = the owning auth user's id
+update player_profiles set auth_user_id = id where auth_user_id is null;
+
+alter table player_profiles alter column id set default uuid_generate_v4();
+alter table player_profiles drop constraint if exists player_profiles_id_fkey;
+
+create unique index if not exists player_profiles_auth_user_id_idx on player_profiles(auth_user_id);
+create index if not exists player_profiles_parent_id_idx on player_profiles(parent_id);
+
+drop policy if exists "profiles_own_insert" on player_profiles;
+drop policy if exists "profiles_own_update" on player_profiles;
+
+-- A user manages their own profile row, and any kid rows they parent
+create policy "profiles_own_insert" on player_profiles
+  for insert with check (
+    auth.uid() = auth_user_id
+    or exists (
+      select 1 from player_profiles parent
+      where parent.id = player_profiles.parent_id
+      and parent.auth_user_id = auth.uid()
+    )
+  );
+
+create policy "profiles_own_update" on player_profiles
+  for update using (
+    auth.uid() = auth_user_id
+    or exists (
+      select 1 from player_profiles parent
+      where parent.id = player_profiles.parent_id
+      and parent.auth_user_id = auth.uid()
+    )
+  );
+
+-- Registrations: a parent may act on behalf of their kids' profiles too
+drop policy if exists "registrations_own_read" on registrations;
+drop policy if exists "registrations_own_insert" on registrations;
+drop policy if exists "registrations_own_withdraw" on registrations;
+
+create policy "registrations_own_read" on registrations
+  for select using (
+    exists (
+      select 1 from player_profiles p
+      where p.id = registrations.player_id
+      and (
+        p.auth_user_id = auth.uid()
+        or exists (select 1 from player_profiles parent where parent.id = p.parent_id and parent.auth_user_id = auth.uid())
+      )
+    )
+  );
+
+create policy "registrations_own_insert" on registrations
+  for insert with check (
+    exists (
+      select 1 from player_profiles p
+      where p.id = registrations.player_id
+      and (
+        p.auth_user_id = auth.uid()
+        or exists (select 1 from player_profiles parent where parent.id = p.parent_id and parent.auth_user_id = auth.uid())
+      )
+    )
+  );
+
+create policy "registrations_own_withdraw" on registrations
+  for update using (
+    status = 'pending'
+    and exists (
+      select 1 from player_profiles p
+      where p.id = registrations.player_id
+      and (
+        p.auth_user_id = auth.uid()
+        or exists (select 1 from player_profiles parent where parent.id = p.parent_id and parent.auth_user_id = auth.uid())
+      )
+    )
+  );

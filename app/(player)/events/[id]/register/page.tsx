@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
@@ -21,6 +21,8 @@ type Profile = {
   gender: string;
   dob: string | null;
   qid: string | null;
+  samanvayam_member: boolean;
+  parent_id: string | null;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -71,8 +73,10 @@ function ageOn(dob: string, onDate: string) {
 
 type Step = 'identity' | 'category' | 'partner' | 'confirm' | 'done';
 
-export default function RegisterPage() {
+function RegisterPageInner() {
   const { id } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const profileId = searchParams.get('profileId');
   const router = useRouter();
 
   const [step, setStep] = useState<Step>('category');
@@ -86,7 +90,7 @@ export default function RegisterPage() {
   const [partnerName, setPartnerName] = useState('');
   const [emergencyContact, setEmergencyContact] = useState('');
   const [existingRegs, setExistingRegs] = useState<string[]>([]);
-  const [identityForm, setIdentityForm] = useState({ dob: '', qid: '' });
+  const [identityForm, setIdentityForm] = useState({ dob: '', qid: '', samanvayamMember: false });
   const [savingIdentity, setSavingIdentity] = useState(false);
 
   useEffect(() => {
@@ -96,28 +100,36 @@ export default function RegisterPage() {
         router.push(`/login?redirect=/events/${id}/register`);
         return;
       }
-      const [{ data: t }, { data: p }, { data: regs }] = await Promise.all([
+      const profileFilter = profileId
+        ? supabase.from('player_profiles').select('id,full_name,gender,dob,qid,samanvayam_member,parent_id').eq('id', profileId).single()
+        : supabase.from('player_profiles').select('id,full_name,gender,dob,qid,samanvayam_member,parent_id').eq('auth_user_id', user.id).single();
+
+      const [{ data: t }, { data: p }] = await Promise.all([
         supabase.from('tournaments').select('id,name,categories,entry_fee,status,venue,event_date').eq('id', id).single(),
-        supabase.from('player_profiles').select('id,full_name,gender,dob,qid').eq('id', user.id).single(),
-        supabase.from('registrations').select('category').eq('tournament_id', id).eq('player_id', user.id),
+        profileFilter,
       ]);
       setTournament(t);
       setProfile(p);
-      setExistingRegs(regs?.map((r) => r.category) ?? []);
-      if (p && (!p.dob || !p.qid)) {
+      if (p) {
+        const { data: regs } = await supabase.from('registrations').select('category').eq('tournament_id', id).eq('player_id', p.id);
+        setExistingRegs(regs?.map((r) => r.category) ?? []);
+      }
+      // Kids inherit QID/DOB/membership from the parent at creation, so only the
+      // self-registration path (no parent_id) ever needs the one-time identity step.
+      if (p && !p.parent_id && (!p.dob || !p.qid)) {
         setStep('identity');
-        setIdentityForm({ dob: p.dob ?? '', qid: p.qid ?? '' });
+        setIdentityForm({ dob: p.dob ?? '', qid: p.qid ?? '', samanvayamMember: p.samanvayam_member ?? false });
       }
       setLoading(false);
     });
-  }, [id, router]);
+  }, [id, router, profileId]);
 
   async function saveIdentity() {
     if (!profile || !identityForm.dob.trim() || !identityForm.qid.trim()) return;
     setSavingIdentity(true);
     const { data, error } = await createClient()
       .from('player_profiles')
-      .update({ dob: identityForm.dob, qid: identityForm.qid.trim() })
+      .update({ dob: identityForm.dob, qid: identityForm.qid.trim(), samanvayam_member: identityForm.samanvayamMember })
       .eq('id', profile.id)
       .select()
       .single();
@@ -216,6 +228,9 @@ export default function RegisterPage() {
         <div className="max-w-lg mx-auto">
           <p className="text-orange-400 text-xs font-bold tracking-widest uppercase mb-1">Registration</p>
           <h1 className="text-2xl font-bold">{tournament.name}</h1>
+          {profile?.parent_id && (
+            <p className="text-orange-300 text-xs mt-2">Registering: <strong>{profile.full_name}</strong> (managed by you)</p>
+          )}
         </div>
       </div>
 
@@ -259,6 +274,15 @@ export default function RegisterPage() {
                 className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
+            <label className="flex items-center gap-2.5 mb-6 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={identityForm.samanvayamMember}
+                onChange={(e) => setIdentityForm((f) => ({ ...f, samanvayamMember: e.target.checked }))}
+                className="w-4 h-4 rounded border-stone-300 text-orange-600 focus:ring-orange-500"
+              />
+              <span className="text-sm text-stone-700">I am a Samanvayam member</span>
+            </label>
             <button
               onClick={saveIdentity}
               disabled={savingIdentity || !identityForm.qid.trim() || !identityForm.dob.trim()}
@@ -421,7 +445,12 @@ export default function RegisterPage() {
             <div className="space-y-3">
               <Link
                 href={`/events/${id}/register`}
-                onClick={() => { setStep('category'); setSelectedCategory(''); setPartnerName(''); }}
+                onClick={() => {
+                  setExistingRegs((prev) => [...prev, selectedCategory]);
+                  setStep('category');
+                  setSelectedCategory('');
+                  setPartnerName('');
+                }}
                 className="block w-full border border-orange-300 text-orange-600 py-3 rounded-xl font-medium text-sm hover:bg-orange-50 transition-colors"
               >
                 Register for another category
@@ -437,5 +466,13 @@ export default function RegisterPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageInner />
+    </Suspense>
   );
 }
