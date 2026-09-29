@@ -1,45 +1,27 @@
+import { CATEGORY_LABELS as SHARED_LABELS } from '@/lib/categories';
+
 export type Gender = 'male' | 'female';
 
-export type Category =
-  | 'male_singles'
-  | 'female_singles'
-  | 'male_doubles'
-  | 'female_doubles'
-  | 'spouse_doubles'
-  | 'boys_u13'
-  | 'boys_u15'
-  | 'boys_u18'
-  | 'girls_u13'
-  | 'girls_u15'
-  | 'girls_u18';
+// Categories are plain ids now (see lib/categories.ts for labels and eligibility)
+export type Category = string;
 
-export const CATEGORY_LABELS: Record<Category, string> = {
-  male_singles: 'Male Singles',
-  female_singles: 'Female Singles',
-  male_doubles: 'Male Doubles',
-  female_doubles: 'Female Doubles',
-  spouse_doubles: 'Spouse Doubles',
-  boys_u13: 'Boys U13',
-  boys_u15: 'Boys U15',
-  boys_u18: 'Boys U18',
-  girls_u13: 'Girls U13',
-  girls_u15: 'Girls U15',
-  girls_u18: 'Girls U18',
-};
+export const CATEGORY_LABELS: Record<string, string> = SHARED_LABELS;
 
-export const CATEGORY_COLORS: Record<Category, string> = {
-  male_singles: 'bg-blue-100 text-blue-800',
-  female_singles: 'bg-pink-100 text-pink-800',
-  male_doubles: 'bg-indigo-100 text-indigo-800',
-  female_doubles: 'bg-purple-100 text-purple-800',
-  spouse_doubles: 'bg-rose-100 text-rose-800',
-  boys_u13: 'bg-cyan-100 text-cyan-800',
-  boys_u15: 'bg-teal-100 text-teal-800',
-  boys_u18: 'bg-sky-100 text-sky-800',
-  girls_u13: 'bg-fuchsia-100 text-fuchsia-800',
-  girls_u15: 'bg-rose-100 text-rose-800',
-  girls_u18: 'bg-violet-100 text-violet-800',
-};
+const COLOR_POOL = [
+  'bg-blue-100 text-blue-800', 'bg-pink-100 text-pink-800', 'bg-indigo-100 text-indigo-800',
+  'bg-purple-100 text-purple-800', 'bg-rose-100 text-rose-800', 'bg-cyan-100 text-cyan-800',
+  'bg-teal-100 text-teal-800', 'bg-sky-100 text-sky-800', 'bg-fuchsia-100 text-fuchsia-800',
+  'bg-violet-100 text-violet-800', 'bg-amber-100 text-amber-800', 'bg-emerald-100 text-emerald-800',
+];
+
+// Every category gets a stable colour, including ones added later
+export const CATEGORY_COLORS: Record<string, string> = new Proxy({} as Record<string, string>, {
+  get: (_t, id: string) => {
+    let h = 0;
+    for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return COLOR_POOL[h % COLOR_POOL.length];
+  },
+});
 
 export interface Participant {
   id: string;

@@ -196,7 +196,7 @@ function RegisterPageInner() {
       .select('registration_code')
       .single();
     if (error) {
-      setError(error.message);
+      setError(error.code === '23505' ? 'This person is already registered in this category.' : error.message);
       setSubmitting(false);
     } else {
       const { data: { user } } = await supabase.auth.getUser();

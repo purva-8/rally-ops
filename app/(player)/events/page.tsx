@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { IconMapPin, IconCalendar, IconClock, IconUsers } from '@/components/icons';
+import { formatDate } from '@/lib/format';
 
 type Tournament = {
   id: string;
@@ -156,10 +157,10 @@ function EventsPageInner() {
             const cfg = STATUS_CONFIG[t.status];
             const isOpen = t.status === 'open';
             const dateStr = t.event_date
-              ? new Date(t.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+              ? formatDate(t.event_date)
               : null;
             const closeStr = t.registration_close_at && isOpen
-              ? new Date(t.registration_close_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+              ? formatDate(t.registration_close_at)
               : null;
 
             return (

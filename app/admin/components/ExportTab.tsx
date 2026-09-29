@@ -2,9 +2,10 @@
 
 import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS } from '../../tournament/types';
+import { formatDateTime } from '@/lib/format';
 
 export default function ExportTab() {
-  const { participants, matches, courts } = useTournamentStore();
+  const { participants, matches, courts, tournamentId } = useTournamentStore();
 
   const exportParticipants = async () => {
     const XLSX = await import('xlsx');
@@ -18,7 +19,7 @@ export default function ExportTab() {
       'Emergency Contact': p.emergencyContact,
       'Categories': p.categories.map((c) => CATEGORY_LABELS[c]).join(', '),
       'Partner Name': p.partnerName || '',
-      'Registered At': new Date(p.registeredAt).toLocaleString(),
+      'Registered At': formatDateTime(p.registeredAt),
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -39,7 +40,7 @@ export default function ExportTab() {
       'Status': m.status,
       'Scores': m.sets.map((s) => `${s.player1Score}-${s.player2Score}`).join(', '),
       'Winner': m.winnerName || '',
-      'Completed At': m.completedAt ? new Date(m.completedAt).toLocaleString() : '',
+      'Completed At': m.completedAt ? formatDateTime(m.completedAt) : '',
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -131,6 +132,32 @@ export default function ExportTab() {
         <h2 className="text-lg font-bold text-stone-900">Export Reports</h2>
         <p className="text-stone-400 text-sm">Download tournament data as Excel (.xlsx) files</p>
       </div>
+
+      {tournamentId && (
+        <div className="bg-white rounded-xl border border-orange-200 p-5 mb-6">
+          <h3 className="text-sm font-bold text-stone-900">Live database export (CSV, opens in Excel)</h3>
+          <p className="text-xs text-stone-400 mt-1 mb-4">
+            Pulled straight from the database, so it always has every registration, including withdrawn and rejected ones.
+            Dates are day/month/year.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { type: 'registrations', label: 'All registrations', desc: 'Every person, member, family link, category, fee and payment' },
+              { type: 'matches', label: 'Fixtures & results', desc: 'Who plays whom, courts, scores and winners' },
+              { type: 'audit', label: 'Change history', desc: 'Every add, edit and delete, with before and after' },
+            ].map((e) => (
+              <a
+                key={e.type}
+                href={`/api/tournament/export?tournamentId=${tournamentId}&type=${e.type}`}
+                className="block text-left p-4 rounded-xl border border-stone-200 hover:border-orange-300 bg-stone-50 transition-colors"
+              >
+                <p className="text-sm font-semibold text-stone-900">{e.label} (.csv)</p>
+                <p className="text-xs text-stone-400 mt-1">{e.desc}</p>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {exports.map((exp) => (

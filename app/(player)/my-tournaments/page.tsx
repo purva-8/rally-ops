@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { IconCalendar, IconMapPin, IconChevronRight } from '@/components/icons';
+import { formatDate } from '@/lib/format';
 
 type HostedTournament = {
   id: string;
@@ -49,7 +50,10 @@ export default function MyTournamentsPage() {
           role: 'coach', courtId: s.court_id,
         }));
 
-      setTournaments([...organized, ...coached]);
+      // An organizer can also run any court, so they get a coach entry for their own tournaments
+      const organizerAsCoach: HostedTournament[] = organized.map((t) => ({ ...t, role: 'coach', courtId: 'court-1' }));
+      const seen = new Set(coached.map((c) => c.id));
+      setTournaments([...organized, ...organizerAsCoach.filter((t) => !seen.has(t.id)), ...coached]);
       setLoading(false);
     });
   }, [router]);
@@ -90,7 +94,7 @@ export default function MyTournamentsPage() {
           <div className="space-y-3">
             {tournaments.map((t) => {
               const dateStr = t.event_date
-                ? new Date(t.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                ? formatDate(t.event_date)
                 : null;
               const href = t.role === 'organizer'
                 ? `/admin?tournamentId=${t.id}`

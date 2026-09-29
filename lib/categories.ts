@@ -77,3 +77,8 @@ export function isEligible(id: string, gender: string | null, dob: string | null
 export function categoryFee(id: string, fallback: number) {
   return CATEGORY_DEFS[id]?.fee ?? fallback;
 }
+
+// Doubles entries show as "Player / Partner" in brackets and fixtures
+export function entryLabel(fullName: string, partnerName: string | undefined | null, category: string) {
+  return isDoublesCategory(category) && partnerName ? `${fullName} / ${partnerName}` : fullName;
+}

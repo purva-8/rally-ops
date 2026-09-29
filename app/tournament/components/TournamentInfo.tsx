@@ -1,6 +1,7 @@
 'use client';
 
 import { useTournamentStore } from '../store';
+import { formatDate } from '@/lib/format';
 
 const eligibility = [
   {
@@ -39,7 +40,7 @@ export default function TournamentInfo() {
   const { tournamentName, eventDate, venue, registrationDeadline } = useTournamentStore();
 
   const fmtDate = (d: string) =>
-    d ? new Date(d).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'TBD';
+    d ? formatDate(d) : 'TBD';
 
   return (
     <div className="space-y-6">

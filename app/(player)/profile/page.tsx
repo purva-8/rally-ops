@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { IconEdit, IconLogout, IconUser } from '@/components/icons';
+import { formatDate } from '@/lib/format';
 
 type Profile = {
   id: string;
@@ -170,21 +171,19 @@ export default function ProfilePage() {
                     Organizer
                   </span>
                 )}
-                {roles.isAdminStaff && (
+                {(roles.isOrganizer || roles.isAdminStaff) && (
                   <span className="inline-block text-[11px] font-semibold bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">
                     Admin
                   </span>
                 )}
-                {roles.isCoach && (
+                {(roles.isOrganizer || roles.isCoach) && (
                   <span className="inline-block text-[11px] font-semibold bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">
                     Coach
                   </span>
                 )}
-                {!roles.isOrganizer && !roles.isCoach && !roles.isAdminStaff && (
-                  <span className="inline-block text-[11px] font-semibold bg-white/10 text-white/50 px-2 py-0.5 rounded-full">
-                    Player
-                  </span>
-                )}
+                <span className="inline-block text-[11px] font-semibold bg-white/10 text-white/70 px-2 py-0.5 rounded-full">
+                  Player
+                </span>
                 {profile.samanvayam_member && (
                   <span className="inline-block text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">
                     Samanvayam Member
@@ -308,7 +307,7 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-sm font-semibold text-stone-800">{kid.full_name}</p>
                     <p className="text-xs text-stone-400 mt-0.5">
-                      {relLabel(kid.relationship)} · <span className="capitalize">{kid.gender ?? '-'}</span>{kid.dob ? ` · Born ${new Date(kid.dob).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}` : ''}
+                      {relLabel(kid.relationship)} · <span className="capitalize">{kid.gender ?? '-'}</span>{kid.dob ? ` · Born ${formatDate(kid.dob)}` : ''}
                     </p>
                   </div>
                   <a

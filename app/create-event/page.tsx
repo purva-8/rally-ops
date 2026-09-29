@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORY_LABELS } from '@/lib/categories';
 import preset from '@/lib/samanvayam-preset.json';
+import { formatDate } from '@/lib/format';
 
 type Step = 'categories' | 'details' | 'rules' | 'review';
 
@@ -113,7 +114,8 @@ export default function CreateEventPage() {
       sport,
       venue: form.venue.trim() || null,
       event_date: form.event_date || null,
-      registration_close_at: form.registration_close_at || null,
+      // A plain date means the end of that day (Qatar time), so people can still register on the deadline day
+      registration_close_at: form.registration_close_at ? `${form.registration_close_at.slice(0, 10)}T23:59:59+03:00` : null,
       status: form.status,
       entry_fee: form.entry_fee ? Number(form.entry_fee) : 0,
       max_participants: form.max_participants ? Number(form.max_participants) : null,
@@ -406,7 +408,7 @@ export default function CreateEventPage() {
                     {form.venue && <p className="text-white/70 text-sm">{form.venue}</p>}
                     {form.event_date && (
                       <p className="text-white/70 text-sm">
-                        {new Date(form.event_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                        {formatDate(form.event_date)}
                       </p>
                     )}
                   </div>

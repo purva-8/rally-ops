@@ -27,6 +27,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authorized to create brackets for this tournament' }, { status: 403 });
     }
 
+    // Never create a second bracket for a category that already has one (double click, two admins)
+    const cats = Array.from(new Set(matches.map((m: { category: string }) => m.category)));
+    if (cats.length) {
+      const { count } = await supabase
+        .from('matches')
+        .select('id', { count: 'exact', head: true })
+        .eq('tournament_id', tournamentId)
+        .in('category', cats);
+      if ((count ?? 0) > 0) {
+        return NextResponse.json({ error: 'A bracket already exists for this category' }, { status: 409 });
+      }
+    }
+
     // Insert matches into DB
     const matchInserts = matches.map((m: any) => ({
       tournament_id: tournamentId,
