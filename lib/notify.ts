@@ -72,13 +72,13 @@ export async function runNotifications(opts: { tournamentId?: string } = {}): Pr
 async function sendDecisions(admin: Admin, t: { id: string; name: string; entry_fee: number }, summary: Summary) {
   const { data: regs } = await admin
     .from('registrations')
-    .select('id, player_id, category, partner_name, status, review_comment, manual_name, manual_email')
+    .select('id, player_id, partner_id, category, partner_name, status, review_comment, manual_name, manual_email')
     .eq('tournament_id', t.id)
     .in('status', ['approved', 'rejected'])
     .is('decision_notified_at', null);
   if (!regs?.length) return;
 
-  const { recipientOf, nameOf } = await resolveRecipients(admin, regs.map((r) => r.player_id).filter(Boolean));
+  const { recipientOf, nameOf } = await resolveRecipients(admin, regs.flatMap((r) => [r.player_id, r.partner_id]).filter(Boolean));
 
   type Group = { to: Recipient; items: Decision[]; ids: string[] };
   const groups = new Map<string, Group>();
@@ -95,7 +95,12 @@ async function sendDecisions(admin: Admin, t: { id: string; name: string; entry_
       partner: isDoublesCategory(r.category) ? r.partner_name : null,
       status: r.status as 'approved' | 'rejected',
       comment: r.review_comment,
-      fee: categoryFee(r.category, Number(t.entry_fee ?? 0)),
+      // A linked partner in another household pays their own half of a doubles pair
+      fee: (() => {
+        const fee = categoryFee(r.category, Number(t.entry_fee ?? 0));
+        const partnerTo = r.partner_id ? recipientOf.get(r.partner_id) : null;
+        return isDoublesCategory(r.category) && partnerTo && partnerTo.email !== to.email ? fee / 2 : fee;
+      })(),
     });
     g.ids.push(r.id);
     groups.set(to.email, g);

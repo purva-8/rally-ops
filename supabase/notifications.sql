@@ -89,3 +89,17 @@ create policy "registrations_own_withdraw" on registrations
         or exists (select 1 from player_profiles parent where parent.id = p.parent_id and parent.auth_user_id = auth.uid()))
     )
   );
+
+-- Partners: a linked doubles partner (partner_id) can see the registration, so they see their half of the bill
+drop policy if exists "registrations_own_read" on registrations;
+create policy "registrations_own_read" on registrations
+  for select using (
+    exists (
+      select 1 from player_profiles p
+      where (p.id = registrations.player_id or p.id = registrations.partner_id)
+      and (
+        p.auth_user_id = auth.uid()
+        or exists (select 1 from player_profiles parent where parent.id = p.parent_id and parent.auth_user_id = auth.uid())
+      )
+    )
+  );

@@ -7,6 +7,7 @@ import { IconEdit, IconLogout, IconUser } from '@/components/icons';
 import { formatDate } from '@/lib/format';
 import { CATEGORY_LABELS } from '@/lib/categories';
 import Avatar from '@/components/Avatar';
+import FamilyBill, { type BillRegistration } from '@/components/FamilyBill';
 
 type Profile = {
   id: string;
@@ -59,6 +60,7 @@ export default function ProfilePage() {
   const [form, setForm] = useState({ full_name: '', mobile: '', qid: '', dob: '' });
   const [kids, setKids] = useState<Kid[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [billRegs, setBillRegs] = useState<BillRegistration[]>([]);
   const [showAddKid, setShowAddKid] = useState(false);
   const [addingKid, setAddingKid] = useState(false);
   const [kidForm, setKidForm] = useState({ full_name: '', relationship: '', gender: '', dob: '' });
@@ -89,6 +91,14 @@ export default function ProfilePage() {
           .order('created_at', { ascending: false });
         rows = (regs as unknown as Entry[]) ?? [];
         setEntries(rows);
+
+        // Everything the household owes, including their half of doubles booked by someone else
+        const idList = ids.join(',');
+        const { data: billRows } = await supabase
+          .from('registrations')
+          .select('id, category, status, payment_status, player_id, partner_id, partner_name, tournaments ( name, entry_fee ), player_profiles!registrations_player_id_fkey ( full_name )')
+          .or(`player_id.in.(${idList}),partner_id.in.(${idList})`);
+        setBillRegs((billRows as unknown as BillRegistration[]) ?? []);
       }
       setStats({
         total:    rows.length,
@@ -434,6 +444,15 @@ export default function ProfilePage() {
           )}
         </div>
         )}
+
+        {/* Bill */}
+        <FamilyBill
+          people={[
+            { id: profile.id, name: profile.full_name, gender: profile.gender },
+            ...kids.map((k) => ({ id: k.id, name: k.full_name, gender: k.gender })),
+          ]}
+          regs={billRegs}
+        />
 
         {/* Quick nav */}
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm divide-y divide-stone-100 overflow-hidden">
