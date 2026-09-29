@@ -26,6 +26,7 @@ type Kid = {
   gender: string | null;
   dob: string | null;
   relationship: string | null;
+  qid?: string | null;
 };
 
 const RELATIONSHIPS = [
@@ -65,6 +66,9 @@ export default function ProfilePage() {
   const [tab, setTab] = useState<'me' | 'family' | 'bill'>('me');
   const [showAddKid, setShowAddKid] = useState(false);
   const [addingKid, setAddingKid] = useState(false);
+  const [qidEdit, setQidEdit] = useState<string | null>(null);
+  const [qidDraft, setQidDraft] = useState('');
+  const [qidMsg, setQidMsg] = useState('');
   const [kidForm, setKidForm] = useState({ full_name: '', relationship: '', gender: '', dob: '' });
 
   useEffect(() => {
@@ -81,7 +85,7 @@ export default function ProfilePage() {
       if (prof) {
         setProfile(prof);
         setForm({ full_name: prof.full_name, mobile: prof.mobile ?? '', qid: prof.qid ?? '', dob: prof.dob ?? '', sid: prof.samanvayam_id ?? '' });
-        const { data: kidRows } = await supabase.from('player_profiles').select('id,full_name,gender,dob,relationship').eq('parent_id', prof.id);
+        const { data: kidRows } = await supabase.from('player_profiles').select('id,full_name,gender,dob,relationship,qid').eq('parent_id', prof.id);
         setKids(kidRows ?? []);
         // Entries for the account holder and every family member
         const ids = [prof.id, ...(kidRows ?? []).map((k) => k.id)];
@@ -136,6 +140,15 @@ export default function ProfilePage() {
     setSaving(false);
   }
 
+  async function saveKidQid(id: string) {
+    const qid = qidDraft.trim();
+    if (qid && !/^\d{11}$/.test(qid)) { setQidMsg('Qatar ID is 11 digits'); return; }
+    const { error } = await createClient().from('player_profiles').update({ qid: qid || null }).eq('id', id);
+    if (error) { setQidMsg(error.message); return; }
+    setKids((ks) => ks.map((k) => (k.id === id ? { ...k, qid: qid || null } : k)));
+    setQidEdit(null); setQidMsg('');
+  }
+
   async function addKid() {
     if (!profile?.samanvayam_member || !kidForm.full_name.trim() || !kidForm.relationship || !kidForm.gender || !kidForm.dob) return;
     setAddingKid(true);
@@ -150,7 +163,7 @@ export default function ProfilePage() {
         qid: profile.qid,
         samanvayam_member: profile.samanvayam_member,
       })
-      .select('id,full_name,gender,dob,relationship')
+      .select('id,full_name,gender,dob,relationship,qid')
       .single();
     if (!error && data) {
       setKids((prev) => [...prev, data]);
@@ -292,6 +305,7 @@ export default function ProfilePage() {
             <div className="divide-y divide-stone-50">
               {[
                 { label: 'Full Name', value: profile.full_name },
+                { label: 'Gender',    value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '-' },
                 { label: 'Mobile',    value: profile.mobile ?? '-' },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-center justify-between px-5 py-3.5">
@@ -319,12 +333,6 @@ export default function ProfilePage() {
                   <p className="text-xs text-stone-400 font-medium mb-0.5">Samanvayam ID</p>
                   <p className="text-sm text-stone-800 font-medium">{profile.samanvayam_id || '-'}</p>
                 </div>
-              </div>
-              <div className="flex items-center justify-between px-5 py-3.5">
-                <span className="text-xs text-stone-400 font-medium">Gender</span>
-                <span className="text-sm text-stone-800 font-medium">
-                  {profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '-'}
-                </span>
               </div>
             </div>
           ) : (
@@ -397,13 +405,14 @@ export default function ProfilePage() {
 
           <div className="divide-y divide-stone-50">
             {[
-              { id: profile.id, name: profile.full_name, sub: 'Me (Samanvayam member)', self: true, gender: profile.gender },
+              { id: profile.id, name: profile.full_name, sub: 'Me (Samanvayam member)', self: true, gender: profile.gender, qid: profile.qid },
               ...kids.map((k) => ({
                 id: k.id,
                 name: k.full_name,
                 sub: `${relLabel(k.relationship)} · ${k.gender ?? '-'}${k.dob ? ` · Born ${formatDate(k.dob)}` : ''}`,
                 self: false,
                 gender: k.gender,
+                qid: k.qid ?? null,
               })),
             ].map((person) => {
               const mine = entries.filter((e) => e.player_id === person.id);
@@ -414,6 +423,19 @@ export default function ProfilePage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-stone-800">{person.name}</p>
                       <p className="text-xs text-stone-400 mt-0.5 capitalize">{person.sub}</p>
+                      {!person.self && (qidEdit === person.id ? (
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <input value={qidDraft} onChange={(e) => setQidDraft(e.target.value.replace(/\D/g, '').slice(0, 11))} inputMode="numeric" placeholder="11 digit Qatar ID"
+                            className="w-40 px-2 py-1 border border-stone-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                          <button onClick={() => saveKidQid(person.id)} className="text-xs font-semibold text-white bg-orange-600 rounded-lg px-2 py-1">Save</button>
+                          <button onClick={() => { setQidEdit(null); setQidMsg(''); }} className="text-xs text-stone-400">Cancel</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => { setQidEdit(person.id); setQidDraft(person.qid ?? ''); setQidMsg(''); }} className="mt-1 text-xs text-stone-500 hover:text-orange-600">
+                          Qatar ID: {person.qid ? <span className="font-medium text-stone-700">{person.qid} · edit</span> : <span className="font-semibold text-orange-600">+ Add</span>}
+                        </button>
+                      ))}
+                      {qidEdit === person.id && qidMsg && <p className="text-xs text-red-500 mt-1">{qidMsg}</p>}
                     </div>
                     <a
                       href={person.self ? '/events' : `/events?profileId=${person.id}`}
