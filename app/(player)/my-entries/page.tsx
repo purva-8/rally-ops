@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { IconCalendar, IconMapPin } from '@/components/icons';
 import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '@/lib/categories';
 import { formatDate } from '@/lib/format';
+import { categoryFee } from '@/lib/categories';
 
 type Entry = {
   id: string;
@@ -60,13 +61,13 @@ export default function MyEntriesPage() {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.push('/login?redirect=/my-entries'); return; }
-      const { data: prof } = await supabase.from('player_profiles').select('id,qid').eq('auth_user_id', user.id).single();
+      const { data: prof } = await supabase.from('player_profiles').select('id,qid,full_name').eq('auth_user_id', user.id).single();
       if (!prof) { setLoading(false); return; }
       setQid(prof.qid ?? null);
 
       const { data: kids } = await supabase.from('player_profiles').select('id,full_name').eq('parent_id', prof.id);
       const profileIds = [prof.id, ...(kids ?? []).map((k) => k.id)];
-      setNames(Object.fromEntries((kids ?? []).map((k) => [k.id, k.full_name])));
+      setNames(Object.fromEntries([[prof.id, prof.full_name], ...(kids ?? []).map((k) => [k.id, k.full_name])]));
 
       const { data } = await supabase
         .from('registrations')
@@ -177,7 +178,7 @@ export default function MyEntriesPage() {
                     <h3 className="text-base font-bold text-stone-900 leading-snug mb-1">
                       {entry.tournaments?.name ?? 'Unknown tournament'}
                     </h3>
-                    {entry.player_id && names[entry.player_id] && (
+                    {entry.player_id && names[entry.player_id] && Object.keys(names).length > 1 && (
                       <p className="text-xs text-orange-600 font-medium mb-1">For {names[entry.player_id]}</p>
                     )}
 
@@ -188,6 +189,15 @@ export default function MyEntriesPage() {
                         <span className="text-stone-400"> · with {entry.partner_name}</span>
                       )}
                     </p>
+
+                    {entry.payment_status && entry.payment_status !== 'waived' && (
+                      <p className="text-xs mb-3">
+                        <span className={entry.payment_status === 'paid' ? 'text-emerald-600 font-semibold' : 'text-amber-600 font-semibold'}>
+                          {entry.payment_status === 'paid' ? 'Paid' : 'Payment due'}
+                        </span>
+                        <span className="text-stone-400"> · QAR {categoryFee(entry.category, Number(entry.tournaments?.entry_fee ?? 0))}</span>
+                      </p>
+                    )}
 
                     {/* Meta */}
                     <div className="space-y-1.5">

@@ -82,3 +82,8 @@ export function categoryFee(id: string, fallback: number) {
 export function entryLabel(fullName: string, partnerName: string | undefined | null, category: string) {
   return isDoublesCategory(category) && partnerName ? `${fullName} / ${partnerName}` : fullName;
 }
+
+// The flag is what organizers set, but any tournament named Samanvayam counts too so a missed tick can't hide family registration
+export function isSamanvayamTournament(t: { is_samanvayam?: boolean | null; name?: string | null }) {
+  return !!t.is_samanvayam || /samanvay/i.test(t.name ?? '');
+}
