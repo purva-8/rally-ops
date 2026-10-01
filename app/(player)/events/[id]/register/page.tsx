@@ -15,6 +15,7 @@ type Tournament = {
   status: string;
   venue: string;
   event_date: string;
+  age_as_of: string | null;
   is_samanvayam: boolean;
 };
 
@@ -96,7 +97,7 @@ function RegisterPageInner() {
         : supabase.from('player_profiles').select(PROFILE_COLS).eq('auth_user_id', user.id).single();
 
       const [{ data: t }, { data: p }] = await Promise.all([
-        supabase.from('tournaments').select('id,name,categories,entry_fee,status,venue,event_date,is_samanvayam').eq('id', id).single(),
+        supabase.from('tournaments').select('id,name,categories,entry_fee,status,venue,event_date,age_as_of,is_samanvayam').eq('id', id).single(),
         profileFilter,
       ]);
       setTournament(t);
@@ -198,7 +199,7 @@ function RegisterPageInner() {
   const eligibleCategories = tournament?.categories.filter((cat) => {
     if (existingRegs.includes(cat)) return false;
     if (!profile) return false;
-    return isEligible(cat, profile.gender, profile.dob, tournament?.event_date ?? new Date().toISOString());
+    return isEligible(cat, profile.gender, profile.dob, tournament?.age_as_of ?? tournament?.event_date ?? new Date().toISOString());
   }) ?? [];
 
   const doublesSelected = selected.filter(isDoublesCategory);
@@ -208,7 +209,7 @@ function RegisterPageInner() {
   const familyIds = [account, ...family].filter(Boolean).map((p) => p!.id);
   const partnerOptions = [account, ...family].filter((p): p is Profile => !!p && p.id !== profile?.id);
 
-  const eventDay = tournament?.event_date ?? new Date().toISOString().slice(0, 10);
+  const eventDay = tournament?.age_as_of ?? tournament?.event_date ?? new Date().toISOString().slice(0, 10);
   const meInfo: PartnerInfo = { gender: profile?.gender, dob: profile?.dob, relationship: profile?.relationship, isAccountHolder: !profile?.parent_id };
   // Reasons a person cannot be the partner (kids in Spouse doubles, two men in Mixed, and so on)
   const issueFor = (cat: string, p: { gender?: string | null; dob?: string | null; age?: number | null; relationship?: string | null; isAccountHolder?: boolean; sameHousehold?: boolean }) =>

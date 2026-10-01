@@ -65,6 +65,7 @@ export default function EntriesTab() {
   const [comments, setComments] = useState<Record<string, string>>({});
   const [bulkComment, setBulkComment] = useState('');
   const [mailNote, setMailNote] = useState('');
+  const [issues, setIssues] = useState<Record<string, string[]>>({});
 
   async function emailDecisions(ids: string[]) {
     setMailNote('Sending...');
@@ -83,6 +84,7 @@ export default function EntriesTab() {
   useEffect(() => {
     if (!tournamentId) return;
     fetchRegistrations();
+    fetch(`/api/tournament/eligibility?tournamentId=${tournamentId}`).then((r) => r.json()).then((d) => setIssues(d.issues ?? {})).catch(() => {});
     createClient().from('tournaments').select('name, categories').eq('id', tournamentId).single()
       .then(({ data }) => {
         if (data) { setTournamentName(data.name); setCategories(data.categories ?? []); }
@@ -105,6 +107,7 @@ export default function EntriesTab() {
   }
 
   async function updateStatus(id: string, status: 'approved' | 'rejected') {
+    if (status === 'approved' && issues[id] && !confirm(`This entry breaks a rule:\n\n${issues[id].join('\n')}\n\nApprove it anyway?`)) return;
     setUpdating(id);
     const supabase = createClient();
     await supabase
@@ -119,6 +122,8 @@ export default function EntriesTab() {
   async function bulkUpdateStatus(status: 'approved' | 'rejected') {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
+    const flagged = ids.filter((i) => issues[i]);
+    if (status === 'approved' && flagged.length && !confirm(`${flagged.length} of the selected entries break a rule (marked with a red warning). Approve them anyway?`)) return;
     setBulkUpdating(true);
     const supabase = createClient();
     await supabase
@@ -294,6 +299,9 @@ export default function EntriesTab() {
                   <p>{CATEGORY_LABELS[reg.category] ?? reg.category}</p>
                   {reg.partner_name && <p>Partner: {reg.partner_name}</p>}
                   {(reg.player_profiles?.mobile || reg.manual_mobile) && <p>{reg.player_profiles?.mobile ?? reg.manual_mobile}</p>}
+                  {issues[reg.id]?.map((m) => (
+                    <p key={m} className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5 mt-2">⚠ {m}. Reject this entry.</p>
+                  ))}
                   {reg.emergency_contact && <p>Emergency: {reg.emergency_contact}</p>}
                   <p className="text-xs text-stone-400 mt-1">{displayQid(reg)} · {formatDateTime(reg.created_at)}</p>
                   {reg.status === 'pending' ? (
