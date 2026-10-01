@@ -101,9 +101,10 @@ export function partnerIssue(id: string, me: PartnerInfo, partner: PartnerInfo, 
   }
   if (age !== null && def.minAge !== undefined && age < def.minAge) return `Partner must be ${def.minAge} or older`;
   if (age !== null && def.maxAge !== undefined && age > def.maxAge) return `Partner must be ${def.maxAge} or younger`;
+  // The app cannot see who is married, so inside one family it only rules out pairing a child with a parent
   if (id === 'spouse_doubles_open' && partner.sameHousehold) {
-    const married = (me.isAccountHolder && partner.relationship === 'spouse') || (partner.isAccountHolder && me.relationship === 'spouse');
-    if (!married) return 'Spouse doubles is for husband and wife';
+    const child = (r?: string | null) => r === 'son' || r === 'daughter';
+    if (child(me.relationship) || child(partner.relationship)) return 'Spouse doubles is for husband and wife';
   }
   return null;
 }

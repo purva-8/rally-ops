@@ -91,7 +91,7 @@ begin
     end if;
     if r.spouse then
       same_home := coalesce(me.parent_id, me.id) = coalesce(pt.parent_id, pt.id);
-      if same_home and not ((me.parent_id is null and pt.relationship = 'spouse') or (pt.parent_id is null and me.relationship = 'spouse')) then
+      if same_home and (me.relationship in ('son','daughter') or pt.relationship in ('son','daughter')) then
         raise exception 'Spouse doubles is for husband and wife.';
       end if;
     end if;
