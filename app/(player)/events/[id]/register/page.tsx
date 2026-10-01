@@ -75,6 +75,7 @@ function RegisterPageInner() {
   const [submitted, setSubmitted] = useState<string[]>([]);
   const [identityForm, setIdentityForm] = useState({ dob: '', qid: '', member: false, sid: '' });
   const [savingIdentity, setSavingIdentity] = useState(false);
+  const [identityError, setIdentityError] = useState('');
 
   // Samanvayam tournaments: the account holder can register family members too
   const [account, setAccount] = useState<Profile | null>(null);
@@ -142,6 +143,7 @@ function RegisterPageInner() {
   async function saveIdentity() {
     if (!profile || !identityForm.dob.trim() || !identityForm.qid.trim()) return;
     setSavingIdentity(true);
+    setIdentityError('');
     const supabase = createClient();
     const qid = identityForm.qid.trim();
     const { data, error } = await supabase
@@ -159,6 +161,8 @@ function RegisterPageInner() {
       setAccount(data);
       if (samanvayam && data.samanvayam_member) setStep('who');
       else setStep('category');
+    } else {
+      setIdentityError(error?.message ?? 'Could not save your details. Please try again.');
     }
     setSavingIdentity(false);
   }
@@ -412,6 +416,7 @@ function RegisterPageInner() {
                 />
               </div>
             )}
+            {identityError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl mb-3">{identityError}</div>}
             <button
               onClick={saveIdentity}
               disabled={savingIdentity || !identityForm.qid.trim() || !identityForm.dob.trim()}
