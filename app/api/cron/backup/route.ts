@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { gzipSync } from 'zlib';
+import { deflateRawSync } from 'zlib';
 import * as XLSX from 'xlsx';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendMail } from '@/lib/email';
 
 export const maxDuration = 60;
+
+// Brevo only accepts certain attachment types (zip yes, gz no), so the full copy is packed as a one-file zip
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+function crc32(buf: Buffer) { let c = 0xffffffff; for (const b of buf) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function zipOne(name: string, data: Buffer) {
+  const comp = deflateRawSync(data), crc = crc32(data), nm = Buffer.from(name);
+  const lh = Buffer.alloc(30); lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(20, 4); lh.writeUInt16LE(0x0800, 6); lh.writeUInt16LE(8, 8);
+  lh.writeUInt32LE(crc, 14); lh.writeUInt32LE(comp.length, 18); lh.writeUInt32LE(data.length, 22); lh.writeUInt16LE(nm.length, 26);
+  const cd = Buffer.alloc(46); cd.writeUInt32LE(0x02014b50, 0); cd.writeUInt16LE(20, 4); cd.writeUInt16LE(20, 6); cd.writeUInt16LE(0x0800, 8); cd.writeUInt16LE(8, 10);
+  cd.writeUInt32LE(crc, 16); cd.writeUInt32LE(comp.length, 20); cd.writeUInt32LE(data.length, 24); cd.writeUInt16LE(nm.length, 28);
+  const offset = lh.length + nm.length + comp.length, cdSize = cd.length + nm.length;
+  const end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(1, 8); end.writeUInt16LE(1, 10); end.writeUInt32LE(cdSize, 12); end.writeUInt32LE(offset, 16);
+  return Buffer.concat([lh, nm, comp, cd, nm, end]);
+}
 
 const TABLES = ['tournaments', 'player_profiles', 'registrations', 'matches', 'match_sets', 'tournament_staff', 'audit_log', 'email_log'];
 const PAGE = 1000;
@@ -33,7 +47,7 @@ export async function GET(req: NextRequest) {
     }
 
     const day = new Date().toISOString().slice(0, 10);
-    const json = gzipSync(Buffer.from(JSON.stringify({ takenAt: new Date().toISOString(), data })));
+    const json = zipOne(`rallyops-backup-${day}.json`, Buffer.from(JSON.stringify({ takenAt: new Date().toISOString(), data })));
 
     // A human-friendly copy: people and entries, one sheet each
     const wb = XLSX.utils.book_new();
@@ -47,9 +61,9 @@ export async function GET(req: NextRequest) {
     const result = await sendMail({
       to, kind: 'backup',
       subject: `RallyOps daily backup ${day}`,
-      html: `<p>Daily copy of the database.</p><p>${counts}</p><p>Attached: the full copy (<b>.json.gz</b>, for restoring) and a spreadsheet of people and entries. Keep a few of these emails.</p>`,
+      html: `<p>Daily copy of the database.</p><p>${counts}</p><p>Attached: the full copy (<b>.zip</b>, for restoring) and a spreadsheet of people and entries. Keep a few of these emails.</p>`,
       attachments: [
-        { name: `rallyops-backup-${day}.json.gz`, content: json.toString('base64') },
+        { name: `rallyops-backup-${day}.zip`, content: json.toString('base64') },
         { name: `rallyops-people-and-entries-${day}.xlsx`, content: xlsx.toString('base64') },
       ],
     });
