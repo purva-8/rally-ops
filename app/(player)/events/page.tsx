@@ -63,9 +63,6 @@ function EventsPageInner() {
             <img src="/logo.png" alt="RallyOps" className="h-14 w-auto object-contain" />
           </div>
           <div className="flex items-center gap-1">
-            <Link href="/create-event" className="flex text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 px-3.5 py-1.5 rounded-lg transition-colors mr-1 shadow-sm">
-              + Host
-            </Link>
             {!isLoggedIn && (
               <>
                 <Link href="/login" className="text-xs text-white/60 hover:text-white px-3 py-2 transition-colors">
