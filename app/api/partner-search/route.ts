@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { ageOn } from '@/lib/categories';
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
@@ -27,7 +28,8 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data } = await createAdminClient().from('player_profiles').select('id, full_name, mobile, parent_id, relationship').limit(5000);
+  const { data } = await createAdminClient().from('player_profiles').select('id, full_name, mobile, gender, dob, parent_id, relationship').limit(5000);
+  const eventDate = new URL(req.url).searchParams.get('eventDate') ?? new Date().toISOString().slice(0, 10);
   const qt = q.split(' ');
   const scored = (data ?? []).map((p) => {
     const nt = norm(p.full_name).split(' ');
@@ -37,7 +39,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     people: scored.map(({ p }) => ({
-      id: p.id, name: p.full_name,
+      id: p.id, name: p.full_name, gender: p.gender, age: p.dob ? ageOn(p.dob, eventDate) : null,
       hint: p.mobile ? `mobile ending ${p.mobile.replace(/\D/g, '').slice(-3)}` : p.parent_id ? 'family member' : '',
     })),
   });

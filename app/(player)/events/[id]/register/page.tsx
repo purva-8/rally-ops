@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import Avatar from '@/components/Avatar';
-import { CATEGORY_LABELS, categoryFee, isDoublesCategory, isEligible, isSamanvayamTournament } from '@/lib/categories';
+import { CATEGORY_LABELS, categoryFee, isDoublesCategory, isEligible, isSamanvayamTournament, partnerIssue, type PartnerInfo } from '@/lib/categories';
 
 type Tournament = {
   id: string;
@@ -62,12 +62,14 @@ function RegisterPageInner() {
   // Doubles partner per category: linked profile (id) when known, otherwise just a typed name
   const [partners, setPartners] = useState<Record<string, { id: string | null; name: string }>>({});
   const [qidSearch, setQidSearch] = useState<Record<string, string>>({});
-  const [qidResults, setQidResults] = useState<Record<string, { id: string; name: string; gender: string | null; relationship: string | null }[]>>({});
+  const [qidResults, setQidResults] = useState<Record<string, { id: string; name: string; gender: string | null; relationship: string | null; age?: number | null }[]>>({});
   const [typedName, setTypedName] = useState<Record<string, boolean>>({});
   const [candidates, setCandidates] = useState<Record<string, { id: string; name: string }[]>>({});
-  const [nameMatches, setNameMatches] = useState<Record<string, { id: string; name: string; hint: string }[] | null>>({});
+  const [nameMatches, setNameMatches] = useState<Record<string, { id: string; name: string; hint: string; gender?: string | null; age?: number | null }[] | null>>({});
   const [nameDraft, setNameDraft] = useState<Record<string, string>>({});
   const [emergencyContact, setEmergencyContact] = useState('');
+  const [remarks, setRemarks] = useState('');
+  const [volunteer, setVolunteer] = useState(false);
   const [existingRegs, setExistingRegs] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState<string[]>([]);
   const [identityForm, setIdentityForm] = useState({ dob: '', qid: '', member: false, sid: '' });
@@ -206,6 +208,14 @@ function RegisterPageInner() {
   const familyIds = [account, ...family].filter(Boolean).map((p) => p!.id);
   const partnerOptions = [account, ...family].filter((p): p is Profile => !!p && p.id !== profile?.id);
 
+  const eventDay = tournament?.event_date ?? new Date().toISOString().slice(0, 10);
+  const meInfo: PartnerInfo = { gender: profile?.gender, dob: profile?.dob, relationship: profile?.relationship, isAccountHolder: !profile?.parent_id };
+  // Reasons a person cannot be the partner (kids in Spouse doubles, two men in Mixed, and so on)
+  const issueFor = (cat: string, p: { gender?: string | null; dob?: string | null; age?: number | null; relationship?: string | null; isAccountHolder?: boolean; sameHousehold?: boolean }) =>
+    partnerIssue(cat, meInfo, p, eventDay);
+  const familyIssue = (cat: string, p: Profile) =>
+    issueFor(cat, { gender: p.gender, dob: p.dob, relationship: p.relationship, isAccountHolder: !p.parent_id, sameHousehold: true });
+
   // A doubles fee is per pair (30 + 30): every entry carries its own half, whoever files it.
   function shareOf(cat: string) {
     const fee = feeOf(cat);
@@ -216,7 +226,7 @@ function RegisterPageInner() {
   async function useTypedName(cat: string) {
     const typed = (nameDraft[cat] ?? '').trim();
     if (!typed) return;
-    const res = await fetch(`/api/partner-search?q=${encodeURIComponent(typed)}`);
+    const res = await fetch(`/api/partner-search?q=${encodeURIComponent(typed)}&eventDate=${eventDay}`);
     const d = await res.json().catch(() => ({ people: [] }));
     const found = (d.people ?? []).filter((p: { id: string }) => p.id !== profile?.id);
     if (found.length === 0) {
@@ -230,7 +240,7 @@ function RegisterPageInner() {
   async function findPartner(cat: string) {
     const qid = (qidSearch[cat] ?? '').trim();
     if (qid.length < 6) return;
-    const res = await fetch(`/api/partner-lookup?qid=${encodeURIComponent(qid)}`);
+    const res = await fetch(`/api/partner-lookup?qid=${encodeURIComponent(qid)}&eventDate=${eventDay}`);
     const data = await res.json().catch(() => ({ people: [] }));
     setQidResults((r) => ({ ...r, [cat]: (data.people ?? []).filter((p: { id: string }) => p.id !== profile?.id) }));
   }
@@ -254,6 +264,7 @@ function RegisterPageInner() {
         partner_id: isDoublesCategory(cat) ? partners[cat]?.id ?? null : null,
         partner_name: isDoublesCategory(cat) ? (partners[cat]?.name ?? '').trim() : null,
         emergency_contact: emergencyContact || null,
+        notes: [volunteer ? 'VOLUNTEER' : '', remarks.trim()].filter(Boolean).join(' | ') || null,
         status: 'pending',
         payment_status: shareOf(cat) > 0 ? 'unpaid' : 'waived',
       })));
@@ -581,15 +592,20 @@ function RegisterPageInner() {
                         {partnerOptions.length > 0 && (
                           <div className="space-y-2">
                             <p className="text-xs text-stone-400">Your family</p>
-                            {partnerOptions.map((p) => (
-                              <button
-                                key={p.id}
-                                onClick={() => setPartners((prev) => ({ ...prev, [cat]: { id: p.id, name: p.full_name } }))}
-                                className="w-full text-left px-4 py-2.5 rounded-xl border border-stone-200 text-sm hover:border-orange-400 transition-colors"
-                              >
-                                {p.full_name} <span className="text-xs text-stone-400">· {p.id === account?.id ? 'Me' : relLabel(p.relationship)}</span>
-                              </button>
-                            ))}
+                            {partnerOptions.map((p) => {
+                              const why = familyIssue(cat, p);
+                              return (
+                                <button
+                                  key={p.id}
+                                  disabled={!!why}
+                                  onClick={() => setPartners((prev) => ({ ...prev, [cat]: { id: p.id, name: p.full_name } }))}
+                                  className={`w-full text-left px-4 py-2.5 rounded-xl border text-sm transition-colors ${why ? 'border-stone-100 bg-stone-50 text-stone-400 cursor-not-allowed' : 'border-stone-200 hover:border-orange-400'}`}
+                                >
+                                  {p.full_name} <span className="text-xs text-stone-400">· {p.id === account?.id ? 'Me' : relLabel(p.relationship)}</span>
+                                  {why && <span className="block text-xs text-amber-600">{why}</span>}
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
 
@@ -609,15 +625,20 @@ function RegisterPageInner() {
                           {qidResults[cat] && (
                             <div className="mt-2 space-y-2">
                               {qidResults[cat].length === 0 && <p className="text-xs text-stone-400">No one found with that ID yet.</p>}
-                              {qidResults[cat].map((p) => (
-                                <button
-                                  key={p.id}
-                                  onClick={() => setPartners((prev) => ({ ...prev, [cat]: { id: p.id, name: p.name } }))}
-                                  className="w-full text-left px-4 py-2.5 rounded-xl border border-stone-200 text-sm hover:border-orange-400 transition-colors"
-                                >
-                                  {p.name}
-                                </button>
-                              ))}
+                              {qidResults[cat].map((p) => {
+                                const why = issueFor(cat, { gender: p.gender, age: p.age });
+                                return (
+                                  <button
+                                    key={p.id}
+                                    disabled={!!why}
+                                    onClick={() => setPartners((prev) => ({ ...prev, [cat]: { id: p.id, name: p.name } }))}
+                                    className={`w-full text-left px-4 py-2.5 rounded-xl border text-sm transition-colors ${why ? 'border-stone-100 bg-stone-50 text-stone-400 cursor-not-allowed' : 'border-stone-200 hover:border-orange-400'}`}
+                                  >
+                                    {p.name}
+                                    {why && <span className="block text-xs text-amber-600">{why}</span>}
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -650,12 +671,16 @@ function RegisterPageInner() {
                           {nameMatches[cat] && (
                             <div className="mt-2 space-y-2">
                               <p className="text-xs font-semibold text-emerald-700">Is this who you mean?</p>
-                              {nameMatches[cat]!.map((m) => (
-                                <button key={m.id} onClick={() => { setPartners((prev) => ({ ...prev, [cat]: { id: m.id, name: m.name } })); setNameMatches((x) => ({ ...x, [cat]: null })); }}
-                                  className="w-full text-left px-4 py-2.5 rounded-xl border-2 border-emerald-300 bg-emerald-50 text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-                                  {m.name} {m.hint && <span className="text-xs font-normal text-emerald-700">· {m.hint}</span>}
-                                </button>
-                              ))}
+                              {nameMatches[cat]!.map((m) => {
+                                const why = issueFor(cat, { gender: m.gender, age: m.age });
+                                return (
+                                  <button key={m.id} disabled={!!why} onClick={() => { setPartners((prev) => ({ ...prev, [cat]: { id: m.id, name: m.name } })); setNameMatches((x) => ({ ...x, [cat]: null })); }}
+                                    className={`w-full text-left px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors ${why ? 'border-stone-100 bg-stone-50 text-stone-400 cursor-not-allowed' : 'border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'}`}>
+                                    {m.name} {m.hint && <span className="text-xs font-normal">· {m.hint}</span>}
+                                    {why && <span className="block text-xs font-normal text-amber-600">{why}</span>}
+                                  </button>
+                                );
+                              })}
                               <button onClick={() => { setPartners((prev) => ({ ...prev, [cat]: { id: null, name: (nameDraft[cat] ?? '').trim() } })); setNameMatches((x) => ({ ...x, [cat]: null })); }}
                                 className="text-xs text-stone-500 underline">None of these, use "{(nameDraft[cat] ?? '').trim()}" as typed</button>
                             </div>
@@ -731,6 +756,15 @@ function RegisterPageInner() {
               <label className="block text-sm font-medium text-stone-700 mb-1.5">Emergency contact (optional)</label>
               <input type="text" value={emergencyContact} onChange={(e) => setEmergencyContact(e.target.value)} className={inputCls} placeholder="Name and phone number" />
             </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-stone-700 mb-1.5">Remarks (optional)</label>
+              <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={2} className={inputCls} placeholder="Anything the organizers should know" />
+            </div>
+            <label className="flex items-start gap-3 mb-6 bg-white border border-stone-200 rounded-xl px-4 py-3 cursor-pointer">
+              <input type="checkbox" checked={volunteer} onChange={(e) => setVolunteer(e.target.checked)} className="mt-0.5 w-4 h-4 rounded border-stone-300 text-orange-600" />
+              <span className="text-sm text-stone-700">I would like to volunteer at the event <span className="block text-xs text-stone-400">The organizers may contact you.</span></span>
+            </label>
 
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl mb-4">{error}</div>
