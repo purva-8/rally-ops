@@ -22,8 +22,9 @@ export async function POST(req: NextRequest) {
 
   const origin = new URL(req.url).origin;
   const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email, options: { redirectTo: `${origin}/profile` } });
-  if (error || !data?.properties?.action_link) return NextResponse.json({ error: error?.message ?? 'Could not create link' }, { status: 500 });
+  if (error || !data?.properties?.hashed_token) return NextResponse.json({ error: error?.message ?? 'Could not create link' }, { status: 500 });
 
   await admin.from('audit_log').insert({ actor: dev.id, action: 'IMPERSONATE', table_name: 'player_profiles', row_id: profileId, new_row: { as_email: email } });
-  return NextResponse.json({ link: data.properties.action_link, email });
+  const link = `${origin}/auth/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=magiclink&next=/profile`;
+  return NextResponse.json({ link, email });
 }
