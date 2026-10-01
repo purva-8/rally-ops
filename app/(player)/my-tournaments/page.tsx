@@ -33,17 +33,28 @@ export default function MyTournamentsPage() {
           .from('tournament_staff')
           .select('role, court_id, tournaments ( id, name, venue, event_date, status )')
           .eq('user_id', user.id)
-          .eq('status', 'active')
-          .eq('role', 'coach'),
+          .eq('status', 'active'),
       ]);
 
-      const organized: HostedTournament[] = (owned ?? []).map((t) => ({
-        id: t.id, name: t.name, venue: t.venue, event_date: t.event_date, status: t.status,
-        role: 'organizer', courtId: null,
-      }));
+      // Admin staff (co-organizers) run the event just like its creator
+      const coOrganized: HostedTournament[] = (staffRows ?? [])
+        .filter((s: any) => s.tournaments && s.role === 'admin')
+        .map((s: any) => ({
+          id: s.tournaments.id, name: s.tournaments.name, venue: s.tournaments.venue,
+          event_date: s.tournaments.event_date, status: s.tournaments.status,
+          role: 'organizer' as const, courtId: null,
+        }));
+      const ownedIds = new Set((owned ?? []).map((t) => t.id));
+      const organized: HostedTournament[] = [
+        ...(owned ?? []).map((t) => ({
+          id: t.id, name: t.name, venue: t.venue, event_date: t.event_date, status: t.status,
+          role: 'organizer' as const, courtId: null,
+        })),
+        ...coOrganized.filter((t) => !ownedIds.has(t.id)),
+      ];
 
       const coached: HostedTournament[] = (staffRows ?? [])
-        .filter((s) => s.tournaments)
+        .filter((s: any) => s.tournaments && s.role === 'coach')
         .map((s: any) => ({
           id: s.tournaments.id, name: s.tournaments.name, venue: s.tournaments.venue,
           event_date: s.tournaments.event_date, status: s.tournaments.status,
@@ -51,7 +62,7 @@ export default function MyTournamentsPage() {
         }));
 
       // An organizer can also run any court, so they get a coach entry for their own tournaments
-      const organizerAsCoach: HostedTournament[] = organized.map((t) => ({ ...t, role: 'coach', courtId: 'court-1' }));
+      const organizerAsCoach: HostedTournament[] = (owned ?? []).map((t) => organized.find((o) => o.id === t.id)!).map((t) => ({ ...t, role: 'coach', courtId: 'court-1' }));
       const seen = new Set(coached.map((c) => c.id));
       setTournaments([...organized, ...organizerAsCoach.filter((t) => !seen.has(t.id)), ...coached]);
       setLoading(false);
