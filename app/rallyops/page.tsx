@@ -289,14 +289,6 @@ export default function RallyOpsHome() {
             <img src="/logo.png" alt="RallyOps" className="h-14 w-auto object-contain" />
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <a
-            href="/signup"
-            className="bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            Log in / Sign up
-          </a>
-        </div>
       </nav>
 
       {/* ── HERO ── */}
@@ -335,7 +327,7 @@ export default function RallyOpsHome() {
               href="/login"
               className="w-full sm:w-auto bg-orange-600 hover:bg-orange-500 text-white font-bold px-8 py-4 rounded-xl text-base transition-colors shadow-lg shadow-orange-200 inline-block"
             >
-              Login / Sign up
+              Log in · Sign up
             </a>
           </div>
         </div>
