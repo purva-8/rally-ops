@@ -327,7 +327,7 @@ export default function RallyOpsHome() {
               href="/login"
               className="w-full sm:w-auto bg-orange-600 hover:bg-orange-500 text-white font-bold px-8 py-4 rounded-xl text-base transition-colors shadow-lg shadow-orange-200 inline-block"
             >
-              Log in · Sign up
+              Log in or sign up
             </a>
           </div>
         </div>
@@ -348,8 +348,9 @@ export default function RallyOpsHome() {
             <a href="/terms" className="hover:text-slate-600 transition-colors">Terms</a>
             <a href="/support" className="hover:text-slate-600 transition-colors">Support</a>
           </div>
-          <a href="https://purvahk.com" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">
-            Built by <span className="text-slate-500 font-medium">Purva</span>
+          <a href="https://www.linkedin.com/in/purva-hk/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:text-slate-600 transition-colors">
+            <span>built by <span className="text-slate-500 font-medium">purva</span></span>
+            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-label="LinkedIn"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/></svg>
           </a>
         </div>
       </footer>
