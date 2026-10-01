@@ -11,6 +11,7 @@ export default function DevPage() {
   const [people, setPeople] = useState<Row[]>([]);
   const [detail, setDetail] = useState<Row | null>(null);
   const [msg, setMsg] = useState('');
+  const [link, setLink] = useState('');
 
   useEffect(() => { fetch('/api/dev/me').then((r) => r.json()).then((d) => setOk(d.ok)).catch(() => setOk(false)); }, []);
 
@@ -43,8 +44,11 @@ export default function DevPage() {
     if (!confirm('Open a one-time sign-in link for this account? This is recorded.')) return;
     const r = await fetch('/api/dev/impersonate', { method: 'POST', body: JSON.stringify({ profileId }) });
     const d = await r.json();
-    if (d.link) { await navigator.clipboard?.writeText(d.link).catch(() => {}); setMsg(`Link copied. Paste it in a private window to sign in as ${d.email}. Do not open it in this window, it would sign you out.`); }
-    else setMsg(d.error);
+    if (d.link) {
+      await navigator.clipboard?.writeText(d.link).catch(() => {});
+      setLink(d.link);
+      setMsg(`Link ready for ${d.email}. Copy it, open a private window, paste it in the address bar. Do not open it in this window, it would sign you out. It works once.`);
+    } else { setLink(''); setMsg(d.error); }
   };
 
   if (ok === null) return <p className="p-8 text-stone-500">Checking access…</p>;
@@ -74,6 +78,12 @@ export default function DevPage() {
         <button className="px-4 rounded bg-stone-900 text-white" onClick={search}>Search</button>
       </div>
       {msg && <p className="text-sm bg-amber-50 border border-amber-200 rounded p-2 text-stone-800">{msg}</p>}
+      {link && (
+        <div className="flex gap-2">
+          <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} className="flex-1 border rounded px-2 py-1 text-xs text-stone-700" />
+          <button className="px-3 rounded bg-stone-900 text-white text-sm" onClick={() => navigator.clipboard?.writeText(link)}>Copy</button>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-[280px_1fr] gap-4">
         <ul className="space-y-1 max-h-[70vh] overflow-auto">
