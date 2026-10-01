@@ -47,8 +47,7 @@ export async function GET(req: NextRequest) {
     }
 
     const day = new Date().toISOString().slice(0, 10);
-    const json = zipOne(`rallyops-backup-${day}.json`, Buffer.from(JSON.stringify({ takenAt: new Date().toISOString(), data })));
-
+    
     // A human-friendly copy: people and entries, one sheet each
     const wb = XLSX.utils.book_new();
     const flat = (rows: any[]) => rows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v !== null && typeof v === 'object' ? JSON.stringify(v) : v])));
@@ -58,17 +57,23 @@ export async function GET(req: NextRequest) {
     const xlsx = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
 
     const counts = TABLES.map((t) => `${t}: ${data[t].length}`).join('<br>');
-    const result = await sendMail({
+    // Two separate emails with plain attachment types, so a mail filter that dislikes one still lets the other through
+    const fullJson = Buffer.from(JSON.stringify({ takenAt: new Date().toISOString(), data }));
+    const first = await sendMail({
       to, kind: 'backup',
-      subject: `RallyOps daily backup ${day}`,
-      html: `<p>Daily copy of the database.</p><p>${counts}</p><p>Attached: the full copy (<b>.zip</b>, for restoring) and a spreadsheet of people and entries. Keep a few of these emails.</p>`,
-      attachments: [
-        { name: `rallyops-backup-${day}.zip`, content: json.toString('base64') },
-        { name: `rallyops-people-and-entries-${day}.xlsx`, content: xlsx.toString('base64') },
-      ],
+      subject: `RallyOps backup ${day} (1 of 2: people and entries)`,
+      html: `<p>Daily copy of the database, part 1 of 2: a spreadsheet of people, entries, matches and staff.</p><p>${counts}</p>`,
+      attachments: [{ name: `rallyops-people-and-entries-${day}.xlsx`, content: xlsx.toString('base64') }],
     });
+    const result = fullJson.length < 3_000_000 ? await sendMail({
+      to, kind: 'backup',
+      subject: `RallyOps backup ${day} (2 of 2: full copy)`,
+      html: `<p>Part 2 of 2: the complete copy of every table (including the change history) as plain text. To restore, save it as a .json file.</p>`,
+      attachments: [{ name: `rallyops-full-backup-${day}.txt`, content: fullJson.toString('base64') }],
+    }) : { ok: false, error: 'Full copy is over 3 MB, too big for one email' };
+    if (!first.ok) throw new Error(first.error ?? 'Email failed');
     if (!result.ok) throw new Error(result.error ?? 'Email failed');
-    return NextResponse.json({ ok: true, to, sizeKb: Math.round(json.length / 1024), counts: Object.fromEntries(TABLES.map((t) => [t, data[t].length])) });
+    return NextResponse.json({ ok: true, to, sizeKb: Math.round(fullJson.length / 1024), counts: Object.fromEntries(TABLES.map((t) => [t, data[t].length])) });
   } catch (err) {
     console.error('Backup failed:', err);
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 });
