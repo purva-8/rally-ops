@@ -7,7 +7,8 @@ export const EMAIL_FROM = process.env.EMAIL_FROM ?? 'RallyOps <onboarding@resend
 // Where replies go (optional), e.g. a coordinator's inbox, since the sender address may have no mailbox
 export const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO;
 
-export type Mail = { to: string; subject: string; html: string; kind: string; tournamentId?: string | null };
+export type Attachment = { name: string; content: string }; // content is base64
+export type Mail = { to: string; subject: string; html: string; kind: string; tournamentId?: string | null; attachments?: Attachment[] };
 export type SendResult = { ok: boolean; error?: string };
 
 async function record(mails: Mail[], results: SendResult[]) {
@@ -46,6 +47,7 @@ async function sendViaBrevo(mails: Mail[], key: string): Promise<SendResult[]> {
           to: [{ email: mails[i].to }],
           subject: mails[i].subject,
           htmlContent: mails[i].html,
+          ...(mails[i].attachments?.length ? { attachment: mails[i].attachments } : {}),
           ...(EMAIL_REPLY_TO ? { replyTo: { email: EMAIL_REPLY_TO } } : {}),
         }),
       });
@@ -72,7 +74,7 @@ async function sendViaResend(mails: Mail[], key: string): Promise<SendResult[]> 
     const chunk = mails.slice(i, i + 100);
     try {
       const { error } = await resend.batch.send(
-        chunk.map((m) => ({ from: EMAIL_FROM, to: m.to, subject: m.subject, html: m.html, ...(EMAIL_REPLY_TO ? { replyTo: EMAIL_REPLY_TO } : {}) })),
+        chunk.map((m) => ({ from: EMAIL_FROM, to: m.to, subject: m.subject, html: m.html, ...(m.attachments?.length ? { attachments: m.attachments.map((a) => ({ filename: a.name, content: a.content })) } : {}), ...(EMAIL_REPLY_TO ? { replyTo: EMAIL_REPLY_TO } : {}) })),
       );
       const outcome: SendResult = error ? { ok: false, error: error.message } : { ok: true };
       if (error) console.error('Resend rejected a batch:', error);
