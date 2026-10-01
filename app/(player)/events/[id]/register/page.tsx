@@ -395,7 +395,7 @@ function RegisterPageInner() {
                 />
                 <span>
                   <span className="block text-sm font-medium text-stone-800">I am a Samanvayam member <span className="text-stone-400 font-normal">(optional)</span></span>
-                  <span className="block text-xs text-stone-400 mt-0.5">Members can register their wife or husband, sons and daughters from this account.</span>
+                  <span className="block text-xs text-stone-400 mt-0.5">Members can register their wife or husband, daughters and sons from this account.</span>
                 </span>
               </label>
             )}
