@@ -36,9 +36,14 @@ export const CATEGORY_DEFS: Record<string, CategoryDef> = {
   male_doubles_18plus:    { label: "Doubles - Men's Open (18+)",       genders: ['male'],   minAge: 18, doubles: true, fee: 60 },
   mixed_doubles_kids:     { label: 'Doubles - Mixed Open (Kids 10-14)',  minAge: 10, maxAge: 14, doubles: true, fee: 60 },
   mixed_doubles_youth:    { label: 'Doubles - Mixed Open (Youth 14-18)', minAge: 15, maxAge: 18, doubles: true, fee: 60 },
-  mixed_doubles_open:     { label: 'Doubles - Mixed Open',             doubles: true, fee: 60 },
-  spouse_doubles_open:    { label: 'Doubles - Spouse',                 doubles: true, fee: 60 },
-  female_doubles_open:    { label: 'Doubles - Women',                  genders: ['female'], doubles: true, fee: 60 },
+  // Adults only: kids and youth play in their own bands
+  mixed_doubles_open:     { label: 'Doubles - Mixed Open',             minAge: 18, doubles: true, fee: 60 },
+  spouse_doubles_open:    { label: 'Doubles - Spouse',                 minAge: 18, doubles: true, fee: 60 },
+  female_doubles_open:    { label: 'Doubles - Women',                  genders: ['female'], minAge: 18, doubles: true, fee: 60 },
+
+  // Under 10 (7-10), any gender
+  singles_u10:            { label: 'Singles - Kids U10 (7-10)',        minAge: 7, maxAge: 10, fee: 30 },
+  doubles_u10:            { label: 'Doubles - Kids U10 (7-10)',        minAge: 7, maxAge: 10, doubles: true, fee: 60 },
 };
 
 export const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
@@ -72,6 +77,37 @@ export function isEligible(id: string, gender: string | null, dob: string | null
     if (def.maxAge !== undefined && age > def.maxAge) return false;
   }
   return true;
+}
+
+export type PartnerInfo = {
+  gender?: string | null;
+  dob?: string | null;
+  age?: number | null;
+  relationship?: string | null;
+  isAccountHolder?: boolean;
+  sameHousehold?: boolean;
+};
+
+// Why this person cannot be the partner in this doubles category, or null when it is fine.
+// Anything unknown (a typed name, a missing birth date) is allowed through; the organizers check it later.
+export function partnerIssue(id: string, me: PartnerInfo, partner: PartnerInfo, eventDate: string): string | null {
+  const def = CATEGORY_DEFS[id];
+  if (!def?.doubles) return null;
+  const ageOf = (p: PartnerInfo) => p.age ?? (p.dob ? ageOn(p.dob, eventDate) : null);
+  const age = ageOf(partner);
+  if (def.genders && partner.gender && !def.genders.includes(partner.gender as 'male' | 'female')) {
+    return def.genders[0] === 'male' ? 'This category is for men only' : 'This category is for women only';
+  }
+  if (age !== null && def.minAge !== undefined && age < def.minAge) return `Partner must be ${def.minAge} or older`;
+  if (age !== null && def.maxAge !== undefined && age > def.maxAge) return `Partner must be ${def.maxAge} or younger`;
+  if (id.startsWith('mixed') && me.gender && partner.gender && me.gender === partner.gender) {
+    return 'Mixed doubles needs one man and one woman';
+  }
+  if (id === 'spouse_doubles_open' && partner.sameHousehold) {
+    const married = (me.isAccountHolder && partner.relationship === 'spouse') || (partner.isAccountHolder && me.relationship === 'spouse');
+    if (!married) return 'Spouse doubles is for husband and wife';
+  }
+  return null;
 }
 
 export function categoryFee(id: string, fallback: number) {
