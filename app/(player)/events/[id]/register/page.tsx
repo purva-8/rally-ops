@@ -64,7 +64,6 @@ function RegisterPageInner() {
   const [partners, setPartners] = useState<Record<string, { id: string | null; name: string }>>({});
   const [qidSearch, setQidSearch] = useState<Record<string, string>>({});
   const [qidResults, setQidResults] = useState<Record<string, { id: string; name: string; gender: string | null; relationship: string | null; age?: number | null }[]>>({});
-  const [typedName, setTypedName] = useState<Record<string, boolean>>({});
   const [candidates, setCandidates] = useState<Record<string, { id: string; name: string }[]>>({});
   const [nameMatches, setNameMatches] = useState<Record<string, { id: string; name: string; hint: string; gender?: string | null; age?: number | null }[] | null>>({});
   const [nameDraft, setNameDraft] = useState<Record<string, string>>({});
@@ -227,19 +226,14 @@ function RegisterPageInner() {
     return isDoublesCategory(cat) ? fee / 2 : fee;
   }
 
-  // "Use" looks the typed name up on the platform first (typos and case are fine); only if nobody is found is it kept as plain text
+  // "Search" looks the typed name up on the platform (typos and case are fine); the typed name is only kept if the person picks "use as typed"
   async function useTypedName(cat: string) {
     const typed = (nameDraft[cat] ?? '').trim();
     if (!typed) return;
     const res = await fetch(`/api/partner-search?q=${encodeURIComponent(typed)}&eventDate=${eventDay}`);
     const d = await res.json().catch(() => ({ people: [] }));
     const found = (d.people ?? []).filter((p: { id: string }) => p.id !== profile?.id);
-    if (found.length === 0) {
-      setPartners((prev) => ({ ...prev, [cat]: { id: null, name: typed } }));
-      setNameMatches((m) => ({ ...m, [cat]: null }));
-    } else {
-      setNameMatches((m) => ({ ...m, [cat]: found }));
-    }
+    setNameMatches((m) => ({ ...m, [cat]: found }));
   }
 
   async function findPartner(cat: string) {
@@ -615,88 +609,92 @@ function RegisterPageInner() {
                           </div>
                         )}
 
-                        <div>
-                          <p className="text-xs text-stone-400 mb-1.5">Someone else, by Qatar ID</p>
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={qidSearch[cat] ?? ''}
-                              onChange={(e) => setQidSearch((q) => ({ ...q, [cat]: e.target.value }))}
-                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); findPartner(cat); } }}
-                              className={inputCls}
-                              placeholder="Partner's Qatar ID"
-                            />
-                            <button onClick={() => findPartner(cat)} className="px-4 rounded-xl bg-stone-900 text-white text-sm font-semibold shrink-0">Find</button>
-                          </div>
-                          {qidResults[cat] && (
-                            <div className="mt-2 space-y-2">
-                              {qidResults[cat].length === 0 && <p className="text-xs text-stone-400">No one found with that ID yet.</p>}
-                              {qidResults[cat].map((p) => {
-                                const why = issueFor(cat, { gender: p.gender, age: p.age });
-                                return (
-                                  <button
-                                    key={p.id}
-                                    disabled={!!why}
-                                    onClick={() => setPartners((prev) => ({ ...prev, [cat]: { id: p.id, name: p.name } }))}
-                                    className={`w-full text-left px-4 py-2.5 rounded-xl border text-sm transition-colors ${why ? 'border-stone-100 bg-stone-50 text-stone-400 cursor-not-allowed' : 'border-stone-200 hover:border-orange-400'}`}
-                                  >
-                                    {p.name}
-                                    {why && <span className="block text-xs text-amber-600">{why}</span>}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
+                        <div className="space-y-3">
+                          <p className="text-xs font-semibold text-stone-500">Find your partner</p>
 
-                        {typedName[cat] ? (
                           <div>
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              autoFocus
-                              value={nameDraft[cat] ?? ''}
-                              onChange={(e) => setNameDraft((d) => ({ ...d, [cat]: e.target.value }))}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' && (nameDraft[cat] ?? '').trim()) {
-                                  e.preventDefault();
-                                  useTypedName(cat);
-                                }
-                              }}
-                              className={inputCls}
-                              placeholder="Partner's full name"
-                            />
-                            <button
-                              onClick={() => useTypedName(cat)}
-                              disabled={!(nameDraft[cat] ?? '').trim()}
-                              className="px-4 rounded-xl bg-stone-900 text-white text-sm font-semibold shrink-0 disabled:opacity-40"
-                            >
-                              Use
-                            </button>
-                          </div>
-                          {nameMatches[cat] && (
-                            <div className="mt-2 space-y-2">
-                              <p className="text-xs font-semibold text-emerald-700">Is this who you mean?</p>
-                              {nameMatches[cat]!.map((m) => {
-                                const why = issueFor(cat, { gender: m.gender, age: m.age });
-                                return (
-                                  <button key={m.id} disabled={!!why} onClick={() => { setPartners((prev) => ({ ...prev, [cat]: { id: m.id, name: m.name } })); setNameMatches((x) => ({ ...x, [cat]: null })); }}
-                                    className={`w-full text-left px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors ${why ? 'border-stone-100 bg-stone-50 text-stone-400 cursor-not-allowed' : 'border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'}`}>
-                                    {m.name} {m.hint && <span className="text-xs font-normal">· {m.hint}</span>}
-                                    {why && <span className="block text-xs font-normal text-amber-600">{why}</span>}
-                                  </button>
-                                );
-                              })}
-                              <button onClick={() => { setPartners((prev) => ({ ...prev, [cat]: { id: null, name: (nameDraft[cat] ?? '').trim() } })); setNameMatches((x) => ({ ...x, [cat]: null })); }}
-                                className="text-xs text-stone-500 underline">None of these, use "{(nameDraft[cat] ?? '').trim()}" as typed</button>
+                            <p className="text-xs text-stone-400 mb-1.5">By Qatar ID</p>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={qidSearch[cat] ?? ''}
+                                onChange={(e) => setQidSearch((q) => ({ ...q, [cat]: e.target.value }))}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); findPartner(cat); } }}
+                                className={inputCls}
+                                placeholder="Partner's Qatar ID"
+                              />
+                              <button onClick={() => findPartner(cat)} className="px-4 rounded-xl bg-stone-900 text-white text-sm font-semibold shrink-0">Search</button>
                             </div>
-                          )}
+                            {qidResults[cat] && (
+                              <div className="mt-2 space-y-2">
+                                {qidResults[cat].length === 0 && <p className="text-xs text-stone-400">No one found with that ID yet.</p>}
+                                {qidResults[cat].map((p) => {
+                                  const why = issueFor(cat, { gender: p.gender, age: p.age });
+                                  return (
+                                    <button
+                                      key={p.id}
+                                      disabled={!!why}
+                                      onClick={() => setPartners((prev) => ({ ...prev, [cat]: { id: p.id, name: p.name } }))}
+                                      className={`w-full text-left px-4 py-2.5 rounded-xl border text-sm transition-colors ${why ? 'border-stone-100 bg-stone-50 text-stone-400 cursor-not-allowed' : 'border-stone-200 hover:border-orange-400'}`}
+                                    >
+                                      {p.name}
+                                      {why && <span className="block text-xs text-amber-600">{why}</span>}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <button onClick={() => setTypedName((t) => ({ ...t, [cat]: true }))} className="text-xs text-orange-600 font-semibold">
-                            Partner not on the platform? Type their name
-                          </button>
-                        )}
+
+                          <div className="flex items-center gap-3 text-xs text-stone-400">
+                            <span className="flex-1 border-t border-stone-200" />or<span className="flex-1 border-t border-stone-200" />
+                          </div>
+
+                          <div>
+                            <p className="text-xs text-stone-400 mb-1.5">By name</p>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={nameDraft[cat] ?? ''}
+                                onChange={(e) => { setNameDraft((d) => ({ ...d, [cat]: e.target.value })); setNameMatches((x) => ({ ...x, [cat]: null })); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && (nameDraft[cat] ?? '').trim()) { e.preventDefault(); useTypedName(cat); } }}
+                                className={inputCls}
+                                placeholder="Partner's full name"
+                              />
+                              <button
+                                onClick={() => useTypedName(cat)}
+                                disabled={!(nameDraft[cat] ?? '').trim()}
+                                className="px-4 rounded-xl bg-stone-900 text-white text-sm font-semibold shrink-0 disabled:opacity-40"
+                              >
+                                Search
+                              </button>
+                            </div>
+                            {nameMatches[cat] && (
+                              <div className="mt-2 space-y-2">
+                                {nameMatches[cat]!.length > 0 ? (
+                                  <p className="text-xs font-semibold text-emerald-700">Is this who you mean?</p>
+                                ) : (
+                                  <p className="text-xs text-stone-400">No one found on the platform with that name.</p>
+                                )}
+                                {nameMatches[cat]!.map((m) => {
+                                  const why = issueFor(cat, { gender: m.gender, age: m.age });
+                                  return (
+                                    <button key={m.id} disabled={!!why} onClick={() => { setPartners((prev) => ({ ...prev, [cat]: { id: m.id, name: m.name } })); setNameMatches((x) => ({ ...x, [cat]: null })); }}
+                                      className={`w-full text-left px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors ${why ? 'border-stone-100 bg-stone-50 text-stone-400 cursor-not-allowed' : 'border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'}`}>
+                                      {m.name} {m.hint && <span className="text-xs font-normal">· {m.hint}</span>}
+                                      {why && <span className="block text-xs font-normal text-amber-600">{why}</span>}
+                                    </button>
+                                  );
+                                })}
+                                <button onClick={() => { setPartners((prev) => ({ ...prev, [cat]: { id: null, name: (nameDraft[cat] ?? '').trim() } })); setNameMatches((x) => ({ ...x, [cat]: null })); }}
+                                  className="w-full text-left px-4 py-2.5 rounded-xl border border-dashed border-stone-300 text-sm text-stone-600 hover:border-orange-400">
+                                  Not on the platform? Use "{(nameDraft[cat] ?? '').trim()}" as typed
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
