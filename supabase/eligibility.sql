@@ -2,8 +2,8 @@
 -- (wrong gender or age for the category, or a partner who cannot be in it).
 -- The category list below is generated from lib/categories.ts. If categories change there, regenerate this block.
 
--- The date on which age is counted. Leave empty to use the event day; set it to change the rule for the whole event, e.g.
---   update tournaments set age_as_of = '2026-12-31' where name ilike '%samanvay%';
+-- The date on which age is counted. Leave empty to use the event day. Mohit confirmed 31 December 2025 (set at the end of this file).
+-- To change it later:  update tournaments set age_as_of = '2026-12-31' where name ilike '%samanvay%';
 alter table tournaments add column if not exists age_as_of date;
 
 create table if not exists category_rules (
@@ -22,7 +22,7 @@ insert into category_rules (id, genders, min_age, max_age, doubles, mixed, spous
   ('male_doubles', array['male'], null, null, true, false, false),
   ('female_doubles', array['female'], null, null, true, false, false),
   ('spouse_doubles', null, null, null, true, false, true),
-  ('mixed_doubles', null, null, null, true, true, false),
+  ('mixed_doubles', null, null, null, true, false, false),
   ('boys_u13', array['male'], null, 13, false, false, false),
   ('boys_u15', array['male'], null, 15, false, false, false),
   ('boys_u18', array['male'], null, 18, false, false, false),
@@ -36,9 +36,9 @@ insert into category_rules (id, genders, min_age, max_age, doubles, mixed, spous
   ('male_singles_kids', array['male'], 10, 14, false, false, false),
   ('male_singles_youth', array['male'], 15, 18, false, false, false),
   ('male_doubles_18plus', array['male'], 18, null, true, false, false),
-  ('mixed_doubles_kids', null, 10, 14, true, true, false),
-  ('mixed_doubles_youth', null, 15, 18, true, true, false),
-  ('mixed_doubles_open', null, 18, null, true, true, false),
+  ('mixed_doubles_kids', null, 10, 14, true, false, false),
+  ('mixed_doubles_youth', null, 15, 18, true, false, false),
+  ('mixed_doubles_open', null, null, null, true, false, false),
   ('spouse_doubles_open', null, 18, null, true, false, true),
   ('female_doubles_open', array['female'], 18, null, true, false, false),
   ('singles_u10', null, 7, 10, false, false, false),
@@ -88,9 +88,6 @@ begin
       pt_age := date_part('year', age(asof, pt.dob));
       if r.min_age is not null and pt_age < r.min_age then raise exception 'The partner is too young for this category (minimum age %).', r.min_age; end if;
       if r.max_age is not null and pt_age > r.max_age then raise exception 'The partner is too old for this category (maximum age %).', r.max_age; end if;
-    end if;
-    if r.mixed and me.gender is not null and pt.gender is not null and me.gender = pt.gender then
-      raise exception 'Mixed doubles needs one man and one woman.';
     end if;
     if r.spouse then
       same_home := coalesce(me.parent_id, me.id) = coalesce(pt.parent_id, pt.id);
@@ -149,5 +146,18 @@ begin
   end if;
   return new;
 end $$;
+
+-- Age is counted on 31 December 2025 and the event text says so; Mixed Open has no age or gender limits
+update tournaments set age_as_of = '2025-12-31' where name ilike '%samanvay%';
+
+update tournaments set eligibility =
+  replace(replace(replace(replace(eligibility,
+    'Age is counted on the day of the tournament:', 'Age is counted as on 31 December 2025:'),
+    'Doubles - Mixed Open needs one man and one woman, and Doubles - Spouse is for husband and wife. Kids and youth cannot enter Doubles - Spouse, Doubles - Women or Doubles - Mixed Open (adults).',
+    'Doubles - Mixed Open has no age or gender limits, so a parent can play with a son or daughter. Doubles - Spouse is for husband and wife, adults only. Kids and youth cannot enter Doubles - Spouse or Doubles - Women.'),
+    'The Mixed Open categories and Spouse doubles are open to any gender.',
+    'Doubles - Mixed Open has no age or gender limits, so a parent can play with a son or daughter. Doubles - Spouse is for husband and wife, adults only. Kids and youth cannot enter Doubles - Spouse or Doubles - Women.'),
+    'sons, daughters and other family members', 'daughters, sons and other family members')
+where name ilike '%samanvay%';
 
 notify pgrst, 'reload schema';
