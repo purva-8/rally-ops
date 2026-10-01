@@ -22,6 +22,7 @@ function layout(opts: { banner: string; emoji: string; title: string; subtitle: 
 </td></tr>
 <tr><td style="padding:28px 32px;color:#1c1917;font-size:15px;line-height:1.6;">${opts.body}</td></tr>
 <tr><td style="background:#fafaf9;padding:18px 32px;text-align:center;">
+<p style="color:#78716c;font-size:13px;margin:0 0 8px;">Questions? Contact the Game Coordinator, <strong>Sanjay Vaidya</strong>, on <strong>+974 6642 2213</strong>.</p>
 <p style="color:#a8a29e;font-size:12px;margin:0;">Samanvayam Khel Utsav · powered by RallyOps</p>
 </td></tr></table></td></tr></table></body></html>`;
 }
@@ -75,7 +76,7 @@ ${list.map((i) => row(
 ${block('Approved', '#16a34a', approved)}
 ${block('Not approved', '#dc2626', rejected)}
 ${dueTotal > 0 ? `<p style="margin:20px 0 0;font-size:13px;color:#57534e;">Entry fees for approved entries total <strong>QAR ${dueTotal}</strong>. The organizers will share payment details.</p>` : ''}
-<p style="margin:16px 0 0;font-size:13px;color:#57534e;">Questions? Contact the Khel Utsav Coordinator, Mohit Katiyar, on 3325 4295.</p>`,
+`,
   });
 }
 
