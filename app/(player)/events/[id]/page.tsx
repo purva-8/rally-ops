@@ -172,53 +172,56 @@ function TournamentDetailPageInner() {
           ))}
         </div>
 
-        {/* Categories */}
-        {(tournament.categories?.length ?? 0) > 0 && (
-          <section className="bg-white rounded-2xl border border-stone-200 shadow-sm mb-3 overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-stone-100">
-              <h2 className="text-xs font-bold text-stone-400 uppercase tracking-widest">Categories</h2>
-            </div>
-            <div className="p-4 grid grid-cols-2 gap-2">
-              {tournament.categories.map((cat) => (
-                <div key={cat} className="flex items-center gap-2.5 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
-                  <div className="w-1.5 h-1.5 bg-orange-500 rounded-full shrink-0" />
-                  <span className="text-sm font-medium text-stone-700">{CATEGORY_LABELS[cat] ?? cat}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Eligibility */}
-        {tournament.eligibility && (
-          <section className="bg-white rounded-2xl border border-stone-200 shadow-sm mb-3 overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-stone-100">
-              <h2 className="text-xs font-bold text-stone-400 uppercase tracking-widest">Eligibility</h2>
-            </div>
-            <div className="px-5 py-4">
-              <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-line">{tournament.eligibility}</p>
-            </div>
-          </section>
-        )}
-
-        {/* Rules */}
-        {tournament.rules && (
-          <section className="bg-white rounded-2xl border border-stone-200 shadow-sm mb-3 overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-stone-100">
-              <h2 className="text-xs font-bold text-stone-400 uppercase tracking-widest">Rules</h2>
-            </div>
-            <div className="px-5 py-4 space-y-3">
-              {tournament.rules.split('\n').filter(Boolean).map((rule, i) => (
-                <div key={i} className="flex gap-3">
-                  <span className="w-5 h-5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                    {i + 1}
-                  </span>
-                  <p className="text-sm text-stone-600 leading-relaxed">{rule.replace(/^\d+\.\s*/, '')}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Categories, eligibility and rules as three dropdowns */}
+        {[
+          {
+            key: 'categories',
+            title: `Categories${(tournament.categories?.length ?? 0) > 0 ? ` (${tournament.categories.length})` : ''}`,
+            show: (tournament.categories?.length ?? 0) > 0,
+            body: (
+              <ul className="space-y-2">
+                {tournament.categories.map((cat) => (
+                  <li key={cat} className="flex items-start gap-2.5 text-sm text-stone-700">
+                    <span className="w-1.5 h-1.5 bg-orange-500 rounded-full shrink-0 mt-2" />
+                    {CATEGORY_LABELS[cat] ?? cat}
+                  </li>
+                ))}
+              </ul>
+            ),
+          },
+          {
+            key: 'eligibility',
+            title: 'Eligibility',
+            show: !!tournament.eligibility,
+            body: (
+              <div className="space-y-2.5">
+                {(tournament.eligibility ?? '').split('\n').filter(Boolean).map((line, i) => (
+                  <p key={i} className="text-sm text-stone-600 leading-relaxed">{line}</p>
+                ))}
+              </div>
+            ),
+          },
+          {
+            key: 'rules',
+            title: 'Rules',
+            show: !!tournament.rules,
+            body: (
+              <div className="space-y-2.5">
+                {(tournament.rules ?? '').split('\n').filter(Boolean).map((line, i) => (
+                  <p key={i} className="text-sm text-stone-600 leading-relaxed">{line}</p>
+                ))}
+              </div>
+            ),
+          },
+        ].filter((x) => x.show).map((x) => (
+          <details key={x.key} className="group bg-white rounded-2xl border border-stone-200 shadow-sm mb-3 overflow-hidden">
+            <summary className="flex items-center justify-between px-5 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+              <span className="text-sm font-bold text-stone-800">{x.title}</span>
+              <svg className="w-4 h-4 text-stone-400 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+            </summary>
+            <div className="px-5 pb-5 pt-1 border-t border-stone-100">{x.body}</div>
+          </details>
+        ))}
       </main>
 
       {/* Sticky CTA — sits above bottom nav */}
