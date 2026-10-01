@@ -327,7 +327,7 @@ export default function RallyOpsHome() {
               href="/login"
               className="w-full sm:w-auto bg-orange-600 hover:bg-orange-500 text-white font-bold px-8 py-4 rounded-xl text-base transition-colors shadow-lg shadow-orange-200 inline-block"
             >
-              Login / Sign up
+              Log in · Sign up
             </a>
           </div>
         </div>
