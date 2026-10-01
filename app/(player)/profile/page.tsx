@@ -409,7 +409,7 @@ export default function ProfilePage() {
           </div>
 
           {profile.samanvayam_member && kids.length === 0 && !showAddKid && (
-            <p className="px-5 py-4 text-sm text-stone-400">No family members yet. Add your wife, husband, sons or daughters; they register under your Qatar ID.</p>
+            <p className="px-5 py-4 text-sm text-stone-400">No family members yet. Add your wife, husband, daughters or sons; they register under your Qatar ID.</p>
           )}
 
           <div className="divide-y divide-stone-50">
