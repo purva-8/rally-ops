@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import Avatar from '@/components/Avatar';
 import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '@/lib/categories';
 import { formatDate } from '@/lib/format';
-import { categoryFee } from '@/lib/categories';
+import { buildLines, type BillRegistration } from '@/components/FamilyBill';
 
 type Entry = {
   id: string;
@@ -58,6 +58,7 @@ type Person = { id: string; name: string; gender: string | null; relation: strin
 export default function MyEntriesPage() {
   const router = useRouter();
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [billRegs, setBillRegs] = useState<BillRegistration[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
@@ -78,12 +79,20 @@ export default function MyEntriesPage() {
 
       const { data } = await supabase
         .from('registrations')
-        .select(`id, category, status, registration_code, partner_name, payment_status, created_at, player_id,
-          tournaments ( id, name, venue, entry_fee, sport, event_date )`)
+        .select(`id, category, status, registration_code, partner_id, partner_name, payment_status, created_at, player_id,
+          tournaments ( id, name, venue, entry_fee, sport, event_date ),
+          player_profiles!registrations_player_id_fkey ( full_name )`)
         .in('player_id', list.map((p) => p.id))
         .neq('status', 'withdrawn')
         .order('created_at', { ascending: true });
       setEntries((data as unknown as Entry[]) ?? []);
+      // The same registrations the profile's family bill uses, including a partner's half booked by someone else
+      const idList = list.map((p) => p.id).join(',');
+      const { data: billData } = await supabase
+        .from('registrations')
+        .select('id, category, status, payment_status, player_id, partner_id, partner_name, tournaments ( name, entry_fee ), player_profiles!registrations_player_id_fkey ( full_name )')
+        .or(`player_id.in.(${idList}),partner_id.in.(${idList})`);
+      setBillRegs((billData as unknown as BillRegistration[]) ?? []);
       setLoading(false);
     });
   }, [router]);
@@ -155,9 +164,10 @@ export default function MyEntriesPage() {
             {people.map((person) => {
               const mine = entries.filter((e) => e.player_id === person.id);
               if (mine.length === 0) return null;
-              const due = mine
-                .filter((e) => e.status !== 'rejected' && e.payment_status === 'unpaid')
-                .reduce((sum, e) => sum + categoryFee(e.category, Number(e.tournaments?.entry_fee ?? 0)), 0);
+              // Same numbers as the family bill on the profile: each person's own share (doubles are halved)
+              const due = buildLines(people.map((p) => ({ id: p.id, name: p.name, gender: p.gender ?? null })), billRegs)
+                .filter((l) => l.personId === person.id && !l.paid)
+                .reduce((sum, l) => sum + l.amount, 0);
               return (
                 <section key={person.id} className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
                   <header className="flex items-center gap-3 px-4 py-3 bg-stone-50 border-b border-stone-100">
