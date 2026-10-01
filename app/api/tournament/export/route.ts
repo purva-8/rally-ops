@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { data: tournament } = await supabase
-    .from('tournaments').select('id, name, created_by, event_date, entry_fee').eq('id', tournamentId).single();
+    .from('tournaments').select('id, name, created_by, event_date, entry_fee, age_as_of').eq('id', tournamentId).single();
   if (!tournament || !(await isEventOrganizer(supabase, tournament.id, user.id, tournament.created_by))) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
   }
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
           'Samanvayam ID': (p?.parent_id ? parent?.samanvayam_id : p?.samanvayam_id) ?? '',
           'Gender': p?.gender ?? '',
           'Date of birth': formatDate(p?.dob),
-          'Age on event day': p?.dob && tournament.event_date ? ageOn(p.dob, tournament.event_date) : '',
+          'Age (counted date)': p?.dob && (tournament.age_as_of ?? tournament.event_date) ? ageOn(p.dob, tournament.age_as_of ?? tournament.event_date) : '',
           'Mobile': p?.mobile ?? r.manual_mobile ?? parent?.mobile ?? '',
           'Payment ref': r.payment_ref ?? '',
           'Emergency contact': r.emergency_contact ?? '',
@@ -217,7 +217,7 @@ export async function GET(req: NextRequest) {
       addSheet('Bill lines', tableSheet({ headers: ['#', 'Family head', 'Person', 'Category', 'Partner', 'Amount (QAR)', 'Payment', 'Status'], rows: billLines }));
       addSheet('Families', tableSheet({ headers: ['Family head', 'Qatar ID', 'Mobile', 'Samanvayam ID', 'People playing', 'Entries', 'Due (QAR)', 'Paid (QAR)', 'Balance (QAR)'], rows: famRows }));
       cats.forEach((c) => {
-        const rows = live.filter((r) => r.Category === c).map((r, i) => ({ '#': i + 1, Player: r.Player, Partner: r.Partner, Status: r.Status, Gender: r.Gender, Age: r['Age on event day'], Mobile: r.Mobile, Payment: r.Payment }));
+        const rows = live.filter((r) => r.Category === c).map((r, i) => ({ '#': i + 1, Player: r.Player, Partner: r.Partner, Status: r.Status, Gender: r.Gender, Age: r['Age (counted date)'], Mobile: r.Mobile, Payment: r.Payment }));
         addSheet(c, tableSheet({ headers: ['#', 'Player', 'Partner', 'Status', 'Gender', 'Age', 'Mobile', 'Payment'], rows }));
       });
       const unpaired = live.filter((r) => r.Pairing === 'Not linked yet').map((r, i) => ({ '#': i + 1, Category: r.Category, Player: r.Player, 'Says partner is': r.Partner, Mobile: r.Mobile, Status: r.Status }));

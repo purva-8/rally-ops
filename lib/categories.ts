@@ -36,8 +36,9 @@ export const CATEGORY_DEFS: Record<string, CategoryDef> = {
   male_doubles_18plus:    { label: "Doubles - Men's Open (18+)",       genders: ['male'],   minAge: 18, doubles: true, fee: 60 },
   mixed_doubles_kids:     { label: 'Doubles - Mixed Open (Kids 10-14)',  minAge: 10, maxAge: 14, doubles: true, fee: 60 },
   mixed_doubles_youth:    { label: 'Doubles - Mixed Open (Youth 14-18)', minAge: 15, maxAge: 18, doubles: true, fee: 60 },
-  // Adults only: kids and youth play in their own bands
-  mixed_doubles_open:     { label: 'Doubles - Mixed Open',             minAge: 18, doubles: true, fee: 60 },
+  // Mixed Open has no age or gender limits, so a parent can play with a son or daughter.
+  // Spouse and Women's are adults only: kids and youth play in their own bands.
+  mixed_doubles_open:     { label: 'Doubles - Mixed Open',             doubles: true, fee: 60 },
   spouse_doubles_open:    { label: 'Doubles - Spouse',                 minAge: 18, doubles: true, fee: 60 },
   female_doubles_open:    { label: 'Doubles - Women',                  genders: ['female'], minAge: 18, doubles: true, fee: 60 },
 
@@ -100,9 +101,6 @@ export function partnerIssue(id: string, me: PartnerInfo, partner: PartnerInfo, 
   }
   if (age !== null && def.minAge !== undefined && age < def.minAge) return `Partner must be ${def.minAge} or older`;
   if (age !== null && def.maxAge !== undefined && age > def.maxAge) return `Partner must be ${def.maxAge} or younger`;
-  if (id.startsWith('mixed') && me.gender && partner.gender && me.gender === partner.gender) {
-    return 'Mixed doubles needs one man and one woman';
-  }
   if (id === 'spouse_doubles_open' && partner.sameHousehold) {
     const married = (me.isAccountHolder && partner.relationship === 'spouse') || (partner.isAccountHolder && me.relationship === 'spouse');
     if (!married) return 'Spouse doubles is for husband and wife';

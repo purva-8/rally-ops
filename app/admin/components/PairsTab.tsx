@@ -57,6 +57,7 @@ export default function PairsTab() {
                   <div className="flex-1 min-w-[180px]">
                     <p className="text-sm font-semibold text-stone-900">{e.name}</p>
                     <p className="text-xs text-stone-400">says partner is: <span className="text-stone-600">{e.says || 'nobody'}</span>{e.mobile ? ` · ${e.mobile}` : ''}</p>
+                    {e.options.length === 0 && <p className="text-xs text-amber-600 mt-0.5">Nobody else is waiting in this category yet. {e.says ? `Pairs up automatically when ${e.says} registers and names ${e.name.split(' ')[0]}.` : ''}</p>}
                   </div>
                   <select value={chosen} onChange={(ev) => setPick((p) => ({ ...p, [e.id]: ev.target.value }))}
                     className="border border-stone-200 rounded-lg px-2 py-2 text-sm min-w-[200px]">
