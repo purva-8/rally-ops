@@ -77,7 +77,7 @@ export default function BillingTab() {
                 <p className="text-xs text-stone-400 truncate">{b.email ?? 'no email on file'}{b.mobile ? ` · ${b.mobile}` : ''} · {b.lines.length} entr{b.lines.length === 1 ? 'y' : 'ies'}</p>
               </button>
               <div className="text-right shrink-0">
-                <p className={`text-sm font-bold ${b.balance > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>{b.balance > 0 ? `QAR ${b.balance} due` : 'Paid'}</p>
+                <p className={`text-sm font-bold ${b.balance > 0 ? 'text-orange-600' : b.due === 0 && b.pendingAmount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>{b.balance > 0 ? `QAR ${b.balance} due` : b.due === 0 && b.pendingAmount > 0 ? 'Awaiting approval' : 'Paid'}</p>
                 <p className="text-xs text-stone-400">of QAR {b.due}{b.pendingAmount > 0 ? ` · +${b.pendingAmount} pending` : ''}</p>
               </div>
               <button onClick={() => act('email', [b.headId])} disabled={busy || !b.email}
