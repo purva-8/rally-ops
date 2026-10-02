@@ -45,7 +45,7 @@ export default function BillingTab() {
       <div className="mb-5 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-lg font-bold text-stone-900">Billing</h2>
-          <p className="text-stone-400 text-sm">One bill per family. Everything is due until you hit Mark paid. Doubles are split into halves.</p>
+          <p className="text-stone-400 text-sm">One bill per family, from approved entries only. Everything is due until you hit Mark paid. Doubles are split into halves.</p>
         </div>
         <button onClick={() => act('email')} disabled={busy || bills.every((b) => b.balance <= 0)}
           className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-500 disabled:opacity-40">
@@ -64,7 +64,7 @@ export default function BillingTab() {
 
       {note && <p className="text-sm bg-green-50 border border-green-200 text-green-800 rounded-lg px-3 py-2 mb-3">{note}</p>}
       {loading && <p className="text-sm text-stone-400">Loading...</p>}
-      {!loading && bills.length === 0 && <p className="text-sm text-stone-400">No entries with a fee yet.</p>}
+      {!loading && bills.length === 0 && <p className="text-sm text-stone-400">No approved entries with a fee yet.</p>}
 
       <div className="space-y-2">
         {bills.map((b) => (
@@ -76,7 +76,7 @@ export default function BillingTab() {
               </button>
               <div className="text-right shrink-0">
                 <p className={`text-sm font-bold ${b.balance > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>{b.balance > 0 ? `QAR ${b.balance} due` : 'Paid'}</p>
-                <p className="text-xs text-stone-400">of QAR {b.due}{b.pendingAmount > 0 ? ` · incl. ${b.pendingAmount} not yet approved` : ''}</p>
+                <p className="text-xs text-stone-400">of QAR {b.due}</p>
               </div>
               <button onClick={() => act('email', [b.headId])} disabled={busy || !b.email}
                 className="px-3 py-1.5 border border-stone-200 text-stone-600 rounded-lg text-xs hover:bg-stone-50 disabled:opacity-40">Email bill</button>
@@ -90,7 +90,7 @@ export default function BillingTab() {
                 {b.lines.map((l) => (
                   <li key={l.regId} className="flex justify-between py-1.5 gap-3">
                     <span className="text-stone-700">{l.person} <span className="text-stone-400">· {l.category}{l.note ? ` · ${l.note}` : ''}</span></span>
-                    <span className={l.pending ? 'text-amber-600 font-semibold' : l.paid ? 'text-emerald-600 font-semibold' : 'font-semibold text-stone-800'}>{l.pending ? `QAR ${l.amount} · not yet approved` : l.paid ? 'Paid' : `QAR ${l.amount}`}</span>
+                    <span className={l.paid ? 'text-emerald-600 font-semibold' : 'font-semibold text-stone-800'}>{l.paid ? 'Paid' : `QAR ${l.amount}`}</span>
                   </li>
                 ))}
               </ul>

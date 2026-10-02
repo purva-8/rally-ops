@@ -12,12 +12,12 @@ export type FamilyBill = {
 
 const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
 
-// One bill per household, from every live entry (approved or still pending). A doubles fee is per pair: each partner's own entry carries half,
+// One bill per household, from approved entries only. A doubles fee is per pair: each partner's own entry carries half,
 // unless both partners are in the same household (then it is paid together, in full).
 export async function loadBills(admin: Admin, tournamentId: string, entryFee: number): Promise<FamilyBill[]> {
   const { data: regs } = await admin.from('registrations')
     .select('id, player_id, partner_id, partner_name, category, status, payment_status')
-    .eq('tournament_id', tournamentId).in('status', ['approved', 'pending']);
+    .eq('tournament_id', tournamentId).eq('status', 'approved');
   const live = (regs ?? []).filter((r) => r.player_id && r.payment_status !== 'waived');
 
   const profiles = new Map<string, any>();
