@@ -12,12 +12,12 @@ export type FamilyBill = {
 
 const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
 
-// One bill per household, from approved entries. A doubles fee is per pair: each partner's own entry carries half,
+// One bill per household, from approved entries only. A doubles fee is per pair: each partner's own entry carries half,
 // unless both partners are in the same household (then it is paid together, in full).
 export async function loadBills(admin: Admin, tournamentId: string, entryFee: number): Promise<FamilyBill[]> {
   const { data: regs } = await admin.from('registrations')
     .select('id, player_id, partner_id, partner_name, category, status, payment_status')
-    .eq('tournament_id', tournamentId).in('status', ['approved', 'pending']);
+    .eq('tournament_id', tournamentId).eq('status', 'approved');
   const live = (regs ?? []).filter((r) => r.player_id && r.payment_status !== 'waived');
 
   const profiles = new Map<string, any>();
@@ -48,11 +48,11 @@ export async function loadBills(admin: Admin, tournamentId: string, entryFee: nu
       regId: r.id, person: profiles.get(r.player_id)?.full_name ?? '', category: categoryLabel(r.category),
       note: doubles ? `${partner ? `with ${partner} · ` : ''}half of ${fee}` : '', amount, paid, pending,
     });
-    if (pending) f.pendingAmount += amount; else { f.due += amount; if (paid) f.paid += amount; }
+    f.due += amount; if (paid) f.paid += amount; if (pending) f.pendingAmount += amount;
     const partnerFiled = !!r.partner_id && live.some((o) => o.id !== r.id && o.player_id === r.partner_id && o.category === r.category);
     if (doubles && r.partner_id && headOf(r.partner_id) === hid && !partnerFiled) {
       f.lines.push({ regId: r.id, person: profiles.get(r.partner_id)?.full_name ?? '', category: categoryLabel(r.category), note: `with ${profiles.get(r.player_id)?.full_name ?? 'partner'} · half of ${fee}`, amount, paid, pending });
-      if (pending) f.pendingAmount += amount; else { f.due += amount; if (paid) f.paid += amount; }
+      f.due += amount; if (paid) f.paid += amount; if (pending) f.pendingAmount += amount;
     }
     families.set(hid, f);
   }
