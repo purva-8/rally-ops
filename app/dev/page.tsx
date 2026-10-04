@@ -113,7 +113,7 @@ export default function DevPage() {
               <p className="text-xs font-semibold text-stone-500 mb-1">Failed emails (latest 30)</p>
               {issues.failedEmails.length === 0 && <p className="text-xs text-stone-400">None.</p>}
               {issues.failedEmails.map((e) => (
-                <p key={e.id} className="text-xs border rounded p-2 mb-1 bg-red-50 text-stone-800">{String(e.created_at).slice(0, 16).replace('T', ' ')} · {e.kind} · {e.to_email} · <span className="text-red-700">{e.error}</span></p>
+                <p key={e.id} className="text-xs border rounded p-2 mb-1 bg-red-50 text-stone-800">{String(e.at).slice(0, 16).replace('T', ' ')} · {e.kind} · {e.to_email} · <span className="text-red-700">{e.error}</span></p>
               ))}
             </div>
           </div>

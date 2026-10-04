@@ -25,8 +25,8 @@ export async function GET() {
     return { id: r.id, at: r.created_at, name: p?.full_name ?? '', account: head?.full_name ?? '', mobile: head?.mobile ?? p?.mobile ?? '', category: r.category, status: r.status, remark: r.remark };
   });
 
-  const { data: failed } = await admin.from('email_log').select('id, created_at, kind, to_email, subject, status, error')
-    .eq('status', 'failed').order('created_at', { ascending: false }).limit(30);
+  const { data: failed } = await admin.from('email_log').select('id, at, kind, to_email, subject, status, error')
+    .eq('status', 'failed').order('at', { ascending: false }).limit(30);
 
   return NextResponse.json({ remarks, failedEmails: failed ?? [] });
 }
