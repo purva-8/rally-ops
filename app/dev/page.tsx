@@ -87,22 +87,31 @@ export default function DevPage() {
 
       <div className="grid md:grid-cols-[280px_1fr] gap-4">
         <ul className="space-y-1 max-h-[70vh] overflow-auto">
-          {Array.from(new Set(people.map((p) => p.parent_id ?? p.id))).map((hid) => {
+          {Array.from(new Set(people.map((p) => p.parent_id ?? p.id))).map((hid, i) => {
             const head = people.find((p) => p.id === hid);
             const members = people.filter((p) => p.parent_id === hid).sort((x, y) => String(x.full_name).localeCompare(String(y.full_name)));
             if (!head) return null;
             return (
-              <li key={hid} className="border rounded overflow-hidden">
-                <button onClick={() => open(head.id)} className="w-full text-left p-2 bg-stone-50 hover:bg-stone-100">
-                  <p className="text-sm font-semibold text-stone-900">{head.full_name}</p>
-                  <p className="text-xs text-stone-500">{head.qid ?? 'no QID'} · account · {members.length} member{members.length === 1 ? '' : 's'}</p>
-                </button>
-                {members.map((m) => (
-                  <button key={m.id} onClick={() => open(m.id)} className="w-full text-left py-1.5 pl-6 pr-2 border-t hover:bg-stone-50">
-                    <p className="text-sm text-stone-800">{m.full_name}</p>
-                    <p className="text-xs text-stone-500">{m.relationship ?? 'member'}{m.qid ? ` · ${m.qid}` : ''}</p>
-                  </button>
-                ))}
+              <li key={hid}>
+                <details className="border rounded" open={!!q.trim() && members.length > 0}>
+                  <summary className="cursor-pointer list-none p-2 flex items-center gap-2 hover:bg-stone-50">
+                    <span className="text-xs text-stone-400 w-6 shrink-0">{i + 1}.</span>
+                    <span className="flex-1 min-w-0 text-sm font-semibold text-stone-900 truncate">{head.full_name}</span>
+                    <span className="text-xs text-stone-500 shrink-0">{members.length} ▾</span>
+                  </summary>
+                  <div className="border-t">
+                    <button onClick={() => open(head.id)} className="w-full text-left py-1.5 px-3 hover:bg-stone-50">
+                      <p className="text-sm text-stone-800">{head.full_name} <span className="text-xs text-stone-400">account holder</span></p>
+                      <p className="text-xs text-stone-500">{head.qid ?? 'no QID'}</p>
+                    </button>
+                    {members.map((m) => (
+                      <button key={m.id} onClick={() => open(m.id)} className="w-full text-left py-1.5 px-3 border-t hover:bg-stone-50">
+                        <p className="text-sm text-stone-800">{m.full_name} <span className="text-xs text-stone-400">{m.relationship ?? 'member'}</span></p>
+                        <p className="text-xs text-stone-500">{m.qid ?? 'no QID'}</p>
+                      </button>
+                    ))}
+                  </div>
+                </details>
               </li>
             );
           })}
