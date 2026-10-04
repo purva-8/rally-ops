@@ -163,7 +163,11 @@ export default function MyEntriesPage() {
           <div className="space-y-4">
             {people.map((person) => {
               const mine = entries.filter((e) => e.player_id === person.id);
-              if (mine.length === 0) return null;
+              // Doubles someone else entered naming this person as partner, with no entry of their own: billed to them, so shown here too
+              const live = (r: BillRegistration) => r.status !== 'withdrawn' && r.status !== 'rejected';
+              const named = billRegs.filter((r) => r.partner_id === person.id && r.player_id !== person.id && live(r)
+                && !billRegs.some((o) => o.player_id === person.id && o.category === r.category && live(o)));
+              if (mine.length === 0 && named.length === 0) return null;
               // Same numbers as the family bill on the profile: each person's own share (doubles are halved)
               const due = buildLines(people.map((p) => ({ id: p.id, name: p.name, gender: p.gender ?? null })), billRegs)
                 .filter((l) => l.personId === person.id && !l.paid)
@@ -205,6 +209,18 @@ export default function MyEntriesPage() {
                               ✕
                             </button>
                           )}
+                        </li>
+                      );
+                    })}
+                    {named.map((r) => {
+                      const scfg = STATUS_CONFIG[(r.status as keyof typeof STATUS_CONFIG)] ?? STATUS_CONFIG.pending;
+                      return (
+                        <li key={r.id + 'n'} className="flex items-center gap-3 px-4 py-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-stone-800">{CATEGORY_LABELS[r.category] ?? r.category}</p>
+                            <p className="text-xs text-stone-400 truncate">with {r.player_profiles?.full_name ?? 'partner'} · entered by them</p>
+                          </div>
+                          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0 ${scfg.cls}`}>{scfg.label}</span>
                         </li>
                       );
                     })}
