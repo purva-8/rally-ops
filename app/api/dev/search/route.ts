@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     .from('player_profiles')
     .select('id, full_name, qid, mobile, gender, parent_id, relationship, samanvayam_member, samanvayam_id, created_at')
     .order('created_at', { ascending: false })
-    .limit(40);
+    .limit(q ? 200 : 2000);
   // Forgiving name match: "kashvi" also finds "Kaashvi" (letters in order, anything in between)
   const loose = /^[a-z ]{3,}$/i.test(q) ? `%${q.replace(/ /g, '').split('').join('%')}%` : null;
   if (q) query = query.or(`full_name.ilike.%${q}%,${loose ? `full_name.ilike.${loose},` : ''}qid.ilike.%${q}%,mobile.ilike.%${q}%,samanvayam_id.ilike.%${q}%`);

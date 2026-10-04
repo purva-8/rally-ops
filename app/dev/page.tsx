@@ -87,7 +87,7 @@ export default function DevPage() {
 
       <div className="grid md:grid-cols-[280px_1fr] gap-4">
         <ul className="space-y-1 max-h-[70vh] overflow-auto">
-          {Array.from(new Set(people.map((p) => p.parent_id ?? p.id))).map((hid, i) => {
+          {Array.from(new Set(people.map((p) => p.parent_id ?? p.id))).sort((x, y) => String(people.find((p) => p.id === x)?.full_name ?? '').localeCompare(String(people.find((p) => p.id === y)?.full_name ?? ''))).map((hid, i) => {
             const head = people.find((p) => p.id === hid);
             const members = people.filter((p) => p.parent_id === hid).sort((x, y) => String(x.full_name).localeCompare(String(y.full_name)));
             if (!head) return null;
