@@ -21,7 +21,7 @@ const TABS = [
   { id: 'brackets',  label: 'Brackets' },
   { id: 'courts',    label: 'Courts' },
   { id: 'billing',   label: 'Billing' },
-  { id: 'volunteers', label: 'Volunteers' },
+  { id: 'volunteers', label: 'Volunteers & remarks' },
   { id: 'analytics', label: 'Analytics' },
   { id: 'export',    label: 'Export' },
 ];

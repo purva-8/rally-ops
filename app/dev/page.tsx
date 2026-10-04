@@ -12,6 +12,7 @@ export default function DevPage() {
   const [detail, setDetail] = useState<Row | null>(null);
   const [msg, setMsg] = useState('');
   const [link, setLink] = useState('');
+  const [issues, setIssues] = useState<{ remarks: Row[]; failedEmails: Row[] } | null>(null);
 
   useEffect(() => { fetch('/api/dev/me').then((r) => r.json()).then((d) => setOk(d.ok)).catch(() => setOk(false)); }, []);
 
@@ -20,7 +21,7 @@ export default function DevPage() {
     const d = await r.json();
     setPeople(d.people ?? []);
   };
-  useEffect(() => { if (ok) search(); /* eslint-disable-next-line */ }, [ok]);
+  useEffect(() => { if (ok) { search(); fetch('/api/dev/issues').then((r) => r.json()).then(setIssues).catch(() => {}); } /* eslint-disable-next-line */ }, [ok]);
 
   const open = async (id: string) => {
     setMsg('');
@@ -83,6 +84,40 @@ export default function DevPage() {
           <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} className="flex-1 border rounded px-2 py-1 text-xs text-stone-700" />
           <button className="px-3 rounded bg-stone-900 text-white text-sm" onClick={() => navigator.clipboard?.writeText(link)}>Copy</button>
         </div>
+      )}
+
+      {issues && (
+        <details className="border rounded bg-white" open={issues.remarks.length + issues.failedEmails.length > 0}>
+          <summary className="cursor-pointer p-2 text-sm font-semibold text-stone-900">
+            Inbox &amp; problems <span className="text-xs font-normal text-stone-500">· {issues.remarks.length} remark{issues.remarks.length === 1 ? '' : 's'} · {issues.failedEmails.length} failed email{issues.failedEmails.length === 1 ? '' : 's'}</span>
+          </summary>
+          <div className="border-t p-2 space-y-3">
+            <div>
+              <p className="text-xs font-semibold text-stone-500 mb-1">Remarks from players</p>
+              {issues.remarks.length === 0 && <p className="text-xs text-stone-400">None.</p>}
+              {issues.remarks.map((r) => (
+                <div key={r.id} className="text-sm border rounded p-2 mb-1 bg-amber-50">
+                  <p className="text-stone-900 font-medium">{r.account || r.name}{r.name && r.account && r.name !== r.account ? ` (entry for ${r.name})` : ''} <span className="text-xs text-stone-500">· {String(r.category).replace(/_/g, ' ')} · {r.status}</span></p>
+                  <p className="text-stone-800">{r.remark}</p>
+                  {r.mobile && (
+                    <p className="text-xs mt-1 flex gap-2 items-center">
+                      <span className="text-stone-500">{r.mobile}</span>
+                      <a className="underline text-stone-700" href={`tel:${String(r.mobile).replace(/\s/g, '')}`}>Call</a>
+                      <a className="underline text-emerald-700" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${String(r.mobile).replace(/\D/g, '').replace(/^00/, '')}`}>WhatsApp</a>
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-stone-500 mb-1">Failed emails (latest 30)</p>
+              {issues.failedEmails.length === 0 && <p className="text-xs text-stone-400">None.</p>}
+              {issues.failedEmails.map((e) => (
+                <p key={e.id} className="text-xs border rounded p-2 mb-1 bg-red-50 text-stone-800">{String(e.at).slice(0, 16).replace('T', ' ')} · {e.kind} · {e.to_email} · <span className="text-red-700">{e.error}</span></p>
+              ))}
+            </div>
+          </div>
+        </details>
       )}
 
       <div className="grid md:grid-cols-[280px_1fr] gap-4">

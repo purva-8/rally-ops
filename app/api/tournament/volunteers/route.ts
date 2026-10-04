@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isEventOrganizer } from '@/lib/organizer';
 
-// People who ticked "I would like to volunteer", with a number to reach them on (their own, or their family's)
+// People who ticked "I would like to volunteer" or left a remark, with a number to reach them on (their own, or their family's)
 export async function GET(req: NextRequest) {
   const tournamentId = new URL(req.url).searchParams.get('tournamentId');
   if (!tournamentId) return NextResponse.json({ error: 'Missing tournamentId' }, { status: 400 });
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const admin = createAdminClient();
   const { data: regs } = await admin.from('registrations')
     .select('player_id, notes, status, created_at, manual_name, manual_mobile')
-    .eq('tournament_id', tournamentId).like('notes', '%VOLUNTEER%').neq('status', 'withdrawn').order('created_at');
+    .eq('tournament_id', tournamentId).not('notes', 'is', null).neq('status', 'withdrawn').order('created_at');
 
   const ids = Array.from(new Set((regs ?? []).map((r) => r.player_id).filter(Boolean)));
   const people = new Map<string, any>();
@@ -30,22 +30,26 @@ export async function GET(req: NextRequest) {
   await load(ids);
   await load(Array.from(new Set(Array.from(people.values()).map((p) => p.parent_id).filter(Boolean))));
 
-  const seen = new Set<string>();
-  const out: any[] = [];
+  // One row per person: did they tick volunteer, and what remarks did they leave
+  const byKey = new Map<string, any>();
   for (const r of regs ?? []) {
+    const parts = String(r.notes ?? '').split('|').map((x) => x.trim()).filter(Boolean);
+    const volunteer = parts.includes('VOLUNTEER');
+    const remark = parts.filter((x) => x !== 'VOLUNTEER' && x.toUpperCase() !== 'N/A').join(' | ');
+    if (!volunteer && !remark) continue;
     const key = r.player_id ?? `m:${r.manual_name}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
     const p = r.player_id ? people.get(r.player_id) : null;
     const head = p?.parent_id ? people.get(p.parent_id) : p;
-    const remarks = String(r.notes ?? '').replace(/^VOLUNTEER( \| )?/, '');
-    out.push({
+    const row = byKey.get(key) ?? {
       name: p?.full_name ?? r.manual_name ?? '',
       mobile: p?.mobile ?? head?.mobile ?? r.manual_mobile ?? '',
       familyHead: p?.parent_id ? head?.full_name ?? '' : '',
-      remarks,
-      status: r.status,
-    });
+      volunteer: false, remarks: [] as string[], status: r.status,
+    };
+    row.volunteer = row.volunteer || volunteer;
+    if (remark && !row.remarks.includes(remark)) row.remarks.push(remark);
+    byKey.set(key, row);
   }
+  const out = Array.from(byKey.values());
   return NextResponse.json({ volunteers: out });
 }

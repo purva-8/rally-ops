@@ -12,6 +12,7 @@ type Registration = {
   category: string;
   status: 'pending' | 'approved' | 'rejected';
   review_comment?: string | null;
+  notes?: string | null;
   partner_name: string | null;
   emergency_contact: string | null;
   registration_code: string;
@@ -47,6 +48,13 @@ const STATUS_COLORS = {
 function displayName(r: Registration) {
   return r.player_profiles?.full_name ?? r.manual_name ?? '-';
 }
+
+// "VOLUNTEER | some remark" -> { volunteer, remark }
+function parseNotes(notes?: string | null) {
+  const parts = (notes ?? '').split('|').map((x) => x.trim()).filter(Boolean);
+  return { volunteer: parts.includes('VOLUNTEER'), remark: parts.filter((x) => x !== 'VOLUNTEER' && x.toUpperCase() !== 'N/A').join(' | ') };
+}
+const waLink = (mobile: string) => `https://wa.me/${mobile.replace(/\D/g, '').replace(/^00/, '')}`;
 
 function displayQid(r: Registration) {
   return r.player_profiles?.qid ?? r.manual_qid ?? r.registration_code;
@@ -96,7 +104,7 @@ export default function EntriesTab() {
     const { data } = await supabase
       .from('registrations')
       .select(`
-        id, player_id, category, status, review_comment, partner_name, emergency_contact, registration_code, created_at,
+        id, player_id, category, status, review_comment, notes, partner_name, emergency_contact, registration_code, created_at,
         manual_name, manual_email, manual_mobile, manual_qid,
         player_profiles!registrations_player_id_fkey ( full_name, mobile, gender, qid )
       `)
@@ -298,7 +306,23 @@ export default function EntriesTab() {
                 <div className="text-sm text-stone-500 space-y-0.5">
                   <p>{CATEGORY_LABELS[reg.category] ?? reg.category}</p>
                   {reg.partner_name && <p>Partner: {reg.partner_name}</p>}
-                  {(reg.player_profiles?.mobile || reg.manual_mobile) && <p>{reg.player_profiles?.mobile ?? reg.manual_mobile}</p>}
+                  {(() => {
+                    const mobile = reg.player_profiles?.mobile ?? reg.manual_mobile;
+                    const { volunteer, remark } = parseNotes(reg.notes);
+                    return (
+                      <>
+                        {mobile && (
+                          <p className="flex items-center gap-2 flex-wrap">
+                            <span>{mobile}</span>
+                            <a href={`tel:${mobile.replace(/\s/g, '')}`} className="text-xs font-semibold text-stone-600 border border-stone-200 rounded-md px-2 py-0.5 hover:bg-stone-50">Call</a>
+                            <a href={waLink(mobile)} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-md px-2 py-0.5 hover:bg-emerald-50">WhatsApp</a>
+                          </p>
+                        )}
+                        {volunteer && <p><span className="text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 rounded-full px-2 py-0.5">Volunteer</span></p>}
+                        {remark && <p className="text-sm text-stone-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2"><span className="text-[11px] font-bold uppercase tracking-wide text-amber-700 block">Remark from player</span>{remark}</p>}
+                      </>
+                    );
+                  })()}
                   {issues[reg.id]?.map((m) => (
                     <p key={m} className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5 mt-2">⚠ {m}. Reject this entry.</p>
                   ))}
