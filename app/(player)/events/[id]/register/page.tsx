@@ -362,11 +362,11 @@ function RegisterPageInner() {
           <div>
             <h2 className="text-base font-semibold text-stone-800 mb-1">Your details</h2>
             <p className="text-sm text-stone-500 mb-6">
-              Your Qatar ID is your registration reference for every category you enter, and your date of birth is used to
+              Your Samanvayam Member Qatar ID is your registration reference for every category you enter, and your date of birth is used to
               check eligibility for age-based categories.
             </p>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-stone-700 mb-1.5">Qatar ID</label>
+              <label className="block text-sm font-medium text-stone-700 mb-1.5">Samanvayam Member Qatar ID</label>
               <input
                 type="text"
                 value={identityForm.qid}
@@ -613,46 +613,6 @@ function RegisterPageInner() {
                           <p className="text-xs font-semibold text-stone-500">Find your partner</p>
 
                           <div>
-                            <p className="text-xs text-stone-400 mb-1.5">By Qatar ID</p>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                value={qidSearch[cat] ?? ''}
-                                onChange={(e) => setQidSearch((q) => ({ ...q, [cat]: e.target.value }))}
-                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); findPartner(cat); } }}
-                                className={inputCls}
-                                placeholder="Partner's Qatar ID"
-                              />
-                              <button onClick={() => findPartner(cat)} className="px-4 rounded-xl bg-stone-900 text-white text-sm font-semibold shrink-0">Search</button>
-                            </div>
-                            {qidResults[cat] && (
-                              <div className="mt-2 space-y-2">
-                                {qidResults[cat].length === 0 && <p className="text-xs text-stone-400">No one found with that ID yet.</p>}
-                                {qidResults[cat].map((p) => {
-                                  const why = issueFor(cat, { gender: p.gender, age: p.age });
-                                  return (
-                                    <button
-                                      key={p.id}
-                                      disabled={!!why}
-                                      onClick={() => setPartners((prev) => ({ ...prev, [cat]: { id: p.id, name: p.name } }))}
-                                      className={`w-full text-left px-4 py-2.5 rounded-xl border text-sm transition-colors ${why ? 'border-stone-100 bg-stone-50 text-stone-400 cursor-not-allowed' : 'border-stone-200 hover:border-orange-400'}`}
-                                    >
-                                      {p.name}
-                                      {why && <span className="block text-xs text-amber-600">{why}</span>}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-3 text-xs text-stone-400">
-                            <span className="flex-1 border-t border-stone-200" />or<span className="flex-1 border-t border-stone-200" />
-                          </div>
-
-                          <div>
-                            <p className="text-xs text-stone-400 mb-1.5">By name</p>
                             <div className="flex gap-2">
                               <input
                                 type="text"

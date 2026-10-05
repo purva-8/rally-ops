@@ -325,7 +325,7 @@ export default function ProfilePage() {
               {/* Qatar ID and date of birth side by side */}
               <div className="grid grid-cols-2 divide-x divide-stone-50">
                 <div className="px-5 py-3.5">
-                  <p className="text-xs text-stone-400 font-medium mb-0.5">Qatar ID</p>
+                  <p className="text-xs text-stone-400 font-medium mb-0.5">Samanvayam Member Qatar ID</p>
                   <p className="text-sm text-stone-800 font-medium">{profile.qid ?? '-'}</p>
                 </div>
                 <div className="px-5 py-3.5">
@@ -365,7 +365,7 @@ export default function ProfilePage() {
                     {field('full_name', 'Full Name', 'text')}
                     {field('mobile', 'Mobile', 'tel')}
                     <div className="grid grid-cols-2 gap-3">
-                      {field('qid', 'Qatar ID', 'text')}
+                      {field('qid', 'Samanvayam Member Qatar ID', 'text')}
                       {field('dob', 'Date of birth', 'date')}
                     </div>
                     {field('sid', 'Samanvayam ID', 'text', '(optional)')}
