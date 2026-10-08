@@ -2,14 +2,15 @@
 import { useEffect, useState } from 'react';
 import { useTournamentStore } from '../../tournament/store';
 
-type Vol = { name: string; mobile: string; familyHead: string; volunteer: boolean; remarks: string[]; status: string };
+type Vol = { name: string; mobile: string; familyHead: string; volunteer: boolean; remarks: string[]; status: string; key: string; playerId: string | null; manualName: string | null; solved: boolean };
 
 export default function VolunteersTab() {
   const tournamentId = useTournamentStore((s) => s.tournamentId);
   const [list, setList] = useState<Vol[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [view, setView] = useState<'all' | 'volunteers' | 'remarks'>('all');
+  const [view, setView] = useState<'all' | 'volunteers' | 'remarks' | 'solved'>('all');
+  const [busyKey, setBusyKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!tournamentId) return;
@@ -17,7 +18,17 @@ export default function VolunteersTab() {
   }, [tournamentId]);
 
   const wa = (m: string) => `https://wa.me/${m.replace(/\D/g, '')}`;
-  const shown = list.filter((v) => view === 'all' || (view === 'volunteers' ? v.volunteer : v.remarks.length > 0));
+  const open = (v: Vol) => v.remarks.length > 0 && !v.solved;
+  const shown = list.filter((v) => view === 'all' ? true : view === 'volunteers' ? v.volunteer : view === 'remarks' ? open(v) : v.solved);
+  async function setSolved(v: Vol, solved: boolean) {
+    setBusyKey(v.key);
+    const r = await fetch('/api/tournament/volunteers', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tournamentId, playerId: v.playerId, manualName: v.manualName, solved }),
+    });
+    if (r.ok) setList((prev) => prev.map((x) => (x.key === v.key ? { ...x, solved } : x)));
+    setBusyKey(null);
+  }
   const volunteers = list.filter((v) => v.volunteer);
   const copyAll = async () => {
     await navigator.clipboard?.writeText(volunteers.map((v) => `${v.name}\t${v.mobile}`).join('\n')).catch(() => {});
@@ -38,7 +49,7 @@ export default function VolunteersTab() {
         )}
       </div>
       <div className="bg-white rounded-2xl border border-stone-200 p-1.5 mb-4 flex gap-1 shadow-sm">
-        {([['all', `All (${list.length})`], ['volunteers', `Volunteers (${volunteers.length})`], ['remarks', `Remarks (${list.filter((v) => v.remarks.length > 0).length})`]] as const).map(([k, label]) => (
+        {([['all', `All (${list.length})`], ['volunteers', `Volunteers (${volunteers.length})`], ['remarks', `Open remarks (${list.filter(open).length})`], ['solved', `Solved (${list.filter((v) => v.solved).length})`]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setView(k)}
             className={`px-4 py-2 rounded-xl text-sm font-medium flex-1 transition-colors ${view === k ? 'bg-orange-600 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-50'}`}>{label}</button>
         ))}
@@ -51,7 +62,13 @@ export default function VolunteersTab() {
             <div className="flex-1 min-w-[180px]">
               <p className="text-sm font-semibold text-stone-900">{v.name} {v.volunteer && <span className="ml-1 text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 rounded-full px-2 py-0.5">Volunteer</span>}</p>
               <p className="text-xs text-stone-400">{v.familyHead ? `Family of ${v.familyHead} · ` : ''}{v.status}</p>
-              {v.remarks.map((r, j) => <p key={j} className="text-sm text-stone-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">{r}</p>)}
+              {v.remarks.map((r, j) => <p key={j} className={`text-sm rounded-lg px-3 py-2 mt-2 border ${v.solved ? 'text-stone-500 bg-stone-50 border-stone-200' : 'text-stone-800 bg-amber-50 border-amber-200'}`}>{r}</p>)}
+              {v.remarks.length > 0 && (
+                <button onClick={() => setSolved(v, !v.solved)} disabled={busyKey === v.key}
+                  className={`mt-2 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40 ${v.solved ? 'border border-stone-200 text-stone-600 hover:bg-stone-50' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}>
+                  {v.solved ? 'Reopen' : 'Mark solved'}
+                </button>
+              )}
             </div>
             {v.mobile ? (
               <div className="flex items-center gap-2">
