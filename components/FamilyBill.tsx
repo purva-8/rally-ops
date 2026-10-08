@@ -33,7 +33,7 @@ export function buildLines(people: BillPerson[], regs: BillRegistration[]): Line
       if (mine.has(r.player_id)) lines.push({ key: r.id + 'a', personId: r.player_id, label, note: `with ${r.partner_name ?? 'partner'} · half of ${fee}`, amount: half, paid });
       // A partner in this household who has no entry of their own is covered by this one
       const partnerFiled = regs.some((o) => o.id !== r.id && o.player_id === r.partner_id && o.category === r.category && o.status === 'approved');
-      if (r.partner_id && mine.has(r.partner_id) && !partnerFiled) lines.push({ key: r.id + 'b', personId: r.partner_id, label, note: `with ${r.player_profiles?.full_name ?? 'partner'} · half of ${fee}`, amount: half, paid });
+      if (r.partner_id && mine.has(r.partner_id) && mine.has(r.player_id) && !partnerFiled) lines.push({ key: r.id + 'b', personId: r.partner_id, label, note: `with ${r.player_profiles?.full_name ?? 'partner'} · half of ${fee}`, amount: half, paid });
     } else if (r.player_id && mine.has(r.player_id)) {
       lines.push({ key: r.id, personId: r.player_id, label, note: '', amount: fee, paid });
     }
