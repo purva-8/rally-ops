@@ -563,7 +563,7 @@ function RegisterPageInner() {
         {step === 'partner' && (
           <div>
             <h2 className="text-base font-semibold text-stone-800 mb-1">Choose your partners</h2>
-            <p className="text-sm text-stone-500 mb-6">Pick from your family, or find a partner by their Qatar ID. A linked partner pays and sees their own half.</p>
+            <p className="text-sm text-stone-500 mb-6">Pick from your family, or find a partner by name. A linked partner pays and sees their own half.</p>
             <div className="space-y-6 mb-6">
               {doublesSelected.map((cat) => {
                 const chosen = partners[cat];
