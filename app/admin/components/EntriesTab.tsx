@@ -191,7 +191,11 @@ export default function EntriesTab() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-bold text-stone-900">Entries</h2>
-          <p className="text-stone-400 text-sm">{registrations.length} total registrations</p>
+          <p className="text-stone-400 text-sm">{registrations.length} total registrations
+            {' · '}{registrations.filter((r) => r.status === 'pending').length} pending
+            {' · '}{registrations.filter((r) => r.status === 'approved').length} approved
+            {' · '}{registrations.filter((r) => r.status === 'rejected').length} rejected
+            {registrations.some((r) => (r.status as string) === 'withdrawn') && ` · ${registrations.filter((r) => (r.status as string) === 'withdrawn').length} withdrawn`}</p>
         </div>
         <button
           onClick={() => setShowAddForm((v) => !v)}
@@ -251,7 +255,7 @@ export default function EntriesTab() {
             <input type="checkbox" checked={filtered.length > 0 && filtered.every((r) => selectedIds.has(r.id))}
               onChange={() => toggleSelectAll(filtered.map((r) => r.id))}
               className="w-4 h-4 rounded border-stone-300 text-orange-600 focus:ring-orange-500" />
-            {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
+            {selectedIds.size > 0 ? `${selectedIds.size} selected` : `Select all ${filtered.length}${filter === 'all' ? '' : ` ${filter}`}`}
           </label>
           {selectedIds.size > 0 && (
             <div className="flex gap-2 items-center">
