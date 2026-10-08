@@ -74,6 +74,9 @@ export default function EntriesTab() {
   const [bulkComment, setBulkComment] = useState('');
   const [mailNote, setMailNote] = useState('');
   const [issues, setIssues] = useState<Record<string, string[]>>({});
+  const [search, setSearch] = useState('');
+  const [catFilter, setCatFilter] = useState('');
+  const [sort, setSort] = useState<'name' | 'oldest' | 'newest'>('newest');
 
   async function emailDecisions(ids: string[]) {
     setMailNote('Sending...');
@@ -183,7 +186,14 @@ export default function EntriesTab() {
     setAdding(false);
   }
 
-  const filtered = filter === 'all' ? registrations : registrations.filter((r) => r.status === filter);
+  const byStatus = filter === 'all' ? registrations : registrations.filter((r) => r.status === filter);
+  const q = search.trim().toLowerCase();
+  const filtered = byStatus
+    .filter((r) => !catFilter || r.category === catFilter)
+    .filter((r) => !q || [displayName(r), r.partner_name, r.player_profiles?.mobile, r.manual_mobile, displayQid(r)].some((x) => String(x ?? '').toLowerCase().includes(q)))
+    .sort((a, b) => sort === 'name' ? displayName(a).trim().localeCompare(displayName(b).trim())
+      : sort === 'oldest' ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at));
+  const catsHere = Array.from(new Set(byStatus.map((r) => r.category))).sort((a, b) => (CATEGORY_LABELS[a] ?? a).localeCompare(CATEGORY_LABELS[b] ?? b));
   const pendingCount = registrations.filter((r) => r.status === 'pending').length;
 
   return (
@@ -236,7 +246,7 @@ export default function EntriesTab() {
 
       <div className="bg-white rounded-2xl border border-stone-200 p-1.5 mb-4 flex gap-1 shadow-sm">
         {(['pending', 'approved', 'rejected', 'all'] as const).map((f) => (
-          <button key={f} onClick={() => { setFilter(f); setSelectedIds(new Set()); }}
+          <button key={f} onClick={() => { setFilter(f); setSelectedIds(new Set()); setCatFilter(''); setSort(f === 'approved' ? 'name' : 'newest'); }}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors capitalize flex-1 ${
               filter === f ? 'bg-orange-600 text-white shadow-sm' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
             }`}>
@@ -248,6 +258,21 @@ export default function EntriesTab() {
         ))}
       </div>
 
+      <div className="flex flex-wrap gap-2 mb-4">
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, partner, phone or Qatar ID"
+          className="flex-1 min-w-[200px] px-3 py-2 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
+        <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}
+          className="px-3 py-2 border border-stone-200 rounded-lg text-sm bg-white text-stone-700 focus:outline-none focus:ring-2 focus:ring-orange-500">
+          <option value="">All categories</option>
+          {catsHere.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c] ?? c}</option>)}
+        </select>
+        <select value={sort} onChange={(e) => setSort(e.target.value as 'name' | 'oldest' | 'newest')}
+          className="px-3 py-2 border border-stone-200 rounded-lg text-sm bg-white text-stone-700 focus:outline-none focus:ring-2 focus:ring-orange-500">
+          <option value="name">Name A to Z</option>
+          <option value="oldest">Oldest first</option>
+          <option value="newest">Newest first</option>
+        </select>
+      </div>
       {mailNote && <p className="text-sm bg-green-50 border border-green-200 text-green-800 rounded-lg px-3 py-2 mb-3">{mailNote}</p>}
       {!loading && filtered.length > 0 && (
         <div className="bg-white rounded-xl border border-stone-200 p-3 mb-4 flex items-center justify-between shadow-sm">
