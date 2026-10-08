@@ -30,8 +30,16 @@ export async function GET(req: NextRequest) {
     .eq('tournament_id', tournamentId).eq('category', category)
     .is('partner_id', null).neq('status', 'withdrawn').not('player_id', 'is', null);
   const named = (regs ?? []).filter((r) => r.player_id !== playerId && namesMatch(r.partner_name, me.full_name));
-  if (!named.length) return NextResponse.json({ people: [] });
+  // Entries already linked to this exact person (picked from the list), when they have no entry of their own here yet
+  const { data: linked } = await admin.from('registrations')
+    .select('player_id').eq('tournament_id', tournamentId).eq('category', category)
+    .eq('partner_id', playerId).neq('status', 'withdrawn').neq('status', 'rejected');
+  const { data: mine } = await admin.from('registrations').select('id')
+    .eq('tournament_id', tournamentId).eq('category', category).eq('player_id', playerId).neq('status', 'withdrawn');
+  const linkedIds = mine?.length ? [] : (linked ?? []).map((r) => r.player_id).filter((x): x is string => !!x);
+  const ids = Array.from(new Set([...named.map((r) => r.player_id), ...linkedIds]));
+  if (!ids.length) return NextResponse.json({ people: [] });
 
-  const { data: people } = await admin.from('player_profiles').select('id, full_name').in('id', named.map((r) => r.player_id));
+  const { data: people } = await admin.from('player_profiles').select('id, full_name').in('id', ids);
   return NextResponse.json({ people: (people ?? []).map((p) => ({ id: p.id, name: p.full_name })) });
 }
