@@ -36,12 +36,9 @@ export async function POST(req: NextRequest) {
   const chosen = all.filter((f) => (ids ? ids.includes(f.headId) : f.balance > 0));
 
   if (body.action === 'markPaid') {
-    const unpaid = chosen.flatMap((f) => f.lines.filter((l) => !l.paid));
-    const own = unpaid.filter((l) => !l.partnerHalf).map((l) => l.regId);
-    const halves = unpaid.filter((l) => l.partnerHalf).map((l) => l.regId);
-    for (let i = 0; i < own.length; i += 100) await admin.from('registrations').update({ payment_status: 'paid' }).in('id', own.slice(i, i + 100));
-    for (let i = 0; i < halves.length; i += 100) await admin.from('registrations').update({ partner_paid: true }).in('id', halves.slice(i, i + 100));
-    return NextResponse.json({ ok: true, updated: own.length + halves.length });
+    const regIds = chosen.flatMap((f) => f.lines.filter((l) => !l.paid).map((l) => l.regId));
+    for (let i = 0; i < regIds.length; i += 100) await admin.from('registrations').update({ payment_status: 'paid' }).in('id', regIds.slice(i, i + 100));
+    return NextResponse.json({ ok: true, updated: regIds.length });
   }
 
   if (body.action === 'email') {
