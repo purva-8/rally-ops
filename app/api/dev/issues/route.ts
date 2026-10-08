@@ -11,9 +11,10 @@ export async function GET() {
     .select('id, player_id, category, status, notes, created_at, partner_name')
     .not('notes', 'is', null).neq('status', 'withdrawn').order('created_at', { ascending: false });
   const withRemark = (regs ?? []).map((r) => {
-    const remark = (r.notes ?? '').split('|').map((x: string) => x.trim()).filter((x: string) => x && x !== 'VOLUNTEER' && x.toUpperCase() !== 'N/A').join(' | ');
-    return { ...r, remark };
-  }).filter((r) => r.remark);
+    const parts = (r.notes ?? '').split('|').map((x: string) => x.trim());
+    const remark = parts.filter((x: string) => x && x !== 'VOLUNTEER' && x !== 'RESOLVED' && x.toUpperCase() !== 'N/A').join(' | ');
+    return { ...r, remark, solved: parts.includes('RESOLVED') };
+  }).filter((r) => r.remark && !r.solved);
 
   const ids = Array.from(new Set(withRemark.map((r) => r.player_id).filter(Boolean)));
   const { data: people } = ids.length ? await admin.from('player_profiles').select('id, full_name, mobile, parent_id').in('id', ids) : { data: [] as any[] };

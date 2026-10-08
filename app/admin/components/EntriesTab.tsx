@@ -52,7 +52,7 @@ function displayName(r: Registration) {
 // "VOLUNTEER | some remark" -> { volunteer, remark }
 function parseNotes(notes?: string | null) {
   const parts = (notes ?? '').split('|').map((x) => x.trim()).filter(Boolean);
-  return { volunteer: parts.includes('VOLUNTEER'), remark: parts.filter((x) => x !== 'VOLUNTEER' && x.toUpperCase() !== 'N/A').join(' | ') };
+  return { volunteer: parts.includes('VOLUNTEER'), solved: parts.includes('RESOLVED'), remark: parts.filter((x) => x !== 'VOLUNTEER' && x !== 'RESOLVED' && x.toUpperCase() !== 'N/A').join(' | ') };
 }
 const waLink = (mobile: string) => `https://wa.me/${mobile.replace(/\D/g, '').replace(/^00/, '')}`;
 
@@ -312,7 +312,7 @@ export default function EntriesTab() {
                   {reg.partner_name && <p>Partner: {reg.partner_name}</p>}
                   {(() => {
                     const mobile = reg.player_profiles?.mobile ?? reg.manual_mobile;
-                    const { volunteer, remark } = parseNotes(reg.notes);
+                    const { volunteer, remark, solved } = parseNotes(reg.notes);
                     return (
                       <>
                         {mobile && (
@@ -323,7 +323,7 @@ export default function EntriesTab() {
                           </p>
                         )}
                         {volunteer && <p><span className="text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 rounded-full px-2 py-0.5">Volunteer</span></p>}
-                        {remark && <p className="text-sm text-stone-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2"><span className="text-[11px] font-bold uppercase tracking-wide text-amber-700 block">Remark from player</span>{remark}</p>}
+                        {remark && <p className={`text-sm rounded-lg px-3 py-2 mt-2 border ${solved ? 'text-stone-500 bg-stone-50 border-stone-200' : 'text-stone-800 bg-amber-50 border-amber-200'}`}><span className={`text-[11px] font-bold uppercase tracking-wide block ${solved ? 'text-stone-400' : 'text-amber-700'}`}>{solved ? 'Remark from player · solved' : 'Remark from player'}</span>{remark}</p>}
                       </>
                     );
                   })()}
