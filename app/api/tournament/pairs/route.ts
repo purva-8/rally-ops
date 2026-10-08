@@ -19,9 +19,48 @@ async function authorize(tournamentId: string | null) {
 
 // Doubles entries that are not linked to a partner yet, with the most likely match for each
 export async function GET(req: NextRequest) {
-  const a = await authorize(new URL(req.url).searchParams.get('tournamentId'));
+  const sp = new URL(req.url).searchParams;
+  const a = await authorize(sp.get('tournamentId'));
   if (a.error) return a.error;
   const admin = createAdminClient();
+
+  // Every doubles entry grouped by how far its pairing has got: both entered, one entered, or partner only named
+  if (sp.get('overview')) {
+    const { data: all } = await admin.from('registrations')
+      .select('id, player_id, partner_id, partner_name, category, status, created_at')
+      .eq('tournament_id', a.t!.id).like('category', '%doubles%').not('status', 'in', '(withdrawn,rejected)').not('player_id', 'is', null);
+    const regs = all ?? [];
+    const pids = Array.from(new Set(regs.flatMap((r) => [r.player_id, r.partner_id]).filter(Boolean)));
+    const { data: ppl } = pids.length ? await admin.from('player_profiles').select('id, full_name, parent_id').in('id', pids) : { data: [] as any[] };
+    const nm = new Map((ppl ?? []).map((p) => [p.id, (p.full_name ?? '').trim()]));
+    const home = new Map((ppl ?? []).map((p) => [p.id, p.parent_id ?? p.id]));
+    const byKey = new Map(regs.map((r) => [`${r.player_id}|${r.category}`, r]));
+    const side = (r: typeof regs[number]) => ({ name: nm.get(r.player_id) ?? '', status: r.status, at: r.created_at });
+    const paired: any[] = [], waiting: any[] = [], named: any[] = [];
+    const done = new Set<string>();
+    for (const r of regs) {
+      if (done.has(r.id)) continue;
+      const label = categoryLabel(r.category);
+      if (r.partner_id) {
+        const o = byKey.get(`${r.partner_id}|${r.category}`);
+        if (o && o.partner_id === r.player_id) {
+          done.add(r.id); done.add(o.id);
+          const [first, second] = r.created_at <= o.created_at ? [r, o] : [o, r];
+          paired.push({ category: label, first: side(first), second: side(second) });
+        } else if (!o && home.get(r.partner_id) && home.get(r.partner_id) === home.get(r.player_id)) {
+          // Partner is in the same family and has no entry of their own: one person entered them both
+          done.add(r.id);
+          paired.push({ category: label, first: side(r), second: { name: nm.get(r.partner_id) ?? '', status: r.status, at: r.created_at, viaFamily: true } });
+        } else {
+          waiting.push({ category: label, entrant: side(r), partner: nm.get(r.partner_id) ?? r.partner_name ?? '',
+            note: o ? `${nm.get(r.partner_id)} entered this category with someone else` : `${nm.get(r.partner_id) ?? 'Partner'} has not entered this category yet` });
+        }
+      } else {
+        named.push({ category: label, entrant: side(r), partner: r.partner_name ?? '' });
+      }
+    }
+    return NextResponse.json({ paired, waiting, named });
+  }
 
   const { data: regs } = await admin.from('registrations')
     .select('id, player_id, category, partner_name, status')

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isEventOrganizer } from '@/lib/organizer';
-import { loadBills } from '@/lib/billing';
+import { loadBills, loadYetToBill } from '@/lib/billing';
 import { sendMails } from '@/lib/email';
 import { billEmail } from '@/lib/emailTemplates';
 
@@ -21,8 +21,10 @@ async function authorize(tournamentId: string | null) {
 export async function GET(req: NextRequest) {
   const a = await authorize(new URL(req.url).searchParams.get('tournamentId'));
   if (a.error) return a.error;
-  const bills = await loadBills(createAdminClient(), a.t!.id, Number(a.t!.entry_fee ?? 0));
-  return NextResponse.json({ bills });
+  const admin = createAdminClient();
+  const fee = Number(a.t!.entry_fee ?? 0);
+  const [bills, yetToBill] = await Promise.all([loadBills(admin, a.t!.id, fee), loadYetToBill(admin, a.t!.id, fee)]);
+  return NextResponse.json({ bills, yetToBill });
 }
 
 // { action: 'email' | 'markPaid', tournamentId, headIds?: string[] }  (no headIds = everyone with a balance)
