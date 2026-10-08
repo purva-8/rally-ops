@@ -90,7 +90,7 @@ export default function MyEntriesPage() {
       const idList = list.map((p) => p.id).join(',');
       const { data: billData } = await supabase
         .from('registrations')
-        .select('id, category, status, payment_status, player_id, partner_id, partner_name, tournaments ( name, entry_fee ), player_profiles!registrations_player_id_fkey ( full_name )')
+        .select('id, category, status, payment_status, partner_paid, player_id, partner_id, partner_name, tournaments ( name, entry_fee ), player_profiles!registrations_player_id_fkey ( full_name )')
         .or(`player_id.in.(${idList}),partner_id.in.(${idList})`);
       setBillRegs((billData as unknown as BillRegistration[]) ?? []);
       setLoading(false);
