@@ -22,8 +22,7 @@ export function buildLines(people: BillPerson[], regs: BillRegistration[]): Line
   const mine = new Set(people.map((p) => p.id));
   const lines: Line[] = [];
   for (const r of regs) {
-    // Only approved entries are billed; pending, rejected and withdrawn ones cost nothing yet
-    if (r.status !== 'approved') continue;
+    if (r.status === 'rejected' || r.status === 'withdrawn') continue;
     const fee = categoryFee(r.category, Number(r.tournaments?.entry_fee ?? 0));
     if (fee <= 0 || r.payment_status === 'waived') continue;
     const paid = r.payment_status === 'paid';
@@ -32,8 +31,8 @@ export function buildLines(people: BillPerson[], regs: BillRegistration[]): Line
       const half = fee / 2;
       if (mine.has(r.player_id)) lines.push({ key: r.id + 'a', personId: r.player_id, label, note: `with ${r.partner_name ?? 'partner'} · half of ${fee}`, amount: half, paid });
       // A partner in this household who has no entry of their own is covered by this one
-      const partnerFiled = regs.some((o) => o.id !== r.id && o.player_id === r.partner_id && o.category === r.category && o.status === 'approved');
-      if (r.partner_id && mine.has(r.partner_id) && mine.has(r.player_id) && !partnerFiled) lines.push({ key: r.id + 'b', personId: r.partner_id, label, note: `with ${r.player_profiles?.full_name ?? 'partner'} · half of ${fee}`, amount: half, paid });
+      const partnerFiled = regs.some((o) => o.id !== r.id && o.player_id === r.partner_id && o.category === r.category && o.status !== 'withdrawn' && o.status !== 'rejected');
+      if (r.partner_id && mine.has(r.partner_id) && !partnerFiled) lines.push({ key: r.id + 'b', personId: r.partner_id, label, note: `with ${r.player_profiles?.full_name ?? 'partner'} · half of ${fee}`, amount: half, paid });
     } else if (r.player_id && mine.has(r.player_id)) {
       lines.push({ key: r.id, personId: r.player_id, label, note: '', amount: fee, paid });
     }
