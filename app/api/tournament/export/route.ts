@@ -37,13 +37,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    type Table = { headers: string[]; rows: Record<string, any>[] };
+    type Table = { headers: string[]; rows: Record<string, any>[]; familyHalves?: Record<string, any>[] };
     const fee0 = Number(tournament.entry_fee ?? 0);
 
     const registrationsTable = async () => {
       const regs = await fetchAll<any>((from, to) =>
         supabase.from('registrations').select('*').eq('tournament_id', tournamentId)
-          .order('created_at', { ascending: true }).range(from, to));
+          .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to));
 
       const profiles = new Map<string, any>();
       const loadProfiles = async (list: string[]) => {
@@ -71,7 +71,10 @@ export async function GET(req: NextRequest) {
           'Player': p?.full_name ?? r.manual_name ?? '',
           'Category': categoryLabel(r.category),
           'Partner': partner ?? r.partner_name ?? '',
-          'Pairing': isDoublesCategory(r.category) ? (r.partner_id ? 'Linked' : 'Not linked yet') : '',
+          // One entry is enough to make a pair: a partner on the portal, or one an organizer confirmed as typed
+          'Pairing': isDoublesCategory(r.category)
+            ? (r.partner_id ? 'Paired' : String(r.notes ?? '').split('|').map((x: string) => x.trim()).includes('PAIRED') ? 'Paired (partner not on portal)' : 'No partner yet')
+            : '',
           'Status': r.status,
           'Fee due (QAR)': due,
           'Payment': r.payment_status ?? '',
@@ -94,7 +97,18 @@ export async function GET(req: NextRequest) {
           'Registered on': formatDateTime(r.created_at),
         };
       });
-      return { headers: Object.keys(rows[0] ?? { '#': 0, Player: 0, Category: 0, Partner: 0, Status: 0, 'Fee due (QAR)': 0, Payment: 0 }), rows } as Table;
+      // A doubles partner in the same family with no entry of their own is billed to that family (their half of the fee)
+      const liveRegs = regs.filter((r) => r.status === 'approved' || r.status === 'pending');
+      const familyHalves = liveRegs.filter((r) => isDoublesCategory(r.category) && r.partner_id && r.payment_status !== 'waived'
+        && householdOf(r.partner_id) === householdOf(r.player_id)
+        && !liveRegs.some((o) => o.id !== r.id && o.player_id === r.partner_id && o.category === r.category)).map((r) => {
+        const head = profiles.get(householdOf(r.player_id) ?? '');
+        return {
+          'Family head': head?.full_name ?? '', Person: profiles.get(r.partner_id)?.full_name ?? '', Category: categoryLabel(r.category),
+          Partner: profiles.get(r.player_id)?.full_name ?? '', Amount: categoryFee(r.category, fee0) / 2, Payment: r.payment_status ?? '', Status: r.status,
+        };
+      });
+      return { headers: Object.keys(rows[0] ?? { '#': 0, Player: 0, Category: 0, Partner: 0, Status: 0, 'Fee due (QAR)': 0, Payment: 0 }), rows, familyHalves } as Table;
     };
 
     const matchesTable = async () => {
@@ -156,6 +170,9 @@ export async function GET(req: NextRequest) {
       const count = (f: (r: any) => boolean) => reg.rows.filter(f).length;
       const sum = (rows: any[]) => rows.reduce((a, r) => a + Number(r['Fee due (QAR)'] || 0), 0);
       const paid = live.filter((r) => String(r.Payment).toLowerCase() === 'paid');
+      const halves = reg.familyHalves ?? [];
+      const halvesSum = halves.reduce((a, h) => a + Number(h.Amount || 0), 0);
+      const halvesPaid = halves.filter((h) => String(h.Payment).toLowerCase() === 'paid').reduce((a, h) => a + Number(h.Amount || 0), 0);
 
       const summary: (string | number)[][] = [
         [tournament.name],
@@ -169,9 +186,9 @@ export async function GET(req: NextRequest) {
         ['Withdrawn', count((r) => r.Status === 'withdrawn')],
         [],
         ['MONEY (QAR, excludes rejected and withdrawn)', ''],
-        ['Total due', sum(live)],
-        ['Marked paid', sum(paid)],
-        ['Still to collect', sum(live) - sum(paid)],
+        ['Total due (includes family partners entered by one person)', sum(live) + halvesSum],
+        ['Marked paid', sum(paid) + halvesPaid],
+        ['Still to collect', sum(live) + halvesSum - sum(paid) - halvesPaid],
         [],
         ['ENTRIES PER CATEGORY', 'Entries'],
       ];
@@ -185,6 +202,13 @@ export async function GET(req: NextRequest) {
         f.People.add(r.Player); f.Entries += 1; f.Due += Number(r['Fee due (QAR)'] || 0);
         if (String(r.Payment).toLowerCase() === 'paid') f.Paid += Number(r['Fee due (QAR)'] || 0);
         if (!f.Mobile && r.Mobile) f.Mobile = r.Mobile;
+        fam.set(k, f);
+      });
+      halves.forEach((h) => {
+        const k = h['Family head'];
+        const f = fam.get(k) ?? { 'Family head': k, 'Qatar ID': '', 'Mobile': '', 'Samanvayam ID': '', People: new Set<string>(), Entries: 0, Due: 0, Paid: 0 };
+        f.People.add(h.Person); f.Due += Number(h.Amount || 0);
+        if (String(h.Payment).toLowerCase() === 'paid') f.Paid += Number(h.Amount || 0);
         fam.set(k, f);
       });
       const famRows = Array.from(fam.values()).sort((a, b) => a['Family head'].localeCompare(b['Family head'])).map((f) => ({
@@ -215,13 +239,27 @@ export async function GET(req: NextRequest) {
         '#': i + 1, 'Family head': r['Registered by (family head)'] || r.Player, Person: r.Player, Category: r.Category,
         'Partner': r.Partner, 'Amount (QAR)': Number(r['Fee due (QAR)']), Payment: r.Payment || 'unpaid', Status: r.Status,
       }));
+      halves.forEach((h) => billLines.push({ '#': billLines.length + 1, 'Family head': h['Family head'], Person: h.Person, Category: h.Category, 'Partner': h.Partner, 'Amount (QAR)': Number(h.Amount), Payment: h.Payment || 'unpaid', Status: h.Status }));
       addSheet('Bill lines', tableSheet({ headers: ['#', 'Family head', 'Person', 'Category', 'Partner', 'Amount (QAR)', 'Payment', 'Status'], rows: billLines }));
       addSheet('Families', tableSheet({ headers: ['Family head', 'Qatar ID', 'Mobile', 'Samanvayam ID', 'People playing', 'Entries', 'Due (QAR)', 'Paid (QAR)', 'Balance (QAR)'], rows: famRows }));
       cats.forEach((c) => {
         const rows = live.filter((r) => r.Category === c).map((r, i) => ({ '#': i + 1, Player: r.Player, Partner: r.Partner, Status: r.Status, Gender: r.Gender, Age: r['Age (counted date)'], Mobile: r.Mobile, Payment: r.Payment }));
         addSheet(c, tableSheet({ headers: ['#', 'Player', 'Partner', 'Status', 'Gender', 'Age', 'Mobile', 'Payment'], rows }));
       });
-      const unpaired = live.filter((r) => r.Pairing === 'Not linked yet').map((r, i) => ({ '#': i + 1, Category: r.Category, Player: r.Player, 'Says partner is': r.Partner, Mobile: r.Mobile, Status: r.Status }));
+      // Each doubles pair once (both partners may have filed their own entry)
+      const pairMap = new Map<string, any>();
+      live.filter((r) => r.Pairing).forEach((r) => {
+        const key = `${r.Category}|${[String(r.Player).trim().toLowerCase(), String(r.Partner).trim().toLowerCase()].sort().join('|')}`;
+        const e = pairMap.get(key) ?? { Category: r.Category, 'Player 1': r.Player, 'Player 2': r.Partner, 'Entered by': [] as string[], Status: [] as string[], Pairing: r.Pairing };
+        e['Entered by'].push(r.Player); e.Status.push(r.Status);
+        pairMap.set(key, e);
+      });
+      const pairRows = Array.from(pairMap.values()).sort((a, b) => a.Category.localeCompare(b.Category) || String(a['Player 1']).localeCompare(String(b['Player 1']))).map((e, i) => ({
+        '#': i + 1, Category: e.Category, 'Player 1': e['Player 1'], 'Player 2': e['Player 2'] || '(none yet)',
+        'Entered by': Array.from(new Set(e['Entered by'])).join(' and '), Status: Array.from(new Set(e.Status)).join(' / '), Pairing: e.Pairing,
+      }));
+      addSheet('Doubles pairs', tableSheet({ headers: ['#', 'Category', 'Player 1', 'Player 2', 'Entered by', 'Status', 'Pairing'], rows: pairRows }));
+      const unpaired = live.filter((r) => r.Pairing === 'No partner yet').map((r, i) => ({ '#': i + 1, Category: r.Category, Player: r.Player, 'Says partner is': r.Partner, Mobile: r.Mobile, Status: r.Status }));
       if (unpaired.length) addSheet('Unpaired doubles', tableSheet({ headers: ['#', 'Category', 'Player', 'Says partner is', 'Mobile', 'Status'], rows: unpaired }));
       addSheet('Matches', tableSheet(mat));
       addSheet('All details', tableSheet(reg));
