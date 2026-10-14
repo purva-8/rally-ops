@@ -4,7 +4,7 @@ import { resolveRecipients } from '@/lib/notify';
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-export type BillLine = { regId: string; person: string; category: string; note: string; amount: number; paid: boolean; pending: boolean };
+export type BillLine = { regId: string; person: string; category: string; note: string; amount: number; paid: boolean; pending: boolean; partnerHalf?: boolean };
 export type FamilyBill = {
   headId: string; head: string; email: string | null; qid: string | null; mobile: string | null;
   lines: BillLine[]; due: number; paid: number; balance: number; pendingAmount: number;
@@ -16,7 +16,7 @@ const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length
 // unless both partners are in the same household (then it is paid together, in full).
 export async function loadBills(admin: Admin, tournamentId: string, entryFee: number): Promise<FamilyBill[]> {
   const { data: regs } = await admin.from('registrations')
-    .select('id, player_id, partner_id, partner_name, category, status, payment_status')
+    .select('id, player_id, partner_id, partner_name, category, status, payment_status, partner_paid, notes')
     .eq('tournament_id', tournamentId).eq('status', 'approved');
   const live = (regs ?? []).filter((r) => r.player_id && r.payment_status !== 'waived');
 
@@ -33,28 +33,40 @@ export async function loadBills(admin: Admin, tournamentId: string, entryFee: nu
   const headOf = (id: string) => profiles.get(id)?.parent_id ?? id;
 
   const families = new Map<string, FamilyBill>();
+  const addLine = (hid: string, line: BillLine) => {
+    const head = profiles.get(hid);
+    const f: FamilyBill = families.get(hid) ?? { headId: hid, head: head?.full_name ?? '', email: null, qid: head?.qid ?? null, mobile: head?.mobile ?? null, lines: [], due: 0, paid: 0, balance: 0, pendingAmount: 0 };
+    f.lines.push(line);
+    f.due += line.amount; if (line.paid) f.paid += line.amount;
+    families.set(hid, f);
+  };
   for (const r of live) {
     const fee = categoryFee(r.category, entryFee);
     if (fee <= 0) continue;
     const doubles = isDoublesCategory(r.category);
     const amount = doubles ? fee / 2 : fee;
     const hid = headOf(r.player_id);
-    const head = profiles.get(hid);
-    const f: FamilyBill = families.get(hid) ?? { headId: hid, head: head?.full_name ?? '', email: null, qid: head?.qid ?? null, mobile: head?.mobile ?? null, lines: [], due: 0, paid: 0, balance: 0, pendingAmount: 0 };
     const partner = r.partner_id ? profiles.get(r.partner_id)?.full_name : r.partner_name;
     const paid = r.payment_status === 'paid';
-    const pending = r.status === 'pending';
-    f.lines.push({
-      regId: r.id, person: profiles.get(r.player_id)?.full_name ?? '', category: categoryLabel(r.category),
-      note: doubles ? `${partner ? `with ${partner} · ` : ''}half of ${fee}` : '', amount, paid, pending,
+    const me = profiles.get(r.player_id)?.full_name ?? '';
+    addLine(hid, {
+      regId: r.id, person: me, category: categoryLabel(r.category),
+      note: doubles ? `${partner ? `with ${partner} · ` : ''}half of ${fee}` : '', amount, paid, pending: false,
     });
-    f.due += amount; if (paid) f.paid += amount; if (pending) f.pendingAmount += amount;
+    if (!doubles) continue;
     const partnerFiled = !!r.partner_id && live.some((o) => o.id !== r.id && o.player_id === r.partner_id && o.category === r.category);
-    if (doubles && r.partner_id && headOf(r.partner_id) === hid && !partnerFiled) {
-      f.lines.push({ regId: r.id, person: profiles.get(r.partner_id)?.full_name ?? '', category: categoryLabel(r.category), note: `with ${profiles.get(r.player_id)?.full_name ?? 'partner'} · half of ${fee}`, amount, paid, pending });
-      f.due += amount; if (paid) f.paid += amount; if (pending) f.pendingAmount += amount;
+    if (r.partner_id && !partnerFiled) {
+      // The partner has no entry of their own: their half is billed to their own family (paid on its own, tracked as partner_paid),
+      // or together with this entry when they are in the same family
+      const phid = headOf(r.partner_id);
+      addLine(phid, {
+        regId: r.id, person: profiles.get(r.partner_id)?.full_name ?? '', category: categoryLabel(r.category),
+        note: `with ${me} · half of ${fee}`, amount, paid: phid === hid ? paid : !!r.partner_paid, pending: false, partnerHalf: phid !== hid,
+      });
+    } else if (!r.partner_id && String(r.notes ?? '').split('|').map((x: string) => x.trim()).includes('PAIRED')) {
+      // Partner confirmed as typed and not on the portal: whoever entered handles the other half too
+      addLine(hid, { regId: r.id, person: r.partner_name || 'Partner', category: categoryLabel(r.category), note: `with ${me} · half of ${fee} (partner not on the portal)`, amount, paid, pending: false });
     }
-    families.set(hid, f);
   }
 
   const { recipientOf } = await resolveRecipients(admin, Array.from(families.keys()));
@@ -70,7 +82,7 @@ export type YetToBill = { total: number; pending: YetItem[]; partners: YetItem[]
 // doubles whose partner has not entered yet (or was never linked).
 export async function loadYetToBill(admin: Admin, tournamentId: string, entryFee: number): Promise<YetToBill> {
   const { data: regs } = await admin.from('registrations')
-    .select('id, player_id, partner_id, partner_name, category, status, payment_status')
+    .select('id, player_id, partner_id, partner_name, category, status, payment_status, notes')
     .eq('tournament_id', tournamentId).in('status', ['approved', 'pending']);
   const live = (regs ?? []).filter((r) => r.player_id && r.payment_status !== 'waived');
   const ids = Array.from(new Set(live.flatMap((r) => [r.player_id, r.partner_id]).filter(Boolean)));
@@ -100,11 +112,8 @@ export async function loadYetToBill(admin: Admin, tournamentId: string, entryFee
       continue;
     }
     if (!doubles) continue;
-    if (r.partner_id) {
-      const sameHome = (profiles.get(r.partner_id)?.parent_id ?? r.partner_id) === (profiles.get(r.player_id)?.parent_id ?? r.player_id);
-      if (sameHome || has(r.partner_id, r.category, 'approved') || has(r.partner_id, r.category, 'pending')) continue; // already on a bill, or counted above
-      partners.push({ person: nameOf(r.partner_id), family: familyOf(r.partner_id), category: categoryLabel(r.category), amount, why: `${nameOf(r.player_id)} entered with them. Billed once ${nameOf(r.partner_id).split(' ')[0]} enters` });
-    } else {
+    // Linked partners are billed on their family's bill now; only a partner nobody has named or confirmed is still unbilled
+    if (!r.partner_id && !String((r as any).notes ?? '').split('|').map((x: string) => x.trim()).includes('PAIRED')) {
       partners.push({ person: r.partner_name || 'Partner not named', family: '', category: categoryLabel(r.category), amount, why: `${nameOf(r.player_id)} entered. Partner not linked yet` });
     }
   }

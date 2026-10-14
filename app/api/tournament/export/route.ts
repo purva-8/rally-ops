@@ -97,15 +97,18 @@ export async function GET(req: NextRequest) {
           'Registered on': formatDateTime(r.created_at),
         };
       });
-      // A doubles partner in the same family with no entry of their own is billed to that family (their half of the fee)
+      // The other half of a doubles pair when the partner has no entry of their own: billed to the partner's family,
+      // or, for a partner confirmed as typed (not on the portal), to the family that entered the pair
       const liveRegs = regs.filter((r) => r.status === 'approved' || r.status === 'pending');
-      const familyHalves = liveRegs.filter((r) => isDoublesCategory(r.category) && r.partner_id && r.payment_status !== 'waived'
-        && householdOf(r.partner_id) === householdOf(r.player_id)
-        && !liveRegs.some((o) => o.id !== r.id && o.player_id === r.partner_id && o.category === r.category)).map((r) => {
-        const head = profiles.get(householdOf(r.player_id) ?? '');
+      const typedOk = (r: any) => String(r.notes ?? '').split('|').map((x: string) => x.trim()).includes('PAIRED');
+      const familyHalves = liveRegs.filter((r) => isDoublesCategory(r.category) && r.payment_status !== 'waived' && ((r.partner_id
+        && !liveRegs.some((o) => o.id !== r.id && o.player_id === r.partner_id && o.category === r.category)) || (!r.partner_id && typedOk(r)))).map((r) => {
+        const headId = r.partner_id ? householdOf(r.partner_id) : householdOf(r.player_id);
+        const head = profiles.get(headId ?? '');
+        const own = r.partner_id && householdOf(r.partner_id) !== householdOf(r.player_id) ? r.partner_paid : r.payment_status === 'paid';
         return {
-          'Family head': head?.full_name ?? '', Person: profiles.get(r.partner_id)?.full_name ?? '', Category: categoryLabel(r.category),
-          Partner: profiles.get(r.player_id)?.full_name ?? '', Amount: categoryFee(r.category, fee0) / 2, Payment: r.payment_status ?? '', Status: r.status,
+          'Family head': head?.full_name ?? '', Person: r.partner_id ? (profiles.get(r.partner_id)?.full_name ?? '') : (r.partner_name ?? ''), Category: categoryLabel(r.category),
+          Partner: profiles.get(r.player_id)?.full_name ?? '', Amount: categoryFee(r.category, fee0) / 2, Payment: own ? 'paid' : (r.payment_status === 'paid' && !r.partner_id ? 'paid' : 'unpaid'), Status: r.status,
         };
       });
       return { headers: Object.keys(rows[0] ?? { '#': 0, Player: 0, Category: 0, Partner: 0, Status: 0, 'Fee due (QAR)': 0, Payment: 0 }), rows, familyHalves } as Table;
