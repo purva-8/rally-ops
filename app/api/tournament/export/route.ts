@@ -237,10 +237,23 @@ export async function GET(req: NextRequest) {
       addSheet('Entries', tableSheet({ headers: simple, rows: reg.rows }));
       const billLines = live.filter((r) => Number(r['Fee due (QAR)']) > 0).map((r, i) => ({
         '#': i + 1, 'Family head': r['Registered by (family head)'] || r.Player, Person: r.Player, Category: r.Category,
-        'Partner': r.Partner, 'Amount (QAR)': Number(r['Fee due (QAR)']), Payment: r.Payment || 'unpaid', Status: r.Status,
+        'Partner': r.Partner, 'Pays for': r.Partner ? 'Own half of the pair' : 'Own entry', 'Amount (QAR)': Number(r['Fee due (QAR)']), Payment: r.Payment || 'unpaid', Status: r.Status,
       }));
-      halves.forEach((h) => billLines.push({ '#': billLines.length + 1, 'Family head': h['Family head'], Person: h.Person, Category: h.Category, 'Partner': h.Partner, 'Amount (QAR)': Number(h.Amount), Payment: h.Payment || 'unpaid', Status: h.Status }));
-      addSheet('Bill lines', tableSheet({ headers: ['#', 'Family head', 'Person', 'Category', 'Partner', 'Amount (QAR)', 'Payment', 'Status'], rows: billLines }));
+      halves.forEach((h) => billLines.push({ '#': billLines.length + 1, 'Family head': h['Family head'], Person: h.Person, Category: h.Category, 'Partner': h.Partner, 'Pays for': 'Partner half (family member, no entry of their own)', 'Amount (QAR)': Number(h.Amount), Payment: h.Payment || 'unpaid', Status: h.Status }));
+      addSheet('Bill lines', tableSheet({ headers: ['#', 'Family head', 'Person', 'Category', 'Partner', 'Pays for', 'Amount (QAR)', 'Payment', 'Status'], rows: billLines }));
+      // One bill per family: its lines (who plays what and what each line costs), then the family total
+      const famBill: (string | number)[][] = [['FAMILY BILLS', '', '', '', '', '', ''], ['Family head', 'Person', 'Category', 'Partner', 'Pays for', 'Amount (QAR)', 'Payment'], []];
+      const heads = Array.from(new Set(billLines.map((l) => String(l['Family head'])))).sort((a, b) => a.localeCompare(b));
+      let grand = 0;
+      heads.forEach((h) => {
+        const lines = billLines.filter((l) => l['Family head'] === h);
+        const total = lines.reduce((a, l) => a + Number(l['Amount (QAR)']), 0);
+        grand += total;
+        lines.forEach((l, i) => famBill.push([i === 0 ? h : '', l.Person, l.Category, l.Partner, l['Pays for'], Number(l['Amount (QAR)']), l.Payment]));
+        famBill.push(['', '', '', '', `TOTAL for ${h}`, total, ''], []);
+      });
+      famBill.push(['', '', '', '', 'ALL FAMILIES', grand, '']);
+      addSheet('Family bills', XLSX.utils.aoa_to_sheet(famBill), [26, 30, 34, 30, 44, 14, 12]);
       addSheet('Families', tableSheet({ headers: ['Family head', 'Qatar ID', 'Mobile', 'Samanvayam ID', 'People playing', 'Entries', 'Due (QAR)', 'Paid (QAR)', 'Balance (QAR)'], rows: famRows }));
       cats.forEach((c) => {
         const rows = live.filter((r) => r.Category === c).map((r, i) => ({ '#': i + 1, Player: r.Player, Partner: r.Partner, Status: r.Status, Gender: r.Gender, Age: r['Age (counted date)'], Mobile: r.Mobile, Payment: r.Payment }));
