@@ -106,7 +106,9 @@ export default function ProfilePage() {
           .from('registrations')
           .select('id, category, status, payment_status, player_id, partner_id, partner_name, tournaments ( name, entry_fee ), player_profiles!registrations_player_id_fkey ( full_name )')
           .or(`player_id.in.(${idList}),partner_id.in.(${idList})`);
-        setBillRegs((billRows as unknown as BillRegistration[]) ?? []);
+        // Names of partners' entries (profiles of other families are private, so the server supplies just the entrant's name)
+        const { names } = await fetch('/api/named-entries').then((r) => r.json()).catch(() => ({ names: {} }));
+        setBillRegs(((billRows as unknown as BillRegistration[]) ?? []).map((r) => (!r.player_profiles && names?.[r.id] ? { ...r, player_profiles: { full_name: names[r.id] } } : r)));
       }
       setStats({
         total:    rows.length,

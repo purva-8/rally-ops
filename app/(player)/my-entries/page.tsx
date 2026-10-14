@@ -92,7 +92,9 @@ export default function MyEntriesPage() {
         .from('registrations')
         .select('id, category, status, payment_status, player_id, partner_id, partner_name, tournaments ( name, entry_fee ), player_profiles!registrations_player_id_fkey ( full_name )')
         .or(`player_id.in.(${idList}),partner_id.in.(${idList})`);
-      setBillRegs((billData as unknown as BillRegistration[]) ?? []);
+      // Names of partners' entries (profiles of other families are private, so the server supplies just the entrant's name)
+      const { names } = await fetch('/api/named-entries').then((r) => r.json()).catch(() => ({ names: {} }));
+      setBillRegs(((billData as unknown as BillRegistration[]) ?? []).map((r) => (!r.player_profiles && names?.[r.id] ? { ...r, player_profiles: { full_name: names[r.id] } } : r)));
       setLoading(false);
     });
   }, [router]);
@@ -218,7 +220,7 @@ export default function MyEntriesPage() {
                         <li key={r.id + 'n'} className="flex items-center gap-3 px-4 py-3">
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-stone-800">{CATEGORY_LABELS[r.category] ?? r.category}</p>
-                            <p className="text-xs text-stone-400 truncate">with {r.player_profiles?.full_name ?? 'partner'} · entered by them</p>
+                            <p className="text-xs text-stone-400 truncate">Entered by {r.player_profiles?.full_name ?? 'your partner'}</p>
                           </div>
                           <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0 ${scfg.cls}`}>{scfg.label}</span>
                         </li>
