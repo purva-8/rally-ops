@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   for (const r of regs ?? []) {
     const parts = String(r.notes ?? '').split('|').map((x) => x.trim()).filter(Boolean);
     const volunteer = parts.includes('VOLUNTEER');
-    const remark = parts.filter((x) => x !== 'VOLUNTEER' && x !== 'RESOLVED' && x.toUpperCase() !== 'N/A').join(' | ');
+    const remark = parts.filter((x) => x !== 'VOLUNTEER' && x !== 'RESOLVED' && x !== 'PAIRED' && x.toUpperCase() !== 'N/A').join(' | ');
     const resolved = parts.includes('RESOLVED');
     if (!volunteer && !remark) continue;
     const key = r.player_id ?? `m:${r.manual_name}`;
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   let changed = 0;
   for (const r of regs ?? []) {
     const parts = String(r.notes ?? '').split('|').map((x) => x.trim()).filter(Boolean);
-    const hasRemark = parts.some((x) => x !== 'VOLUNTEER' && x !== 'RESOLVED' && x.toUpperCase() !== 'N/A');
+    const hasRemark = parts.some((x) => x !== 'VOLUNTEER' && x !== 'RESOLVED' && x !== 'PAIRED' && x.toUpperCase() !== 'N/A');
     if (!hasRemark) continue;
     const next = solved ? (parts.includes('RESOLVED') ? parts : [...parts, 'RESOLVED']) : parts.filter((x) => x !== 'RESOLVED');
     if (next.join(' | ') === parts.join(' | ')) continue;

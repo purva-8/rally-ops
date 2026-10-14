@@ -12,7 +12,7 @@ export async function GET() {
     .not('notes', 'is', null).neq('status', 'withdrawn').order('created_at', { ascending: false });
   const withRemark = (regs ?? []).map((r) => {
     const parts = (r.notes ?? '').split('|').map((x: string) => x.trim());
-    const remark = parts.filter((x: string) => x && x !== 'VOLUNTEER' && x !== 'RESOLVED' && x.toUpperCase() !== 'N/A').join(' | ');
+    const remark = parts.filter((x: string) => x && x !== 'VOLUNTEER' && x !== 'RESOLVED' && x !== 'PAIRED' && x.toUpperCase() !== 'N/A').join(' | ');
     return { ...r, remark, solved: parts.includes('RESOLVED') };
   }).filter((r) => r.remark && !r.solved);
 

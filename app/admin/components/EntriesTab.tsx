@@ -52,7 +52,7 @@ function displayName(r: Registration) {
 // "VOLUNTEER | some remark" -> { volunteer, remark }
 function parseNotes(notes?: string | null) {
   const parts = (notes ?? '').split('|').map((x) => x.trim()).filter(Boolean);
-  return { volunteer: parts.includes('VOLUNTEER'), solved: parts.includes('RESOLVED'), remark: parts.filter((x) => x !== 'VOLUNTEER' && x !== 'RESOLVED' && x.toUpperCase() !== 'N/A').join(' | ') };
+  return { volunteer: parts.includes('VOLUNTEER'), solved: parts.includes('RESOLVED'), remark: parts.filter((x) => x !== 'VOLUNTEER' && x !== 'RESOLVED' && x !== 'PAIRED' && x.toUpperCase() !== 'N/A').join(' | ') };
 }
 const waLink = (mobile: string) => `https://wa.me/${mobile.replace(/\D/g, '').replace(/^00/, '')}`;
 

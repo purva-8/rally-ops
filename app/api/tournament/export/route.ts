@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
           'Payment ref': r.payment_ref ?? '',
           'Emergency contact': r.emergency_contact ?? '',
           'Volunteer': String(r.notes ?? '').includes('VOLUNTEER') ? 'Yes' : '',
-          'Remarks': String(r.notes ?? '').split('|').map((x: string) => x.trim()).filter((x: string) => x && x !== 'VOLUNTEER' && x !== 'RESOLVED').join(' | '),
+          'Remarks': String(r.notes ?? '').split('|').map((x: string) => x.trim()).filter((x: string) => x && x !== 'VOLUNTEER' && x !== 'RESOLVED' && x !== 'PAIRED').join(' | '),
           'Remark solved': String(r.notes ?? '').split('|').map((x: string) => x.trim()).includes('RESOLVED') ? 'Yes' : '',
           'Review comment': r.review_comment ?? '',
           'Registration code': r.registration_code ?? '',

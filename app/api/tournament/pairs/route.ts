@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   // Every doubles entry grouped by how far its pairing has got: both entered, one entered, or partner only named
   if (sp.get('overview')) {
     const { data: all } = await admin.from('registrations')
-      .select('id, player_id, partner_id, partner_name, category, status, created_at')
+      .select('id, player_id, partner_id, partner_name, category, status, created_at, notes')
       .eq('tournament_id', a.t!.id).like('category', '%doubles%').not('status', 'in', '(withdrawn,rejected)').not('player_id', 'is', null);
     const regs = all ?? [];
     const pids = Array.from(new Set(regs.flatMap((r) => [r.player_id, r.partner_id]).filter(Boolean)));
@@ -55,6 +55,9 @@ export async function GET(req: NextRequest) {
           waiting.push({ category: label, entrant: side(r), partner: nm.get(r.partner_id) ?? r.partner_name ?? '',
             note: o ? `${nm.get(r.partner_id)} entered this category with someone else` : `${nm.get(r.partner_id) ?? 'Partner'} has not entered this category yet` });
         }
+      } else if (String(r.notes ?? '').split('|').map((x: string) => x.trim()).includes('PAIRED')) {
+        // An organizer confirmed the pair with the partner as typed (the partner is not on the portal)
+        paired.push({ category: label, first: side(r), second: { name: r.partner_name ?? '', status: r.status, at: r.created_at, viaTyped: true } });
       } else {
         named.push({ category: label, entrant: side(r), partner: r.partner_name ?? '' });
       }
@@ -63,14 +66,16 @@ export async function GET(req: NextRequest) {
   }
 
   const { data: regs } = await admin.from('registrations')
-    .select('id, player_id, category, partner_name, status')
+    .select('id, player_id, category, partner_name, status, notes')
     .eq('tournament_id', a.t!.id).like('category', '%doubles%')
     .is('partner_id', null).neq('status', 'withdrawn').neq('status', 'rejected').not('player_id', 'is', null);
-  const ids = Array.from(new Set((regs ?? []).map((r) => r.player_id)));
+  const typedPairs = new Set<string>();
+  (regs ?? []).forEach((r) => { if (String(r.notes ?? '').split('|').map((x: string) => x.trim()).includes('PAIRED')) typedPairs.add(r.id); });
+  const ids = Array.from(new Set((regs ?? []).filter((r) => !typedPairs.has(r.id)).map((r) => r.player_id)));
   const { data: people } = ids.length ? await admin.from('player_profiles').select('id, full_name, mobile').in('id', ids) : { data: [] as any[] };
   const byId = new Map((people ?? []).map((p) => [p.id, p]));
 
-  const entries = (regs ?? []).map((r) => ({
+  const entries = (regs ?? []).filter((r) => !typedPairs.has(r.id)).map((r) => ({
     id: r.id, category: r.category, categoryLabel: categoryLabel(r.category), status: r.status,
     name: byId.get(r.player_id)?.full_name ?? '', mobile: byId.get(r.player_id)?.mobile ?? '', says: r.partner_name ?? '',
   }));
@@ -92,8 +97,15 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const a = await authorize(body.tournamentId ?? null);
   if (a.error) return a.error;
-  if (!body.a || !body.b || body.a === body.b) return NextResponse.json({ error: 'Pick two different entries' }, { status: 400 });
   const admin = createAdminClient();
+  if (body.confirmTyped) {
+    const { data: row } = await admin.from('registrations').select('id, tournament_id, notes, partner_id').eq('id', body.confirmTyped).single();
+    if (!row || row.tournament_id !== a.t!.id || row.partner_id) return NextResponse.json({ error: 'Not an unlinked entry of this tournament' }, { status: 400 });
+    const parts = String(row.notes ?? '').split('|').map((x: string) => x.trim()).filter(Boolean);
+    if (!parts.includes('PAIRED')) await admin.from('registrations').update({ notes: [...parts, 'PAIRED'].join(' | ') }).eq('id', row.id);
+    return NextResponse.json({ ok: true });
+  }
+  if (!body.a || !body.b || body.a === body.b) return NextResponse.json({ error: 'Pick two different entries' }, { status: 400 });
   const { data: rows } = await admin.from('registrations').select('id, tournament_id, category').in('id', [body.a, body.b]);
   if (!rows || rows.length !== 2 || rows.some((r) => r.tournament_id !== a.t!.id) || rows[0].category !== rows[1].category) {
     return NextResponse.json({ error: 'Entries must be in the same category of this tournament' }, { status: 400 });

@@ -5,7 +5,7 @@ import { useTournamentStore } from '../../tournament/store';
 type Option = { id: string; name: string; says: string; score: number };
 type Entry = { id: string; category: string; categoryLabel: string; status: string; name: string; mobile: string; says: string; options: Option[]; suggestion: string | null };
 
-type Side = { name: string; status: string; at: string; viaFamily?: boolean };
+type Side = { name: string; status: string; at: string; viaFamily?: boolean; viaTyped?: boolean };
 type Overview = { paired: { category: string; first: Side; second: Side }[]; waiting: { category: string; entrant: Side; partner: string; note: string }[]; named: { category: string; entrant: Side; partner: string }[] };
 const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Qatar' });
 
@@ -41,6 +41,18 @@ export default function PairsTab() {
     if (r.ok) await load();
   }
 
+  async function confirmTyped(e: Entry) {
+    if (!confirm(`Pair ${e.name} with ${e.says || 'their partner'} as typed? The partner is not on the portal, so this just marks the pair as confirmed.`)) return;
+    const r = await fetch('/api/tournament/pairs', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tournamentId, confirmTyped: e.id }),
+    });
+    const d = await r.json().catch(() => ({}));
+    setNote(r.ok ? `${e.name} paired with ${e.says}` : d.error ?? 'Failed');
+    setTimeout(() => setNote(''), 5000);
+    if (r.ok) await load();
+  }
+
   const cats = Array.from(new Set(entries.map((e) => e.categoryLabel)));
 
   return (
@@ -63,7 +75,9 @@ export default function PairsTab() {
                 {ov.paired.map((p, i) => (
                   <li key={i} className="py-1.5">
                     <span className="text-stone-800 font-medium">{p.first.name} + {p.second.name}</span> <span className="text-stone-400">· {p.category}</span>
-                    <span className="block text-xs text-stone-400">{p.second.viaFamily
+                    <span className="block text-xs text-stone-400">{p.second.viaTyped
+                      ? `${p.first.name} entered ${when(p.first.at)} (${p.first.status}). Confirmed with ${p.second.name} as typed; not on the portal.`
+                      : p.second.viaFamily
                       ? `${p.first.name} entered the pair for the family (${when(p.first.at)}, ${p.first.status}). ${p.second.name} has no entry of their own.`
                       : `${p.first.name} entered first (${when(p.first.at)}, ${p.first.status}) · ${p.second.name} followed (${when(p.second.at)}, ${p.second.status})`}</span>
                   </li>
@@ -121,6 +135,10 @@ export default function PairsTab() {
                   </select>
                   <button onClick={() => link(e)} disabled={!chosen}
                     className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-500 disabled:opacity-40">Pair</button>
+                  {e.says && (
+                    <button onClick={() => confirmTyped(e)}
+                      className="px-3 py-2 border border-stone-200 text-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50">Pair with {e.says.split(' ')[0]}</button>
+                  )}
                 </div>
               );
             })}
