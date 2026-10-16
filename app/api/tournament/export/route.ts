@@ -196,7 +196,11 @@ export async function GET(req: NextRequest) {
         ['ENTRIES PER CATEGORY', 'Entries'],
       ];
       const cats = Array.from(new Set(live.map((r) => r.Category))).sort();
-      cats.forEach((c) => summary.push([c, live.filter((r) => r.Category === c).length]));
+      cats.forEach((c) => {
+        const inCat = live.filter((r) => r.Category === c);
+        const pairs = new Set(inCat.map((r) => [String(r.Player).trim().toLowerCase(), String(r.Partner).trim().toLowerCase()].sort().join('|')));
+        summary.push([inCat.some((r) => r.Pairing) ? `${c}  (${pairs.size} pairs from ${inCat.length} entries)` : c, inCat.length]);
+      });
 
       const fam = new Map<string, any>();
       live.forEach((r) => {
@@ -259,8 +263,29 @@ export async function GET(req: NextRequest) {
       addSheet('Family bills', XLSX.utils.aoa_to_sheet(famBill), [26, 30, 34, 30, 44, 14, 12]);
       addSheet('Families', tableSheet({ headers: ['Family head', 'Qatar ID', 'Mobile', 'Samanvayam ID', 'People playing', 'Entries', 'Due (QAR)', 'Paid (QAR)', 'Balance (QAR)'], rows: famRows }));
       cats.forEach((c) => {
-        const rows = live.filter((r) => r.Category === c).map((r, i) => ({ '#': i + 1, Player: r.Player, Partner: r.Partner, Status: r.Status, Gender: r.Gender, Age: r['Age (counted date)'], Mobile: r.Mobile, Payment: r.Payment }));
-        addSheet(c, tableSheet({ headers: ['#', 'Player', 'Partner', 'Status', 'Gender', 'Age', 'Mobile', 'Payment'], rows }));
+        const inCat = live.filter((r) => r.Category === c);
+        if (!inCat.some((r) => r.Pairing)) {
+          const rows = inCat.map((r, i) => ({ '#': i + 1, Player: r.Player, Partner: r.Partner, Status: r.Status, Gender: r.Gender, Age: r['Age (counted date)'], Mobile: r.Mobile, Payment: r.Payment }));
+          addSheet(c, tableSheet({ headers: ['#', 'Player', 'Partner', 'Status', 'Gender', 'Age', 'Mobile', 'Payment'], rows }));
+          return;
+        }
+        // Doubles: one row per pair, even when both partners filed their own entry
+        const byPair = new Map<string, any[]>();
+        inCat.forEach((r) => {
+          const key = [String(r.Player).trim().toLowerCase(), String(r.Partner).trim().toLowerCase()].sort().join('|');
+          byPair.set(key, [...(byPair.get(key) ?? []), r]);
+        });
+        const rows = Array.from(byPair.values()).map((g, i) => {
+          const a = g[0];
+          const second = g.length > 1 ? g[1] : null;
+          return {
+            '#': i + 1, 'Player 1': a.Player, 'Player 2': a.Partner || '(none yet)',
+            'Entered by': g.map((x) => x.Player).join(' and '), Status: Array.from(new Set(g.map((x) => x.Status))).join(' / '),
+            'Gender / age 1': `${a.Gender ?? ''} ${a['Age (counted date)'] ?? ''}`.trim(), 'Gender / age 2': second ? `${second.Gender ?? ''} ${second['Age (counted date)'] ?? ''}`.trim() : '',
+            'Mobile 1': a.Mobile, 'Mobile 2': second?.Mobile ?? '', Payment: g.map((x) => x.Payment || 'unpaid').join(' / '), Pairing: a.Pairing,
+          };
+        });
+        addSheet(c, tableSheet({ headers: ['#', 'Player 1', 'Player 2', 'Entered by', 'Status', 'Gender / age 1', 'Gender / age 2', 'Mobile 1', 'Mobile 2', 'Payment', 'Pairing'], rows }));
       });
       // Each doubles pair once (both partners may have filed their own entry)
       const pairMap = new Map<string, any>();
