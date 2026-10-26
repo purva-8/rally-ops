@@ -52,7 +52,26 @@ export async function GET(req: NextRequest) {
     if (remark && !resolved) row.openRemarks += 1;
     byKey.set(key, row);
   }
-  const out = Array.from(byKey.values()).map((v) => ({ ...v, solved: v.remarks.length > 0 && v.openRemarks === 0 }));
+  // The rest of each household: everyone in the family who has a live entry, so a head's row shows who they registered
+  const heads = Array.from(new Set(Array.from(byKey.values()).filter((v) => v.playerId).map((v) => {
+    const p = people.get(v.playerId); return p?.parent_id ?? p?.id;
+  }).filter(Boolean)));
+  const household = new Map<string, any[]>();
+  if (heads.length) {
+    const { data: kin } = await admin.from('player_profiles').select('id, full_name, parent_id').or(`id.in.(${heads.join(',')}),parent_id.in.(${heads.join(',')})`);
+    const { data: live } = await admin.from('registrations').select('player_id').eq('tournament_id', tournamentId).neq('status', 'withdrawn').neq('status', 'rejected').not('player_id', 'is', null);
+    const playing = new Set((live ?? []).map((r) => r.player_id));
+    for (const k of kin ?? []) {
+      if (!playing.has(k.id)) continue;
+      const h = k.parent_id ?? k.id;
+      household.set(h, [...(household.get(h) ?? []), k]);
+    }
+  }
+  const out = Array.from(byKey.values()).map((v) => {
+    const p = v.playerId ? people.get(v.playerId) : null;
+    const family = p ? (household.get(p.parent_id ?? p.id) ?? []).filter((k) => k.id !== v.playerId).map((k) => k.full_name) : [];
+    return { ...v, family, solved: v.remarks.length > 0 && v.openRemarks === 0 };
+  });
   return NextResponse.json({ volunteers: out });
 }
 
