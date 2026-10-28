@@ -1,6 +1,7 @@
 import { isEventOrganizer } from '@/lib/organizer';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { insertMatches } from '@/lib/matchRows';
 
 export async function POST(req: NextRequest) {
@@ -84,5 +85,42 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('Error saving brackets:', err);
     return NextResponse.json({ error: 'Failed to save brackets' }, { status: 500 });
+  }
+}
+
+// Organizers delete a category's whole draw (every round and score) so it can be drawn again.
+// Body: { tournamentId, category }. The deleted rows come back in the response so the admin screen can
+// offer Undo (see ./restore).
+export async function DELETE(req: NextRequest) {
+  const supabase = await createClient();
+  const { tournamentId, category } = (await req.json().catch(() => ({}))) as { tournamentId?: string; category?: string };
+  if (!tournamentId || !category) return NextResponse.json({ error: 'Missing tournamentId or category' }, { status: 400 });
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const admin = createAdminClient();
+    const { data: tournament } = await admin.from('tournaments').select('created_by').eq('id', tournamentId).single();
+    if (!tournament || !(await isEventOrganizer(admin, tournamentId, user.id, tournament.created_by))) {
+      return NextResponse.json({ error: 'Only organizers can delete a draw' }, { status: 403 });
+    }
+
+    const { data: rows } = await admin.from('matches').select('*').eq('tournament_id', tournamentId).eq('category', category);
+    const ids = (rows ?? []).map((m) => m.id);
+    if (!ids.length) return NextResponse.json({ error: 'This category has no draw' }, { status: 404 });
+    const { data: sets } = await admin.from('match_sets').select('*').in('match_id', ids);
+
+    // Scores go with their matches (the foreign key cascades); deleting them first keeps that true everywhere
+    await admin.from('match_sets').delete().in('match_id', ids);
+    const { error } = await admin.from('matches').delete().in('id', ids);
+    if (error) {
+      console.error('draw delete failed', error);
+      return NextResponse.json({ error: 'Could not delete the draw' }, { status: 500 });
+    }
+    return NextResponse.json({ deleted: { matches: rows, sets: sets ?? [] } });
+  } catch (err) {
+    console.error('Error deleting draw:', err);
+    return NextResponse.json({ error: 'Failed to delete the draw' }, { status: 500 });
   }
 }
