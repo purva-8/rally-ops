@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import Avatar from '@/components/Avatar';
 import { formatDate } from '@/lib/format';
 import { registrationClosed, ON_SPOT_CUTOFF } from '@/components/RegistrationClosed';
-import { CATEGORY_LABELS, categoryFee, isDoublesCategory, isEligible, isSamanvayamTournament, partnerIssue, type PartnerInfo } from '@/lib/categories';
+import { CATEGORY_LABELS, sortCategories, categoryFee, isDoublesCategory, isEligible, isSamanvayamTournament, partnerIssue, type PartnerInfo } from '@/lib/categories';
 
 type Tournament = {
   id: string;
@@ -202,7 +202,7 @@ function RegisterPageInner() {
     setAddingMember(false);
   }
 
-  const eligibleCategories = tournament?.categories.filter((cat) => {
+  const eligibleCategories = (tournament ? sortCategories(tournament.categories) : undefined)?.filter((cat) => {
     if (existingRegs.includes(cat)) return false;
     if (!profile) return false;
     return isEligible(cat, profile.gender, profile.dob, tournament?.age_as_of ?? tournament?.event_date ?? new Date().toISOString());

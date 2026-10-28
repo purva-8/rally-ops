@@ -42,35 +42,36 @@ export function winnerSide(sets: SetScore[]): 1 | 2 | null {
   return null;
 }
 
-// BWF game: first to 21 with a 2-point lead, or 30 at most (30-29). Returns the side that won the game,
-// or null while it is still being played. Confirmed by the organizers for every category.
-export function gameWinner(s: SetScore): 1 | 2 | null {
-  const hi = Math.max(s.player1Score, s.player2Score);
-  const lo = Math.min(s.player1Score, s.player2Score);
-  const over = (hi === 21 && lo <= 19) || (hi > 21 && hi <= 30 && hi - lo === 2) || (hi === 30 && lo === 29);
-  if (!over) return null;
-  return s.player1Score > s.player2Score ? 1 : 2;
+// Tournament scoring, set by the organizers for every category: best of 3 games, games 1 and 2 to 21 and
+// game 3 (only played at one game all) to 15. First to reach the target wins the game: no 2-point lead,
+// so 21-20 and 15-14 are finished games.
+export function gameTarget(gameIndex: number) {
+  return gameIndex >= 2 ? 15 : 21;
 }
 
-// A score no BWF game can reach (25-3, 31-29, 22-19): impossible whether finished or not
-export function impossibleGame(s: SetScore) {
-  const hi = Math.max(s.player1Score, s.player2Score);
-  const lo = Math.min(s.player1Score, s.player2Score);
-  if (hi > 30) return true;
-  if (hi > 21 && hi - lo > 2) return true;
-  if (hi === 30 && lo < 28) return true;
-  return false;
+// The side that won game `gameIndex` (0-based), or null while it is still being played
+export function gameWinner(s: SetScore, gameIndex = 0): 1 | 2 | null {
+  const t = gameTarget(gameIndex);
+  if (s.player1Score === t && s.player2Score < t) return 1;
+  if (s.player2Score === t && s.player1Score < t) return 2;
+  return null;
+}
+
+// A score no game can reach (25-3 or 21-21, or 16-10 in game 3): impossible whether finished or not
+export function impossibleGame(s: SetScore, gameIndex = 0) {
+  const t = gameTarget(gameIndex);
+  return Math.max(s.player1Score, s.player2Score) > t || (s.player1Score === t && s.player2Score === t);
 }
 
 // Best of 3 games. Returns the winning side, or a reason the score can't finish the match.
-export function bwfResult(sets: SetScore[]): { winner: 1 | 2 } | { problem: string } {
+export function matchResult(sets: SetScore[]): { winner: 1 | 2 } | { problem: string } {
   let a = 0;
   let b = 0;
   for (let i = 0; i < sets.length; i++) {
     if (a === 2 || b === 2) return { problem: `Game ${i + 1} was played after the match was already won` };
-    if (impossibleGame(sets[i])) return { problem: `Game ${i + 1} (${sets[i].player1Score}-${sets[i].player2Score}) is not a possible badminton score` };
-    const w = gameWinner(sets[i]);
-    if (!w) return { problem: `Game ${i + 1} (${sets[i].player1Score}-${sets[i].player2Score}) is not finished: a game ends at 21 with a 2-point lead, or 30` };
+    if (impossibleGame(sets[i], i)) return { problem: `Game ${i + 1} (${sets[i].player1Score}-${sets[i].player2Score}) is not possible: game ${i + 1} is played to ${gameTarget(i)}` };
+    const w = gameWinner(sets[i], i);
+    if (!w) return { problem: `Game ${i + 1} (${sets[i].player1Score}-${sets[i].player2Score}) is not finished: game ${i + 1} ends when a side reaches ${gameTarget(i)}` };
     if (w === 1) a++; else b++;
   }
   if (a === 2) return { winner: 1 };

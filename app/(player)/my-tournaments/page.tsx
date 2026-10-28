@@ -109,7 +109,7 @@ export default function MyTournamentsPage() {
                 : null;
               const href = t.role === 'organizer'
                 ? `/admin?tournamentId=${t.id}`
-                : `/coach/${t.courtId ?? 'court-1'}?tournamentId=${t.id}`;
+                : `/events/${t.id}`;
 
               return (
                 <button

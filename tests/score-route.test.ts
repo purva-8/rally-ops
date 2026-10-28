@@ -50,8 +50,9 @@ test('saving three times keeps exactly the latest sets (no duplicates)', async (
   assert.deepEqual(r.body.match.sets, [set(21, 15), set(10, 4)]);
 });
 
-test('the coach of this event can score; the referee staff id is stored as the coach profile', async () => {
-  const r = await call(COACH, { matchId: 'm3', sets: [set(0, 0)], status: 'in_progress', courtId: 'court-1', refereeId: 's-coach', refereeName: 'Coach' });
+test('coaches cannot score (only organizers, on the Score desk); a referee staff id is stored as that person\'s profile', async () => {
+  assert.equal((await call(COACH, { matchId: 'm3', sets: [set(0, 0)], status: 'in_progress' })).status, 403);
+  const r = await call(ORG, { matchId: 'm3', sets: [set(0, 0)], status: 'in_progress', courtId: 'court-1', refereeId: 's-coach', refereeName: 'Coach' });
   assert.equal(r.status, 200);
   const row = db.matches.find((x) => x.id === 'm3')!;
   assert.equal(row.referee_id, 'pf-coach');
@@ -59,7 +60,7 @@ test('the coach of this event can score; the referee staff id is stored as the c
 });
 
 test('the server picks the winner from the sets, ignoring a winner sent by the browser', async () => {
-  const r = await call(ORG, { matchId: 'm3', sets: [set(15, 21), set(21, 19), set(18, 21)], status: 'completed', winnerId: 'd', winnerName: 'D' });
+  const r = await call(ORG, { matchId: 'm3', sets: [set(15, 21), set(21, 19), set(12, 15)], status: 'completed', winnerId: 'd', winnerName: 'D' });
   assert.equal(r.status, 200);
   assert.equal(r.body.match.winnerId, 'e');
   assert.equal(db.matches.find((x) => x.id === 'm3')!.winner_name, 'E');
@@ -69,7 +70,8 @@ test('level games, unfinished games and impossible scores cannot complete a matc
   const r = await call(ORG, { matchId: 'm3', sets: [set(21, 10), set(10, 21)], status: 'completed' });
   assert.equal(r.status, 400);
   assert.equal((await call(ORG, { matchId: 'm3', sets: [set(21, 19)], status: 'completed' })).status, 400);
-  assert.equal((await call(ORG, { matchId: 'm3', sets: [set(21, 20), set(21, 3)], status: 'completed' })).status, 400);
+  assert.equal((await call(ORG, { matchId: 'm3', sets: [set(20, 18), set(21, 3)], status: 'completed' })).status, 400);
+  assert.equal((await call(ORG, { matchId: 'm3', sets: [set(21, 10), set(10, 21), set(21, 3)], status: 'completed' })).status, 400); // game 3 is to 15
   assert.equal((await call(ORG, { matchId: 'm3', sets: [set(25, 3)], status: 'in_progress' })).status, 400);
   assert.equal(db.matches.find((x) => x.id === 'm3')!.status, 'upcoming');
 });
@@ -88,9 +90,9 @@ test('finishing the last first-round match creates the semifinals in slot order,
   assert.deepEqual(semis.map((x) => [x.position, x.player1_id, x.player2_id]), [[0, 'a', 'b'], [1, 'c', 'd']]);
   assert.deepEqual(r.body.nextMatches.map((x: any) => x.roundName), ['Semifinal', 'Semifinal']);
   assert.equal(r.body.match.roundName, 'Quarterfinal');
-  // a coach can't change a result the semifinal already uses
+  // a coach can't change it at all
   const again = await call(COACH, { matchId: 'm3', sets: [set(5, 21), set(7, 21)], status: 'completed' });
-  assert.equal(again.status, 409);
+  assert.equal(again.status, 403);
   assert.equal(db.matches.filter((x) => x.round === 1).length, 2);
 });
 
@@ -136,7 +138,7 @@ test('semifinals then final then nothing after the final', async () => {
   const [s0, s1] = db.matches.filter((x) => x.round === 1).sort((a, b) => a.position - b.position);
   await call(ORG, { matchId: s0.id, sets: [set(21, 1), set(21, 1)], status: 'completed' });
   assert.equal(db.matches.filter((x) => x.round === 2).length, 0, 'final waits for both semis');
-  const r = await call(COACH, { matchId: s1.id, sets: [set(1, 21), set(1, 21)], status: 'completed' });
+  const r = await call(ORG, { matchId: s1.id, sets: [set(1, 21), set(1, 21)], status: 'completed' });
   const final = db.matches.filter((x) => x.round === 2);
   assert.deepEqual(final.map((x) => [x.player1_id, x.player2_id]), [['a', 'd']]);
   assert.equal(r.body.nextMatches[0].roundName, 'Final');

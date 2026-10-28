@@ -5,8 +5,8 @@ import { Reorder } from 'framer-motion';
 import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../tournament/types';
 import type { Category, Match, Participant } from '../../tournament/types';
-import { entryLabel } from '@/lib/categories';
-import { bwfResult } from '@/lib/bracket';
+import { entryLabel, isDoublesCategory, sortCategories } from '@/lib/categories';
+import { matchResult } from '@/lib/bracket';
 import { undoResult } from './undo';
 
 type Staff = { id: string; name: string; email: string; role: 'coach' | 'admin'; status: 'invited' | 'active' };
@@ -37,7 +37,7 @@ export default function BracketsTab() {
       .then((data) => setStaff(data.staff ?? []));
   }, [tournamentId]);
 
-  const categories: Category[] = selectedCategories.length > 0 ? selectedCategories : ['male_singles', 'female_singles', 'male_doubles', 'female_doubles', 'spouse_doubles'];
+  const categories: Category[] = selectedCategories.length > 0 ? sortCategories(selectedCategories) : ['male_singles', 'female_singles', 'male_doubles', 'female_doubles', 'spouse_doubles'];
 
   const catPlayers = useMemo(
     () => (selectedCat ? participants.filter((p) => p.categories.includes(selectedCat)) : []),
@@ -168,28 +168,38 @@ export default function BracketsTab() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-6">
-        {categories.map((cat) => {
-          const count = participants.filter((p) => p.categories.includes(cat)).length;
-          const made = matches.filter((m) => m.category === cat).length;
-          const active = selectedCat === cat;
-          return (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => {
-                setSelectedCat(cat);
-                setTimeout(() => document.getElementById('bracket-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-              }}
-              className={`rounded-xl border p-3 text-center transition-colors cursor-pointer ${active ? 'bg-orange-50 border-orange-400 ring-2 ring-orange-200' : 'bg-white border-stone-200 hover:border-orange-300'}`}
-            >
-              <p className="text-2xl font-bold text-stone-900">{count}</p>
-              <p className="text-xs text-stone-400 mt-1">{CATEGORY_LABELS[cat]}</p>
-              {made > 0 ? <p className="text-xs text-emerald-600 font-medium mt-1">{made} match{made === 1 ? '' : 'es'}</p> : count < 2 && <p className="text-xs text-amber-500 mt-1">Need 2+</p>}
-            </button>
-          );
-        })}
-      </div>
+      {/* Singles and doubles each get their own row, youngest first */}
+      {[
+        { title: 'Singles', cats: categories.filter((c) => !isDoublesCategory(c)) },
+        { title: 'Doubles', cats: categories.filter((c) => isDoublesCategory(c)) },
+      ].filter((g) => g.cats.length).map((g) => (
+        <section key={g.title} className="mb-5">
+          <h3 className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-2 pb-1 border-b border-stone-200">{g.title}</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            {g.cats.map((cat) => {
+              const count = participants.filter((p) => p.categories.includes(cat)).length;
+              const made = matches.filter((m) => m.category === cat).length;
+              const active = selectedCat === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCat(cat);
+                    setTimeout(() => document.getElementById('bracket-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+                  }}
+                  className={`rounded-xl border p-3 text-center transition-colors cursor-pointer ${active ? 'bg-orange-50 border-orange-400 ring-2 ring-orange-200' : 'bg-white border-stone-200 hover:border-orange-300'}`}
+                >
+                  <p className="text-2xl font-bold text-stone-900">{count}</p>
+                  <p className="text-xs text-stone-500 mt-1 leading-snug">{CATEGORY_LABELS[cat].replace(/^(Singles|Doubles) - /, '')}</p>
+                  {made > 0 ? <p className="text-xs text-emerald-600 font-medium mt-1">{made} match{made === 1 ? '' : 'es'}</p> : count < 2 && <p className="text-xs text-amber-500 mt-1">Need 2+</p>}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+      <div className="mb-1" />
 
       <div id="bracket-detail" className="mb-6 scroll-mt-4">
         <label className="block text-xs font-medium text-stone-500 mb-1.5">Category</label>
@@ -725,7 +735,7 @@ function ScoreModal({ matchId, match, onSave, onComplete, onClose }: {
             Save Draft
           </button>
           <button onClick={() => {
-            const r = bwfResult(sets);
+            const r = matchResult(sets);
             if ('problem' in r) { alert(r.problem); return; }
             if (confirm(`Complete the match with ${r.winner === 1 ? match.player1Name : match.player2Name} as the winner?`)) onComplete(sets);
           }}

@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../tournament/types';
 import type { Category, Match } from '../../tournament/types';
-import { entryLabel } from '@/lib/categories';
-import { bwfResult, winnerSide } from '@/lib/bracket';
+import { entryLabel, sortCategories } from '@/lib/categories';
+import { matchResult, winnerSide } from '@/lib/bracket';
 import { undoResult } from './undo';
 
 // Results come in on paper; one person types them in here as each match ends.
@@ -22,7 +22,7 @@ export default function ScoreDeskTab() {
     if (r?.matches) loadMatches(r.matches);
   }, [tournamentId, loadMatches]);
 
-  // Another desk or a coach's phone may save too, so stay current
+  // Another desk may save too, so stay current
   useEffect(() => {
     refresh();
     const t = setInterval(refresh, 20000);
@@ -32,12 +32,14 @@ export default function ScoreDeskTab() {
   const q = search.trim().toLowerCase();
   const shown = (m: Match) => (cat === 'all' || m.category === cat)
     && (!q || `${m.player1Name} ${m.player2Name ?? ''}`.toLowerCase().includes(q));
-  const order = (a: Match, b: Match) => a.category.localeCompare(b.category) || a.round - b.round || (a.position ?? 0) - (b.position ?? 0);
+  const catOrder = sortCategories(Array.from(new Set(matches.map((m) => m.category))));
+  const catRank = (c: string) => catOrder.indexOf(c);
+  const order = (a: Match, b: Match) => catRank(a.category) - catRank(b.category) || a.round - b.round || (a.position ?? 0) - (b.position ?? 0);
 
   const ready = matches.filter((m) => !m.isBye && m.status !== 'completed').filter(shown).sort(order);
   const done = matches.filter((m) => !m.isBye && m.status === 'completed').filter(shown)
     .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
-  const cats = Array.from(new Set(matches.map((m) => m.category))).sort() as Category[];
+  const cats = catOrder as Category[];
   const champions = cats.flatMap((c) => {
     const final = matches.find((m) => m.category === c && m.roundName === 'Final' && m.status === 'completed' && !m.isBye);
     return final?.winnerName ? [{ c, name: final.winnerName }] : [];
@@ -156,7 +158,7 @@ function DeskRow({ match, names, onSaved }: {
     if (!sets.length) { setError('Type the scores first'); return; }
 
     let override = false;
-    const r = bwfResult(sets);
+    const r = matchResult(sets);
     if ('problem' in r) {
       const side = winnerSide(sets);
       if (!side) { setError(`${r.problem}. Both sides won the same number of games.`); return; }

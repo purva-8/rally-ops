@@ -124,12 +124,6 @@ export default function CourtsTab() {
                       <p className="text-sm font-semibold text-stone-800">{assignedCoach.name}</p>
                       <p className="text-[11px] text-stone-400">{assignedCoach.status === 'active' ? 'Active' : 'Invite pending'}</p>
                     </div>
-                    {assignedCoach.status === 'active' && (
-                      <a href={`/coach/${court.id}?tournamentId=${tournamentId}`} target="_blank" rel="noreferrer"
-                        className="text-orange-600 hover:text-orange-700 text-xs font-semibold shrink-0">
-                        Coach View
-                      </a>
-                    )}
                   </div>
                 ) : (
                   <p className="text-xs text-stone-300 bg-stone-50 border border-stone-100 rounded-lg px-3 py-2">No coach invited yet</p>

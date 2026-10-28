@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { bwfResult, impossibleGame, nextRoundFor, nextSlotOf, validSets, winnerSide } from '@/lib/bracket';
+import { matchResult, impossibleGame, nextRoundFor, nextSlotOf, validSets, winnerSide } from '@/lib/bracket';
 import { insertMatches, toClientMatches } from '@/lib/matchRows';
+import { isEventOrganizer } from '@/lib/organizer';
 
-// Saves a match's court, referee, sets and status. Organizers, co-organizers and the event's active
-// coaches may call it. The winner is worked out here from the sets, never taken from the browser, and
+// Saves a match's court, referee, sets and status. Only organizers and co-organizers may call it: scores
+// come in on paper and are typed in on the admin Score desk. The winner is worked out here from the sets, never taken from the browser, and
 // when the last match of a round finishes the next round is created here so every device sees it.
 // Organizers (not coaches) may also save a score that isn't a standard 21-point result (`override`:
 // whoever won more games wins) and correct a result after the next round exists, as long as the
@@ -32,16 +33,9 @@ export async function POST(req: NextRequest) {
     if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 });
 
     const { data: t } = await admin.from('tournaments').select('created_by').eq('id', match.tournament_id).single();
-    let isOrganizer = t?.created_by === user.id;
-    let allowed = isOrganizer;
-    if (!allowed) {
-      const { data: staff } = await admin.from('tournament_staff').select('role')
-        .eq('tournament_id', match.tournament_id).eq('user_id', user.id).eq('status', 'active');
-      allowed = !!staff?.length;
-      isOrganizer = !!staff?.some((s) => s.role === 'admin');
+    if (!(await isEventOrganizer(admin, match.tournament_id, user.id, t?.created_by))) {
+      return NextResponse.json({ error: 'Only organizers can enter scores' }, { status: 403 });
     }
-    if (!allowed) return NextResponse.json({ error: 'Not authorized to score this match' }, { status: 403 });
-    if (override && !isOrganizer) return NextResponse.json({ error: 'Only organizers can save a non-standard score' }, { status: 403 });
 
     const isBye = !match.player2_id && !match.player2_name;
     if (isBye) return NextResponse.json({ error: 'A bye has no score' }, { status: 400 });
@@ -51,8 +45,6 @@ export async function POST(req: NextRequest) {
     const nextRoundExists = (catMatches ?? []).some((m) => m.round === match.round + 1);
 
     if (match.status === 'completed') {
-      // Coaches can correct a result only while the next round has not been drawn from it; organizers further below
-      if (nextRoundExists && !isOrganizer) return NextResponse.json({ error: 'The next round already uses this result, so only an organizer can change it' }, { status: 409 });
       if (status && status !== 'completed') return NextResponse.json({ error: 'This match is already finished' }, { status: 409 });
       status = 'completed'; // a changed score on a finished match always re-decides the winner
     }
@@ -84,7 +76,7 @@ export async function POST(req: NextRequest) {
         if (!w) return NextResponse.json({ error: 'Both sides won the same number of games, so there is no winner yet' }, { status: 400 });
         side = w;
       } else {
-        const result = bwfResult(sets);
+        const result = matchResult(sets);
         if ('problem' in result) return NextResponse.json({ error: result.problem }, { status: 400 });
         side = result.winner;
       }
