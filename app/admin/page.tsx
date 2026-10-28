@@ -1,14 +1,13 @@
 'use client';
 
 import { isEventOrganizer } from '@/lib/organizer';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, Fragment } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import EntriesTab from './components/EntriesTab';
 import BracketsTab from './components/BracketsTab';
 import ScoreDeskTab from './components/ScoreDeskTab';
 import ScheduleTab from './components/ScheduleTab';
-import CourtsTab from './components/CourtsTab';
 import ExportTab from './components/ExportTab';
 import BillingTab from './components/BillingTab';
 import PairsTab from './components/PairsTab';
@@ -18,21 +17,21 @@ import { useTournamentStore } from '../tournament/store';
 import { formatDate } from '@/lib/format';
 import { sortCategories } from '@/lib/categories';
 
+// Tournament-day tabs first; a divider, then the admin paperwork
 const TABS = [
+  { id: 'schedule',  label: 'Schedule' },
   { id: 'entries',   label: 'Entries' },
-  { id: 'pairs',     label: 'Pairs' },
   { id: 'brackets',  label: 'Brackets' },
   { id: 'desk',      label: 'Score desk' },
-  { id: 'schedule',  label: 'Schedule' },
-  { id: 'courts',    label: 'Courts' },
+  { id: 'analytics', label: 'Analytics' },
+  { id: 'pairs',     label: 'Pairs', dividerBefore: true },
   { id: 'billing',   label: 'Billing' },
   { id: 'volunteers', label: 'Volunteers & remarks' },
-  { id: 'analytics', label: 'Analytics' },
   { id: 'export',    label: 'Export' },
 ];
 
 function AdminPageInner() {
-  const [activeTab, setActiveTab] = useState('entries');
+  const [activeTab, setActiveTab] = useState('schedule');
   const { isSetup, _hasHydrated, tournamentName, organizerName, eventDate, venue, loadParticipants, loadMatches, setTournamentId, tournamentId } = useTournamentStore();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -199,10 +198,11 @@ function AdminPageInner() {
       {/* Tab bar */}
       <div className="bg-white border-b border-stone-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 overflow-x-auto">
-          <div className="flex gap-0 min-w-max">
+          <div className="flex gap-0 min-w-max items-stretch">
             {TABS.map((tab) => (
+              <Fragment key={tab.id}>
+              {tab.dividerBefore && <span aria-hidden className="w-px bg-stone-300 my-2.5 mx-2" />}
               <button
-                key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-5 py-3.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id
@@ -212,6 +212,7 @@ function AdminPageInner() {
               >
                 {tab.label}
               </button>
+              </Fragment>
             ))}
           </div>
         </div>
@@ -223,7 +224,6 @@ function AdminPageInner() {
         {activeTab === 'brackets'    && <BracketsTab />}
         {activeTab === 'desk'        && <ScoreDeskTab />}
         {activeTab === 'schedule'    && <ScheduleTab />}
-        {activeTab === 'courts'      && <CourtsTab />}
         {activeTab === 'billing'     && <BillingTab />}
         {activeTab === 'volunteers'  && <VolunteersTab />}
         {activeTab === 'analytics'   && <AnalyticsTab />}
