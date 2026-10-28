@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
     const { data: profiles, error: profileError } = await supabase
       .from('player_profiles')
-      .select('id, full_name, gender, dob, mobile')
+      .select('id, full_name, gender, dob, mobile, parent_id')
       .in('id', Array.from(playerIds));
 
     if (profileError) {
@@ -63,6 +63,9 @@ export async function GET(req: NextRequest) {
         categories: [reg.category],
         partnerId: reg.partner_id ?? undefined,
         partnerName: partnerProfile?.full_name ?? reg.partner_name ?? undefined,
+        // A family is a member's account plus the people they registered under it (parent_id)
+        familyGroupId: profile ? (profile.parent_id ?? profile.id) : undefined,
+        partnerFamilyId: partnerProfile ? (partnerProfile.parent_id ?? partnerProfile.id) : undefined,
         registrationId: reg.id,
         registeredAt: reg.created_at,
       };

@@ -37,6 +37,7 @@ export interface Participant {
   registrationId: string;
   registeredAt: string;
   familyGroupId?: string;
+  partnerFamilyId?: string;
 }
 
 export type MatchStatus = 'upcoming' | 'in_progress' | 'completed';
