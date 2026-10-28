@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import EntriesTab from './components/EntriesTab';
 import BracketsTab from './components/BracketsTab';
 import ScoreDeskTab from './components/ScoreDeskTab';
+import ScheduleTab from './components/ScheduleTab';
 import CourtsTab from './components/CourtsTab';
 import ExportTab from './components/ExportTab';
 import BillingTab from './components/BillingTab';
@@ -15,12 +16,14 @@ import VolunteersTab from './components/VolunteersTab';
 import AnalyticsTab from './components/AnalyticsTab';
 import { useTournamentStore } from '../tournament/store';
 import { formatDate } from '@/lib/format';
+import { sortCategories } from '@/lib/categories';
 
 const TABS = [
   { id: 'entries',   label: 'Entries' },
   { id: 'pairs',     label: 'Pairs' },
   { id: 'brackets',  label: 'Brackets' },
   { id: 'desk',      label: 'Score desk' },
+  { id: 'schedule',  label: 'Schedule' },
   { id: 'courts',    label: 'Courts' },
   { id: 'billing',   label: 'Billing' },
   { id: 'volunteers', label: 'Volunteers & remarks' },
@@ -100,7 +103,7 @@ function AdminPageInner() {
         venue: tournament.venue ?? '',
         eventDate: tournament.event_date ?? '',
         registrationDeadline: tournament.registration_close_at ?? '',
-        selectedCategories: (tournament.categories ?? []) as never,
+        selectedCategories: sortCategories(tournament.categories ?? []) as never,
       });
       setAuthorized(true);
       setAuthChecked(true);
@@ -219,6 +222,7 @@ function AdminPageInner() {
         {activeTab === 'pairs'       && <PairsTab />}
         {activeTab === 'brackets'    && <BracketsTab />}
         {activeTab === 'desk'        && <ScoreDeskTab />}
+        {activeTab === 'schedule'    && <ScheduleTab />}
         {activeTab === 'courts'      && <CourtsTab />}
         {activeTab === 'billing'     && <BillingTab />}
         {activeTab === 'volunteers'  && <VolunteersTab />}

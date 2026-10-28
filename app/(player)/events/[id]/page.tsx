@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { IconMapPin, IconCalendar, IconClock, IconUsers, IconChevronRight } from '@/components/icons';
-import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS, feeLabel } from '@/lib/categories';
+import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS, feeLabel, sortCategories } from '@/lib/categories';
 import { formatDate } from '@/lib/format';
 import { registrationClosed, RegistrationClosedNotice } from '@/components/RegistrationClosed';
 
@@ -183,7 +183,7 @@ function TournamentDetailPageInner() {
             show: (tournament.categories?.length ?? 0) > 0,
             body: (
               <ul className="space-y-2">
-                {tournament.categories.map((cat) => (
+                {sortCategories(tournament.categories).map((cat) => (
                   <li key={cat} className="flex items-start gap-2.5 text-sm text-stone-700">
                     <span className="w-1.5 h-1.5 bg-orange-500 rounded-full shrink-0 mt-2" />
                     {CATEGORY_LABELS[cat] ?? cat}

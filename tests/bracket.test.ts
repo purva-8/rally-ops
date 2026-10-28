@@ -2,7 +2,7 @@
 // Expected values are worked out by hand here, not computed with the code under test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gameWinner, impossibleGame, bwfResult, totalRoundsFor, roundLabel, winnerSide, nextRoundFor, validSets, bracketOrder, type BracketMatch } from '../lib/bracket.ts';
+import { gameWinner, impossibleGame, matchResult, totalRoundsFor, roundLabel, winnerSide, nextRoundFor, validSets, bracketOrder, type BracketMatch } from '../lib/bracket.ts';
 
 test('round names come from the bracket size, not from rounds that exist so far', () => {
   // 8 entrants -> 4 first-round slots -> 3 rounds: QF, SF, F
@@ -117,39 +117,40 @@ test('every draw from 2 to 40 entrants ends with exactly one champion and nobody
   }
 });
 
-test('BWF game end: 21 with a 2-point lead, extended to at most 30', () => {
-  const g = (a: number, b: number) => gameWinner({ player1Score: a, player2Score: b });
+test('games 1 and 2 end when a side reaches 21, game 3 at 15; no 2-point lead', () => {
+  const g = (a: number, b: number, i = 0) => gameWinner({ player1Score: a, player2Score: b }, i);
   assert.equal(g(21, 19), 1);
   assert.equal(g(21, 0), 1);
-  assert.equal(g(19, 21), 2);
-  assert.equal(g(21, 20), null);
-  assert.equal(g(22, 20), 1);
-  assert.equal(g(29, 27), 1);
-  assert.equal(g(30, 28), 1);
-  assert.equal(g(29, 30), 2);
-  assert.equal(g(29, 29), null);
+  assert.equal(g(19, 21, 1), 2);
+  assert.equal(g(21, 20), 1);
   assert.equal(g(20, 18), null);
   assert.equal(g(0, 0), null);
+  assert.equal(g(15, 14, 2), 1);
+  assert.equal(g(9, 15, 2), 2);
+  assert.equal(g(14, 13, 2), null);
+  assert.equal(g(15, 10, 0), null, 'game 1 goes on past 15');
 });
 
 test('impossible game scores are recognised', () => {
-  const i = (a: number, b: number) => impossibleGame({ player1Score: a, player2Score: b });
+  const i = (a: number, b: number, g = 0) => impossibleGame({ player1Score: a, player2Score: b }, g);
   assert.equal(i(25, 3), true);
-  assert.equal(i(22, 19), true);
-  assert.equal(i(31, 29), true);
-  assert.equal(i(30, 27), true);
-  assert.equal(i(21, 19), false);
+  assert.equal(i(22, 20), true);
+  assert.equal(i(21, 21), true);
+  assert.equal(i(21, 20), false);
   assert.equal(i(15, 12), false); // still in play
-  assert.equal(i(30, 29), false);
+  assert.equal(i(16, 10, 2), true);
+  assert.equal(i(21, 3, 2), true);
+  assert.equal(i(15, 14, 2), false);
 });
 
 test('best of three: needs two finished games and nothing after', () => {
   const s = (...p: number[][]) => p.map(([a, b]) => ({ player1Score: a, player2Score: b }));
-  assert.deepEqual(bwfResult(s([21, 15], [21, 18])), { winner: 1 });
-  assert.deepEqual(bwfResult(s([15, 21], [21, 19], [28, 30])), { winner: 2 });
-  assert.ok('problem' in bwfResult(s([21, 19])));
-  assert.ok('problem' in bwfResult(s([21, 15], [10, 21])));
-  assert.ok('problem' in bwfResult(s([21, 15], [21, 18], [21, 0])));
-  assert.ok('problem' in bwfResult(s([21, 15], [20, 18])));
-  assert.ok('problem' in bwfResult(s([25, 3], [21, 0])));
+  assert.deepEqual(matchResult(s([21, 15], [21, 18])), { winner: 1 });
+  assert.deepEqual(matchResult(s([15, 21], [21, 20], [13, 15])), { winner: 2 });
+  assert.ok('problem' in matchResult(s([21, 19])));
+  assert.ok('problem' in matchResult(s([21, 15], [10, 21])));
+  assert.ok('problem' in matchResult(s([21, 15], [21, 18], [15, 0])), 'no game 3 after 2-0');
+  assert.ok('problem' in matchResult(s([21, 15], [18, 21], [21, 10])), 'game 3 is to 15');
+  assert.ok('problem' in matchResult(s([21, 15], [20, 18])));
+  assert.ok('problem' in matchResult(s([25, 3], [21, 0])));
 });

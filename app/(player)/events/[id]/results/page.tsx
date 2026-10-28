@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../../../tournament/types';
 import type { Category, Match } from '../../../../tournament/types';
+import { sortCategories } from '@/lib/categories';
 
 type Tournament = { id: string; name: string };
 
@@ -42,7 +43,7 @@ export default function ResultsPage() {
     return () => clearInterval(interval);
   }, [id]);
 
-  const categories = Array.from(new Set(matches.map((m) => m.category))) as Category[];
+  const categories = sortCategories(Array.from(new Set(matches.map((m) => m.category)))) as Category[];
   const displayMatches = selectedCat === 'all' ? matches : matches.filter((m) => m.category === selectedCat);
 
   const champions = categories

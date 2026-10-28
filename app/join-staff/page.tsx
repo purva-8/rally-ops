@@ -38,8 +38,8 @@ function JoinStaffInner() {
       const staffRow = data.claimed[0];
       setStatus('done');
       setTimeout(() => {
-        if (staffRow.court_id) router.push(`/coach/${staffRow.court_id}?tournamentId=${tournamentId}`);
-        else router.push(`/events/${tournamentId}`);
+        // Scores are entered by organizers on the admin Score desk; coaches have no scoring page
+        router.push(staffRow.role === 'admin' ? `/admin?tournamentId=${tournamentId}` : `/events/${tournamentId}`);
       }, 1200);
     });
   }, [tournamentId, router]);
