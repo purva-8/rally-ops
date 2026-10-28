@@ -70,9 +70,9 @@ export default function ScoreDeskTab() {
           <h2 className="text-lg font-bold text-stone-900">Score desk</h2>
           <p className="text-stone-400 text-sm">Type in each scoresheet as it comes back. The next round is drawn by itself.</p>
         </div>
-        <a href={`/events/${tournamentId}/results`} target="_blank" rel="noreferrer"
+        <a href={`/leaderboard?event=${tournamentId}`} target="_blank" rel="noreferrer"
           className="text-xs font-semibold text-orange-600 hover:text-orange-700 border border-orange-200 rounded-lg px-3 py-2">
-          Public results page ↗
+          Public leaderboard ↗
         </a>
       </div>
 

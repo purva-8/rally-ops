@@ -28,14 +28,14 @@ export const CATEGORY_DEFS: Record<string, CategoryDef> = {
 
   // Age-banded categories (Under 10, Kids 10-14, Youth over 14 up to 18, Adults 18+). Children are Girls / Boys,
   // adults Female / Male. Listed in display order: singles then doubles, youngest first, girls/female before boys/male.
-  singles_u10:            { label: 'Singles - Under 10',               maxAge: 10, fee: 30 },
+  singles_u10:            { label: 'Singles - Kids (Under 10)',               maxAge: 10, fee: 30 },
   female_singles_kids:    { label: 'Singles - Girls (Kids 10-14)',     genders: ['female'], minAge: 10, maxAge: 14, fee: 30 },
   female_singles_youth:   { label: 'Singles - Girls (Youth 14-18)',    genders: ['female'], minAge: 15, maxAge: 18, fee: 30 },
   female_singles_18plus:  { label: 'Singles - Female (18+)',           genders: ['female'], minAge: 18, fee: 30 },
   male_singles_kids:      { label: 'Singles - Boys (Kids 10-14)',      genders: ['male'],   minAge: 10, maxAge: 14, fee: 30 },
   male_singles_youth:     { label: 'Singles - Boys (Youth 14-18)',     genders: ['male'],   minAge: 15, maxAge: 18, fee: 30 },
   male_singles_18plus:    { label: 'Singles - Male (18+)',             genders: ['male'],   minAge: 18, fee: 35 },
-  doubles_u10:            { label: 'Doubles - Under 10',               maxAge: 10, doubles: true, fee: 60 },
+  doubles_u10:            { label: 'Doubles - Kids (Under 10)',               maxAge: 10, doubles: true, fee: 60 },
   mixed_doubles_kids:     { label: 'Doubles - Mixed (Kids 10-14)',     minAge: 10, maxAge: 14, doubles: true, fee: 60 },
   mixed_doubles_youth:    { label: 'Doubles - Mixed (Youth 14-18)',    minAge: 15, maxAge: 18, doubles: true, fee: 60 },
   // Mixed Open has no age or gender limits, so a parent can play with a son or daughter.

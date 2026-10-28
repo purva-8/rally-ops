@@ -1,41 +1,26 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Reorder } from 'framer-motion';
 import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../tournament/types';
 import type { Category, Match, Participant } from '../../tournament/types';
 import { entryLabel, isDoublesCategory, sortCategories } from '@/lib/categories';
-import { matchResult } from '@/lib/bracket';
 import { undoResult } from './undo';
-
-type Staff = { id: string; name: string; email: string; role: 'coach' | 'admin'; status: 'invited' | 'active' };
 
 function nextPowerOf2(n: number) {
   return Math.pow(2, Math.ceil(Math.log2(n)));
 }
 
 export default function BracketsTab() {
-  const { participants, matches, generateCategoryBracket, courts, assignCourt, startMatch, updateScore, completeMatch, selectedCategories, tournamentId, saveError, clearSaveError, loadMatches } = useTournamentStore();
+  const { participants, matches, generateCategoryBracket, selectedCategories, tournamentId, saveError, clearSaveError, loadMatches } = useTournamentStore();
   const [selectedCat, setSelectedCat] = useState<Category | ''>('');
-  const [assigningMatch, setAssigningMatch] = useState<string | null>(null);
-  const [assignCourt2, setAssignCourt2] = useState('');
-  const [assignReferee, setAssignReferee] = useState('');
-  const [scoringMatch, setScoringMatch] = useState<string | null>(null);
   const [persisting, setPersisting] = useState(false);
-  const [staff, setStaff] = useState<Staff[]>([]);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   // The last deleted draw, kept so it can be put back; dropped once a new draw is made for that category
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- rows exactly as the server returned them
   const [deletedDraw, setDeletedDraw] = useState<{ category: Category; matches: any[]; sets: any[] } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!tournamentId) return;
-    fetch(`/api/tournament/staff?tournamentId=${tournamentId}`)
-      .then((res) => res.json())
-      .then((data) => setStaff(data.staff ?? []));
-  }, [tournamentId]);
 
   const categories: Category[] = selectedCategories.length > 0 ? sortCategories(selectedCategories) : ['male_singles', 'female_singles', 'male_doubles', 'female_doubles', 'spouse_doubles'];
 
@@ -45,7 +30,6 @@ export default function BracketsTab() {
   );
 
   const hasMatches = selectedCat ? matches.some((m) => m.category === selectedCat) : false;
-  const coaches = staff.filter((s) => s.role === 'coach' && s.status === 'active');
   const displayMatches = selectedCat ? matches.filter((m) => m.category === selectedCat) : [];
 
   const reload = async () => {
@@ -269,32 +253,9 @@ export default function BracketsTab() {
                       {match.winnerName && <> · <strong className="text-orange-600">{match.winnerName}</strong></>}
                     </p>
                   )}
-                  {match.courtId && (
-                    <p className="text-xs text-stone-400 mt-1">
-                      {courts.find((c) => c.id === match.courtId)?.name}{match.refereeName ? ` · ${match.refereeName}` : ''}
-                    </p>
-                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {match.status === 'upcoming' && !match.courtId && (
-                    <button onClick={() => { setAssigningMatch(match.id); setAssignCourt2(''); setAssignReferee(''); }}
-                      className="text-xs border border-stone-200 text-stone-600 px-3 py-1.5 rounded-lg hover:bg-stone-50 transition-colors">
-                      Assign Court
-                    </button>
-                  )}
-                  {match.status === 'upcoming' && match.courtId && (
-                    <button onClick={() => startMatch(match.id)}
-                      className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded-lg hover:bg-orange-500 transition-colors font-semibold">
-                      Start Match
-                    </button>
-                  )}
-                  {match.status === 'in_progress' && (
-                    <button onClick={() => setScoringMatch(match.id)}
-                      className="text-xs bg-[#111827] text-white px-3 py-1.5 rounded-lg hover:bg-[#1F2937] transition-colors font-semibold">
-                      Enter Scores
-                    </button>
-                  )}
                   {tournamentId && !match.isBye && (match.status !== 'upcoming' || match.sets.length > 0) && (
                     <button onClick={() => handleUndoResult(match)} disabled={busyId === match.id}
                       className="text-xs border border-red-200 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
@@ -304,55 +265,11 @@ export default function BracketsTab() {
                 </div>
               </div>
 
-              {assigningMatch === match.id && (
-                <div className="mt-3 p-3 bg-stone-50 rounded-lg border border-stone-200 flex flex-wrap gap-3 items-end">
-                  <div>
-                    <label className="block text-xs font-medium text-stone-500 mb-1">Court</label>
-                    <select value={assignCourt2} onChange={(e) => setAssignCourt2(e.target.value)}
-                      className="border border-stone-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white">
-                      <option value="">Select court</option>
-                      {courts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-stone-500 mb-1">Referee</label>
-                    <select value={assignReferee} onChange={(e) => setAssignReferee(e.target.value)}
-                      className="border border-stone-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white">
-                      <option value="">Select referee</option>
-                      {coaches.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                    </select>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (!assignCourt2 || !assignReferee) return;
-                      const referee = coaches.find((u) => u.id === assignReferee);
-                      assignCourt(match.id, assignCourt2, assignReferee, referee?.name || '');
-                      setAssigningMatch(null);
-                    }}
-                    className="bg-[#111827] text-white px-4 py-1.5 rounded-lg text-sm hover:bg-[#1F2937] transition-colors">
-                    Assign
-                  </button>
-                  <button onClick={() => setAssigningMatch(null)} className="text-stone-400 text-sm hover:text-stone-600">Cancel</button>
-                </div>
-              )}
             </div>
           ))}
         </div>
       )}
 
-      {scoringMatch && (
-        <ScoreModal
-          matchId={scoringMatch}
-          match={matches.find((m) => m.id === scoringMatch)!}
-          onSave={(sets) => { updateScore(scoringMatch, sets); setScoringMatch(null); }}
-          onComplete={async (sets) => {
-            const id = scoringMatch;
-            useTournamentStore.setState((s) => ({ matches: s.matches.map((m) => (m.id === id ? { ...m, sets } : m)) }));
-            if (await completeMatch(id)) setScoringMatch(null);
-          }}
-          onClose={() => setScoringMatch(null)}
-        />
-      )}
     </div>
   );
 }
@@ -671,79 +588,4 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   );
   return <span className="text-xs bg-stone-50 text-stone-400 border border-stone-200 px-2 py-0.5 rounded-full">Upcoming</span>;
-}
-
-function ScoreModal({ matchId, match, onSave, onComplete, onClose }: {
-  matchId: string;
-  match: any;
-  onSave: (sets: any[]) => void;
-  onComplete: (sets: any[]) => void;
-  onClose: () => void;
-}) {
-  const [sets, setSets] = useState(match.sets.length > 0 ? match.sets : [{ player1Score: 0, player2Score: 0 }]);
-
-  const updateSet = (i: number, field: 'player1Score' | 'player2Score', val: number) => {
-    setSets((prev: any[]) => prev.map((s, idx) => idx === i ? { ...s, [field]: val } : s));
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-bold text-stone-900">Enter Scores</h3>
-          <button onClick={onClose} className="text-stone-300 hover:text-stone-600 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-stone-100 transition-colors">
-            <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4"><path d="M4.293 4.293a1 1 0 011.414 0L8 6.586l2.293-2.293a1 1 0 111.414 1.414L9.414 8l2.293 2.293a1 1 0 01-1.414 1.414L8 9.414l-2.293 2.293a1 1 0 01-1.414-1.414L6.586 8 4.293 5.707a1 1 0 010-1.414z"/></svg>
-          </button>
-        </div>
-        <p className="text-sm text-stone-500 mb-5">{match.player1Name} vs {match.player2Name}</p>
-
-        <div className="space-y-3">
-          {sets.map((s: any, i: number) => (
-            <div key={i} className="flex items-center gap-3">
-              <span className="text-xs font-semibold text-stone-400 w-10">Set {i + 1}</span>
-              <div className="flex items-center gap-2 flex-1">
-                <div className="flex-1">
-                  <p className="text-xs text-stone-400 mb-1 truncate">{match.player1Name}</p>
-                  <input type="number" min={0} max={30} value={s.player1Score}
-                    onChange={(e) => updateSet(i, 'player1Score', parseInt(e.target.value) || 0)}
-                    className="w-full border border-stone-200 rounded-lg px-2 py-2 text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-orange-500 bg-stone-50" />
-                </div>
-                <span className="text-stone-200 font-bold mt-5">-</span>
-                <div className="flex-1">
-                  <p className="text-xs text-stone-400 mb-1 truncate">{match.player2Name}</p>
-                  <input type="number" min={0} max={30} value={s.player2Score}
-                    onChange={(e) => updateSet(i, 'player2Score', parseInt(e.target.value) || 0)}
-                    className="w-full border border-stone-200 rounded-lg px-2 py-2 text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-orange-500 bg-stone-50" />
-                </div>
-              </div>
-              {sets.length > 1 && (
-                <button onClick={() => setSets((prev: any[]) => prev.filter((_, idx) => idx !== i))}
-                  className="text-stone-300 hover:text-red-400 mt-5 text-sm">✕</button>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {sets.length < 3 && (
-          <button onClick={() => setSets((prev: any[]) => [...prev, { player1Score: 0, player2Score: 0 }])}
-            className="mt-3 text-xs text-orange-600 hover:text-orange-700 font-semibold">+ Add Set</button>
-        )}
-
-        <div className="flex gap-3 mt-6">
-          <button onClick={() => onSave(sets)}
-            className="flex-1 border border-stone-200 text-stone-600 py-2.5 rounded-lg text-sm hover:bg-stone-50 font-medium transition-colors">
-            Save Draft
-          </button>
-          <button onClick={() => {
-            const r = matchResult(sets);
-            if ('problem' in r) { alert(r.problem); return; }
-            if (confirm(`Complete the match with ${r.winner === 1 ? match.player1Name : match.player2Name} as the winner?`)) onComplete(sets);
-          }}
-            className="flex-1 bg-[#111827] text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-[#1F2937] transition-colors">
-            Complete Match
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
