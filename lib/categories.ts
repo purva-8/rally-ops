@@ -40,7 +40,7 @@ export const CATEGORY_DEFS: Record<string, CategoryDef> = {
   mixed_doubles_youth:    { label: 'Doubles - Mixed (Youth 14-18)',    minAge: 15, maxAge: 18, doubles: true, fee: 60 },
   // Mixed Open has no age or gender limits, so a parent can play with a son or daughter.
   // Spouse and Female/Male doubles are adults only: kids and youth play in their own bands.
-  mixed_doubles_open:     { label: 'Doubles - Mixed Open (Parent + Child)', doubles: true, fee: 60 },
+  mixed_doubles_open:     { label: 'Doubles - Parent + Child', doubles: true, fee: 60 },
   female_doubles_open:    { label: 'Doubles - Female (18+)',           genders: ['female'], minAge: 18, doubles: true, fee: 60 },
   male_doubles_18plus:    { label: 'Doubles - Male (18+)',             genders: ['male'],   minAge: 18, doubles: true, fee: 60 },
   spouse_doubles_open:    { label: 'Doubles - Spouse',                 minAge: 18, doubles: true, fee: 60 },
