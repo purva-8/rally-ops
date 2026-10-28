@@ -5,6 +5,8 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import Avatar from '@/components/Avatar';
+import { formatDate } from '@/lib/format';
+import { registrationClosed, ON_SPOT_CUTOFF } from '@/components/RegistrationClosed';
 import { CATEGORY_LABELS, categoryFee, isDoublesCategory, isEligible, isSamanvayamTournament, partnerIssue, type PartnerInfo } from '@/lib/categories';
 
 type Tournament = {
@@ -17,6 +19,7 @@ type Tournament = {
   event_date: string;
   age_as_of: string | null;
   is_samanvayam: boolean;
+  registration_close_at: string | null;
 };
 
 type Profile = {
@@ -97,7 +100,7 @@ function RegisterPageInner() {
         : supabase.from('player_profiles').select(PROFILE_COLS).eq('auth_user_id', user.id).single();
 
       const [{ data: t }, { data: p }] = await Promise.all([
-        supabase.from('tournaments').select('id,name,categories,entry_fee,status,venue,event_date,age_as_of,is_samanvayam').eq('id', id).single(),
+        supabase.from('tournaments').select('id,name,categories,entry_fee,status,venue,event_date,age_as_of,is_samanvayam,registration_close_at').eq('id', id).single(),
         profileFilter,
       ]);
       setTournament(t);
@@ -304,6 +307,20 @@ function RegisterPageInner() {
     return (
       <div className="min-h-screen bg-orange-950 flex items-center justify-center">
         <div className="text-orange-300/60 text-sm">Loading...</div>
+      </div>
+    );
+  }
+
+  if (tournament && registrationClosed(tournament)) {
+    return (
+      <div className="min-h-screen bg-stone-100 flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
+          <p className="text-lg font-bold text-stone-900">Online registration is closed</p>
+          <p className="text-stone-600 text-sm mt-2">
+            You can still register <strong>on the spot</strong> at the venue on <strong>{formatDate(tournament.event_date)}</strong>, <strong>strictly before {ON_SPOT_CUTOFF}</strong>.
+          </p>
+          <Link href={`/events/${id}`} className="text-orange-600 text-sm mt-4 inline-block">← Back to tournament</Link>
+        </div>
       </div>
     );
   }

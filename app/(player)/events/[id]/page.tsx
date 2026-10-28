@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { IconMapPin, IconCalendar, IconClock, IconUsers, IconChevronRight } from '@/components/icons';
 import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS, feeLabel } from '@/lib/categories';
 import { formatDate } from '@/lib/format';
+import { registrationClosed, RegistrationClosedNotice } from '@/components/RegistrationClosed';
 
 type Tournament = {
   id: string;
@@ -56,6 +57,7 @@ function TournamentDetailPageInner() {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [regCount, setRegCount] = useState(0);
+  const [showClosed, setShowClosed] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -88,8 +90,9 @@ function TournamentDetailPageInner() {
     );
   }
 
-  const isOpen = tournament.status === 'open';
-  const scfg = STATUS_CONFIG[tournament.status];
+  const closed = registrationClosed(tournament);
+  const isOpen = tournament.status === 'open' && !closed;
+  const scfg = closed ? { label: 'Registration closed', cls: 'bg-amber-50 text-amber-800 border-amber-200' } : STATUS_CONFIG[tournament.status];
   const eventDate = tournament.event_date
     ? formatDate(tournament.event_date)
     : null;
@@ -227,7 +230,14 @@ function TournamentDetailPageInner() {
       {/* Sticky CTA — sits above bottom nav */}
       <div className="fixed bottom-16 left-0 right-0 px-4 pb-3 z-30">
         <div className="max-w-2xl mx-auto">
-          {isOpen ? (
+          {closed ? (
+            <button
+              onClick={() => setShowClosed(true)}
+              className="w-full bg-stone-800 hover:bg-stone-700 text-white py-4 rounded-2xl font-bold text-base transition-colors shadow-xl"
+            >
+              Registration closed · on-the-spot info
+            </button>
+          ) : isOpen ? (
             <button
               onClick={() => router.push(profileId ? `/events/${id}/register?profileId=${profileId}` : `/events/${id}/register`)}
               className="w-full bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white py-4 rounded-2xl font-bold text-base transition-colors shadow-xl shadow-orange-900/20"
@@ -242,6 +252,7 @@ function TournamentDetailPageInner() {
           )}
         </div>
       </div>
+      {showClosed && <RegistrationClosedNotice eventDate={tournament.event_date} onClose={() => setShowClosed(false)} />}
     </div>
   );
 }
