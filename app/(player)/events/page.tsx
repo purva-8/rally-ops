@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { IconMapPin, IconCalendar, IconClock, IconUsers } from '@/components/icons';
 import { formatDate } from '@/lib/format';
+import { registrationClosed, RegistrationClosedNotice } from '@/components/RegistrationClosed';
 
 type Tournament = {
   id: string;
@@ -27,6 +28,8 @@ const STATUS_CONFIG = {
   completed: { label: 'Completed',   dot: 'bg-stone-400',   badge: 'bg-stone-50 text-stone-500 border-stone-200',    bar: 'border-l-stone-300' },
 };
 
+const CLOSED_CONFIG = { label: 'Registration closed', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-800 border-amber-200', bar: 'border-l-amber-400' };
+
 const SPORT_LABEL = 'Badminton';
 
 const FILTERS = ['all', 'open', 'live', 'upcoming', 'completed'] as const;
@@ -40,6 +43,7 @@ function EventsPageInner() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [closedNotice, setClosedNotice] = useState<string | null>(null);
 
   useEffect(() => {
     createClient()
@@ -50,8 +54,10 @@ function EventsPageInner() {
     createClient().auth.getUser().then(({ data: { user } }) => setIsLoggedIn(!!user));
   }, []);
 
-  const filtered = filter === 'all' ? tournaments : tournaments.filter((t) => t.status === filter);
-  const openCount = tournaments.filter((t) => t.status === 'open').length;
+  // Past its closing time an "open" event is listed with the upcoming ones, not as registering
+  const listedAs = (t: Tournament) => (registrationClosed(t) ? 'upcoming' : t.status);
+  const filtered = filter === 'all' ? tournaments : tournaments.filter((t) => listedAs(t) === filter);
+  const openCount = tournaments.filter((t) => listedAs(t) === 'open').length;
   const liveCount = tournaments.filter((t) => t.status === 'live').length;
 
   return (
@@ -152,8 +158,9 @@ function EventsPageInner() {
 
         <div className="space-y-3 pb-10">
           {filtered.map((t) => {
-            const cfg = STATUS_CONFIG[t.status];
-            const isOpen = t.status === 'open';
+            const closed = registrationClosed(t);
+            const cfg = closed ? CLOSED_CONFIG : STATUS_CONFIG[t.status];
+            const isOpen = t.status === 'open' && !closed;
             const dateStr = t.event_date
               ? formatDate(t.event_date)
               : null;
@@ -224,6 +231,15 @@ function EventsPageInner() {
                         Register now →
                       </span>
                     )}
+                    {closed && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setClosedNotice(t.event_date); }}
+                        className="text-xs font-bold text-amber-700 hover:text-amber-800"
+                      >
+                        Register now →
+                      </button>
+                    )}
                   </div>
                 </div>
               </Link>
@@ -231,6 +247,7 @@ function EventsPageInner() {
           })}
         </div>
       </main>
+      {closedNotice !== null && <RegistrationClosedNotice eventDate={closedNotice} onClose={() => setClosedNotice(null)} />}
     </div>
   );
 }
