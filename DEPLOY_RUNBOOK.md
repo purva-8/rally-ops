@@ -68,15 +68,15 @@ Do **not** use the real tournament. Generating a draw is one-shot (a second atte
 1. As organizer, create a tournament named **"TEST – ignore"** with one singles category.
 2. Add 3 entries by hand, using made-up names (e.g. Test A, Test B, Test C), and approve them.
 3. Generate the draw (Random draw 🎲 → Roll → Use this draw). Expect one bye and one round-1 match. The match is labelled **Semifinal**, not "Final".
-4. Score the round-1 match with an **impossible** score first: game 1 at 25-3. The app must refuse it.
-5. Score it properly (21-15, 21-18) and press Complete.
-   - Expect the **Final** to appear straight away.
+4. In Admin → **Score desk**, type an odd score for the round-1 match first: 25-3, 21-0. A "Save it anyway?" warning must appear. Press **Cancel**.
+5. Type it properly (21-15, 21-18) and press **Save result**.
+   - Expect "Final drawn" in the green note, and the **Final** in the To enter list.
 6. **Reload the page. The Final must still be there.** This is the main bug being fixed.
-7. Open `/events/<test-id>/results` on your phone. It should show the same Final.
-8. Open the court link (`/coach/court-1`) on the phone, score the Final 21-10, 21-12, and let it finish.
-   - The champion shows on the results page.
+7. Press **Fix** on the round-1 result and swap the scores (15-21, 18-21) → **Save correction**. The Final must now show the other player. Swap it back the same way.
+8. Open `/events/<test-id>/results` on your phone. It should show the same Final.
+9. Open the court link (`/coach/court-1`) on the phone, score the Final 21-10, 21-12, and let it finish.
+   - The champion shows on the results page and on the Score desk.
    - No red "Not saved" banner.
-9. In Admin → **Score desk**, open the finished round-1 match and press **Fix**. Swap the winner, then save. The Final should now show the new winner. Swap it back afterwards.
 10. Check that the games were saved once, not duplicated (read-only):
    ```sql
    select match_id, set_number, count(*) from match_sets group by 1,2 having count(*) > 1;  -- expect no rows
