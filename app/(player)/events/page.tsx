@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { IconMapPin, IconCalendar, IconClock, IconUsers } from '@/components/icons';
 import { formatDate } from '@/lib/format';
-import { registrationClosed, RegistrationClosedNotice } from '@/components/RegistrationClosed';
+import { registrationClosed, RegistrationClosedMessage } from '@/components/RegistrationClosed';
 
 type Tournament = {
   id: string;
@@ -43,7 +43,6 @@ function EventsPageInner() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [closedNotice, setClosedNotice] = useState<string | null>(null);
 
   useEffect(() => {
     createClient()
@@ -231,23 +230,14 @@ function EventsPageInner() {
                         Register now →
                       </span>
                     )}
-                    {closed && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setClosedNotice(t.event_date); }}
-                        className="text-xs font-bold text-amber-700 hover:text-amber-800"
-                      >
-                        Register now →
-                      </button>
-                    )}
                   </div>
+                  {closed && <div className="mt-3"><RegistrationClosedMessage eventDate={t.event_date} size="sm" /></div>}
                 </div>
               </Link>
             );
           })}
         </div>
       </main>
-      {closedNotice !== null && <RegistrationClosedNotice eventDate={closedNotice} onClose={() => setClosedNotice(null)} />}
     </div>
   );
 }

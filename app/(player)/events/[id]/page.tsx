@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { IconMapPin, IconCalendar, IconClock, IconUsers, IconChevronRight } from '@/components/icons';
 import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS, feeLabel, sortCategories } from '@/lib/categories';
 import { formatDate } from '@/lib/format';
-import { registrationClosed, RegistrationClosedNotice } from '@/components/RegistrationClosed';
+import { registrationClosed, RegistrationClosedMessage } from '@/components/RegistrationClosed';
 
 type Tournament = {
   id: string;
@@ -57,7 +57,6 @@ function TournamentDetailPageInner() {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [regCount, setRegCount] = useState(0);
-  const [showClosed, setShowClosed] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -231,12 +230,7 @@ function TournamentDetailPageInner() {
       <div className="fixed bottom-16 left-0 right-0 px-4 pb-3 z-30">
         <div className="max-w-2xl mx-auto">
           {closed ? (
-            <button
-              onClick={() => setShowClosed(true)}
-              className="w-full bg-stone-800 hover:bg-stone-700 text-white py-4 rounded-2xl font-bold text-base transition-colors shadow-xl"
-            >
-              Registration closed · on-the-spot info
-            </button>
+            <RegistrationClosedMessage eventDate={tournament.event_date} />
           ) : isOpen ? (
             <button
               onClick={() => router.push(profileId ? `/events/${id}/register?profileId=${profileId}` : `/events/${id}/register`)}
@@ -252,7 +246,6 @@ function TournamentDetailPageInner() {
           )}
         </div>
       </div>
-      {showClosed && <RegistrationClosedNotice eventDate={tournament.event_date} onClose={() => setShowClosed(false)} />}
     </div>
   );
 }
