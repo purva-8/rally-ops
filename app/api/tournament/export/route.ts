@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { toCsv } from '@/lib/csv';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { ageOn, categoryFee, categoryLabel, isDoublesCategory } from '@/lib/categories';
+import { latestSets } from '@/lib/matchRows';
 
 // Organizer-only CSV exports. Rows are fetched in pages so 1000+ row tables are never silently cut off.
 const PAGE = 1000;
@@ -128,7 +129,7 @@ export async function GET(req: NextRequest) {
         'Round': m.round + 1,
         'Player 1': m.player1_name,
         'Player 2': m.player2_name ?? 'BYE',
-        'Scores': sets.filter((s) => s.match_id === m.id).map((s) => `${s.player1_score}-${s.player2_score}`).join(', '),
+        'Scores': latestSets(sets, m.id).map((s) => `${s.player1_score}-${s.player2_score}`).join(', '),
         'Winner': m.winner_name ?? '',
         'Status': m.status,
         'Court': m.court_id ?? '',

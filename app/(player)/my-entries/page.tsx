@@ -104,10 +104,10 @@ export default function MyEntriesPage() {
     setWithdrawing(id);
     // Marked as withdrawn rather than deleted, so the organizer's records stay complete
     const supabase = createClient();
-    let { error } = await supabase.from('registrations').update({ status: 'withdrawn' }).eq('id', id);
-    // Until the withdraw policy is updated in the database, fall back to removing the row (the audit log keeps a copy)
-    if (error) ({ error } = await supabase.from('registrations').delete().eq('id', id));
-    if (!error) setEntries((prev) => prev.filter((e) => e.id !== id));
+    // Only a pending entry can be withdrawn here; zero rows back means the database refused (e.g. it was approved meanwhile)
+    const { data, error } = await supabase.from('registrations').update({ status: 'withdrawn' }).eq('id', id).select('id');
+    if (!error && data?.length) setEntries((prev) => prev.filter((e) => e.id !== id));
+    else alert('This entry could not be withdrawn. If it has already been approved, please contact the organizers.');
     setWithdrawing(null);
   }
 

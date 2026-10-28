@@ -3,19 +3,15 @@
 import { isEventOrganizer } from '@/lib/organizer';
 import { use, useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useTournamentStore } from '../../tournament/store';
+import { useTournamentStore, courtName } from '../../tournament/store';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORY_LABELS } from '../../tournament/types';
+import { gameWinner } from '@/lib/bracket';
 import type { Set, Category } from '../../tournament/types';
 
 function isSetWon(s: Set) {
-  const a = s.player1Score;
-  const b = s.player2Score;
-  const maxScore = Math.max(a, b);
-  if (maxScore < 21) return null;
-  if (Math.abs(a - b) >= 2) return a > b ? 'player1' : 'player2';
-  if (maxScore >= 30) return a > b ? 'player1' : 'player2';
-  return null;
+  const w = gameWinner(s);
+  return w === 1 ? 'player1' : w === 2 ? 'player2' : null;
 }
 
 function setsWon(sets: Set[]) {
@@ -33,7 +29,7 @@ function CoachPageInner({ params }: { params: Promise<{ courtId: string }> }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tournamentId = searchParams.get('tournamentId');
-  const { courts, matches, startMatch, updateScore, completeMatch, assignCourt, setTournamentId, loadMatches } = useTournamentStore();
+  const { courts, matches, startMatch, updateScore, completeMatch, assignCourt, setTournamentId, loadMatches, saveError, clearSaveError } = useTournamentStore();
   const [authChecked, setAuthChecked] = useState(false);
   const [authorized, setAuthorized] = useState(false);
   const [coachIdentity, setCoachIdentity] = useState<{ id: string; name: string } | null>(null);
@@ -70,7 +66,8 @@ function CoachPageInner({ params }: { params: Promise<{ courtId: string }> }) {
     });
   }, [tournamentId, courtId, router, setTournamentId, loadMatches]);
 
-  const court = courts.find((c) => c.id === courtId);
+  // Courts beyond the default four exist only as ids (court-5, ...) on devices that did not add them
+  const court = courts.find((c) => c.id === courtId) ?? (/^court-\d+$/.test(courtId) ? { id: courtId, name: courtName(courtId) } : undefined);
   const coach = coachIdentity;
 
   const courtMatches = matches.filter((m) => m.courtId === courtId);
@@ -129,10 +126,16 @@ function CoachPageInner({ params }: { params: Promise<{ courtId: string }> }) {
       const { p1, p2 } = setsWon(newSets);
       const winnerName = p1 >= 2 ? liveMatch.player1Name : p2 >= 2 ? liveMatch.player2Name : null;
       if (winnerName) {
-        updateScore(liveMatch.id, newSets);
+        // Saved once, as the final result (a separate in-progress save could land after it)
+        const id = liveMatch.id;
+        useTournamentStore.setState((st) => ({ matches: st.matches.map((m) => (m.id === id ? { ...m, sets: newSets } : m)) }));
         setSets(newSets);
         setWinner(winnerName);
-        setTimeout(() => { completeMatch(liveMatch.id); setWinner(null); setSets([{ player1Score: 0, player2Score: 0 }]); }, 3000);
+        setTimeout(async () => {
+          const ok = await completeMatch(id);
+          setWinner(null);
+          if (ok) setSets([{ player1Score: 0, player2Score: 0 }]);
+        }, 3000);
       } else {
         const withNew = [...newSets, { player1Score: 0, player2Score: 0 }];
         setSets(withNew);
@@ -247,8 +250,19 @@ function CoachPageInner({ params }: { params: Promise<{ courtId: string }> }) {
     );
   }
 
+  const finished = !!liveMatch && (p1SetsWon >= 2 || p2SetsWon >= 2);
+
   return (
     <main className="min-h-screen bg-[#111827] text-white flex flex-col">
+      {saveError && (
+        <div className="bg-red-600 text-white px-5 py-3 flex items-center gap-3">
+          <p className="flex-1 text-sm font-semibold">Not saved: {saveError}</p>
+          {finished && liveMatch && (
+            <button onClick={() => completeMatch(liveMatch.id)} className="bg-white text-red-700 text-sm font-bold px-3 py-1.5 rounded-lg">Retry result</button>
+          )}
+          <button onClick={clearSaveError} className="text-white/80 text-sm underline">Dismiss</button>
+        </div>
+      )}
       <div className="bg-[#1F2937] px-5 py-4 flex items-center justify-between border-b border-[#374151]">
         <div>
           <p className="text-stone-400 text-xs uppercase tracking-widest font-semibold">{coach?.name || 'Coach'}</p>

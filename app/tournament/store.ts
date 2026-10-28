@@ -18,16 +18,44 @@ function getRoundName(round: number, totalRounds: number): string {
   return `Round ${round + 1}`;
 }
 
-function determineWinner(sets: Set[], p1Id: string, p2Id: string, p1Name: string, p2Name: string) {
-  let p1Wins = 0;
-  let p2Wins = 0;
-  for (const s of sets) {
-    if (s.player1Score > s.player2Score) p1Wins++;
-    else if (s.player2Score > s.player1Score) p2Wins++;
+// Courts that matches refer to but this browser has never seen (added on another device, or court-5 and up)
+function withMatchCourts(courts: Court[], matches: Match[]) {
+  const extra = Array.from(new Set(matches.map((m) => m.courtId).filter((id): id is string => !!id && !courts.some((c) => c.id === id))));
+  return extra.length ? [...courts, ...extra.map((id) => ({ id, name: courtName(id) }))] : courts;
+}
+
+export function courtName(id: string) {
+  const n = /^court-(\d+)$/.exec(id);
+  return n ? `Court ${n[1]}` : 'Court';
+}
+
+type SaveResult = { match?: Match; nextMatches?: Match[]; error?: string };
+
+// Saves for one match go out one at a time, in order: a coach tapping quickly must not have an older
+// score land after a newer one
+const saveQueues = new Map<string, Promise<unknown>>();
+
+// Every score/court change goes through the server; a failure is kept in saveError so the screen can say so
+function saveMatch(body: Record<string, unknown>): Promise<SaveResult> {
+  const key = String(body.matchId);
+  const run = (saveQueues.get(key) ?? Promise.resolve()).then(() => postMatch(body));
+  saveQueues.set(key, run.catch(() => {}));
+  return run;
+}
+
+async function postMatch(body: Record<string, unknown>): Promise<SaveResult> {
+  try {
+    const res = await fetch('/api/tournament/matches/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: data.error ?? `Save failed (${res.status})` };
+    return data;
+  } catch {
+    return { error: 'No connection. The last change was not saved.' };
   }
-  if (p1Wins > p2Wins) return { winnerId: p1Id, winnerName: p1Name };
-  if (p2Wins > p1Wins) return { winnerId: p2Id, winnerName: p2Name };
-  return null;
 }
 
 interface Actions {
@@ -42,7 +70,9 @@ interface Actions {
   assignCourt: (matchId: string, courtId: string, refereeId: string, refereeName: string) => void;
   startMatch: (matchId: string) => void;
   updateScore: (matchId: string, sets: Set[]) => void;
-  completeMatch: (matchId: string) => void;
+  completeMatch: (matchId: string) => Promise<boolean>;
+  saveError: string | null;
+  clearSaveError: () => void;
   addCourt: (name: string) => void;
   assignRefereeToCourt: (courtId: string, refereeId: string, refereeName: string) => void;
   addUser: (user: Omit<User, 'id'>) => User;
@@ -85,7 +115,10 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
 
       loadParticipants: (participants) => set({ participants }),
 
-      loadMatches: (matches) => set({ matches, bracketGenerated: matches.length > 0 }),
+      loadMatches: (matches) => set((s) => ({ matches, bracketGenerated: matches.length > 0, courts: withMatchCourts(s.courts, matches) })),
+
+      saveError: null,
+      clearSaveError: () => set({ saveError: null }),
 
       setupTournament: ({ tournamentName, organizerName, venue, eventDate, registrationDeadline, courtCount, managerPassword, selectedCategories }) => {
         const courts: Court[] = Array.from({ length: courtCount }, (_, i) => ({
@@ -117,8 +150,10 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
       generateCategoryBracket: (category, orderedParticipantIds, byeParticipantIds) => {
         const { participants } = get();
         const byeSet = new Set(byeParticipantIds);
+        // One person has a participant row per category (same id), so match on the category too,
+        // otherwise a doubles entry can pick up the partner from another category
         const catPlayers = orderedParticipantIds
-          .map((id) => participants.find((p) => p.id === id))
+          .map((id) => participants.find((p) => p.id === id && p.categories.includes(category)))
           .filter((p): p is Participant => !!p);
         if (catPlayers.length < 2) return;
 
@@ -129,10 +164,11 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
         const byePlayers = catPlayers.filter((p) => byeSet.has(p.id));
         const activePlayers = catPlayers.filter((p) => !byeSet.has(p.id));
 
-        const round1: Match[] = byePlayers.map((p) => ({
+        const round1: Match[] = byePlayers.map((p, i) => ({
           id: uuidv4(),
           category,
           round: 0,
+          position: i,
           roundName,
           player1Id: p.id,
           player1Name: entryLabel(p.fullName, p.partnerName, category),
@@ -150,6 +186,7 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
             id: uuidv4(),
             category,
             round: 0,
+            position: round1.length,
             roundName,
             player1Id: p1.id,
             player1Name: entryLabel(p1.fullName, p1.partnerName, category),
@@ -175,11 +212,8 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
         const { tournamentId, matches } = get();
         if (!tournamentId) return;
         const match = matches.find((m) => m.id === matchId);
-        fetch('/api/tournament/matches/score', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ matchId, sets: match?.sets ?? [], courtId, refereeId, refereeName }),
-        }).catch(() => {});
+        saveMatch({ matchId, sets: match?.sets ?? [], courtId, refereeId, refereeName })
+          .then((r) => r.error && set({ saveError: r.error }));
       },
 
       startMatch: (matchId) => {
@@ -190,11 +224,8 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
         }));
         const { tournamentId } = get();
         if (!tournamentId) return;
-        fetch('/api/tournament/matches/score', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ matchId, sets: [{ player1Score: 0, player2Score: 0 }], status: 'in_progress' }),
-        }).catch(() => {});
+        saveMatch({ matchId, sets: [{ player1Score: 0, player2Score: 0 }], status: 'in_progress' })
+          .then((r) => r.error && set({ saveError: r.error }));
       },
 
       updateScore: (matchId, sets) => {
@@ -204,126 +235,43 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
         const { tournamentId, matches } = get();
         if (!tournamentId) return;
         const match = matches.find((m) => m.id === matchId);
-        fetch('/api/tournament/matches/score', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            matchId,
-            sets,
-            status: match?.status,
-            courtId: match?.courtId,
-            refereeId: match?.refereeId,
-            refereeName: match?.refereeName,
-          }),
-        }).catch(() => {});
+        saveMatch({ matchId, sets, status: match?.status, courtId: match?.courtId })
+          .then((r) => r.error && set({ saveError: r.error }));
       },
 
-      completeMatch: (matchId) => {
-        const { matches, participants, courts } = get();
+      // The server decides the winner from the sets and creates the next round when this one is finished
+      completeMatch: async (matchId) => {
+        const { matches, tournamentId } = get();
         const match = matches.find((m) => m.id === matchId);
-        if (!match) return;
-
-        const result = determineWinner(match.sets, match.player1Id, match.player2Id ?? '', match.player1Name, match.player2Name ?? '');
-        if (!result) return;
-
-        const { winnerId, winnerName } = result;
-        const loserId = winnerId === match.player1Id ? match.player2Id : match.player1Id;
-        const loserName = winnerId === match.player1Id ? match.player2Name : match.player1Name;
-        const completedAt = new Date().toISOString();
-
-        // Send result emails if participants have emails
-        const winnerParticipant = participants.find((p) => p.id === winnerId);
-        const loserParticipant = participants.find((p) => p.id === loserId);
-        const court = courts.find((c) => c.id === match.courtId);
-
-        if (winnerParticipant?.email && loserParticipant?.email) {
-          fetch('/api/send-match-result', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              category: match.category.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-              round: match.roundName,
-              court: court?.name || 'Court',
-              sets: match.sets,
-              winner: { name: winnerName, email: winnerParticipant.email },
-              loser: { name: loserName, email: loserParticipant.email },
-            }),
-          }).catch(() => {}); // fire and forget
+        if (!match) return false;
+        if (!tournamentId) {
+          set({ saveError: 'This bracket is not linked to an event, so results cannot be saved.' });
+          return false;
         }
-
-        // Persist final match result to DB
-        const { tournamentId } = get();
-        if (tournamentId) {
-          fetch('/api/tournament/matches/score', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              matchId,
-              sets: match.sets,
-              status: 'completed',
-              winnerId,
-              winnerName,
-              courtId: match.courtId,
-              refereeId: match.refereeId,
-              refereeName: match.refereeName,
-            }),
-          }).catch(() => {});
+        const r = await saveMatch({ matchId, sets: match.sets, status: 'completed', courtId: match.courtId });
+        if (r.error || !r.match) {
+          set({ saveError: r.error ?? 'Result not saved' });
+          return false;
         }
-
-        // Find if there are other completed matches in the same round for this category
-        const updatedMatches = matches.map((m) =>
-          m.id === matchId ? { ...m, status: 'completed' as const, winnerId, winnerName, completedAt } : m
-        );
-
-        // Check if next round needs to be created
-        const categoryMatches = updatedMatches.filter(
-          (m) => m.category === match.category && m.round === match.round
-        );
-        const allCompleted = categoryMatches.every((m) => m.status === 'completed');
-
-        if (allCompleted) {
-          const winners = categoryMatches.map((m) => ({
-            id: m.winnerId!,
-            name: m.winnerName!,
-          }));
-
-          if (winners.length >= 2) {
-            const totalCurrentRounds = updatedMatches
-              .filter((m) => m.category === match.category)
-              .reduce((max, m) => Math.max(max, m.round), 0);
-
-            const nextRound = match.round + 1;
-            const totalRounds = totalCurrentRounds + 1;
-            const nextMatches: Match[] = [];
-
-            for (let i = 0; i < winners.length; i += 2) {
-              if (i + 1 < winners.length) {
-                nextMatches.push({
-                  id: uuidv4(),
-                  category: match.category,
-                  round: nextRound,
-                  roundName: getRoundName(nextRound, totalRounds),
-                  player1Id: winners[i].id,
-                  player1Name: winners[i].name,
-                  player2Id: winners[i + 1].id,
-                  player2Name: winners[i + 1].name,
-                  status: 'upcoming',
-                  sets: [],
-                });
-              }
-            }
-
-            set({ matches: [...updatedMatches, ...nextMatches] });
-          } else {
-            set({ matches: updatedMatches });
-          }
-        } else {
-          set({ matches: updatedMatches });
-        }
+        const saved = r.match;
+        const next = r.nextMatches ?? [];
+        set((s) => ({
+          saveError: null,
+          matches: [
+            ...s.matches.map((m) => (m.id === matchId ? { ...m, ...saved } : m)),
+            ...next.filter((n) => !s.matches.some((m) => m.id === n.id)),
+          ],
+        }));
+        return true;
       },
 
+      // Court ids are court-N so a coach's link and match rows mean the same court on every device
       addCourt: (name) =>
-        set((s) => ({ courts: [...s.courts, { id: uuidv4(), name }] })),
+        set((s) => {
+          let n = s.courts.length + 1;
+          while (s.courts.some((c) => c.id === `court-${n}`)) n++;
+          return { courts: [...s.courts, { id: `court-${n}`, name }] };
+        }),
 
       assignRefereeToCourt: (courtId, refereeId, refereeName) =>
         set((s) => ({

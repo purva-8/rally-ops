@@ -26,7 +26,7 @@ const ROUND_ORDER = ['Round of 32', 'Round of 16', 'Quarterfinal', 'Semifinal', 
 
 function computeStats(participantId: string, matches: Match[]): PlayerStats {
   const played = matches.filter(
-    (m) => m.status === 'completed' && (m.player1Id === participantId || m.player2Id === participantId)
+    (m) => m.status === 'completed' && !m.isBye && (m.player1Id === participantId || m.player2Id === participantId)
   );
 
   let wins = 0, losses = 0, setsWon = 0, setsLost = 0, pointsScored = 0, pointsConceded = 0;

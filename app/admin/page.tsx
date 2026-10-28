@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import EntriesTab from './components/EntriesTab';
 import BracketsTab from './components/BracketsTab';
+import ScoreDeskTab from './components/ScoreDeskTab';
 import CourtsTab from './components/CourtsTab';
 import ExportTab from './components/ExportTab';
 import BillingTab from './components/BillingTab';
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'entries',   label: 'Entries' },
   { id: 'pairs',     label: 'Pairs' },
   { id: 'brackets',  label: 'Brackets' },
+  { id: 'desk',      label: 'Score desk' },
   { id: 'courts',    label: 'Courts' },
   { id: 'billing',   label: 'Billing' },
   { id: 'volunteers', label: 'Volunteers & remarks' },
@@ -216,6 +218,7 @@ function AdminPageInner() {
         {activeTab === 'entries'     && <EntriesTab />}
         {activeTab === 'pairs'       && <PairsTab />}
         {activeTab === 'brackets'    && <BracketsTab />}
+        {activeTab === 'desk'        && <ScoreDeskTab />}
         {activeTab === 'courts'      && <CourtsTab />}
         {activeTab === 'billing'     && <BillingTab />}
         {activeTab === 'volunteers'  && <VolunteersTab />}

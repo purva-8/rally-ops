@@ -6,6 +6,7 @@ import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../tournament/types';
 import type { Category, Participant } from '../../tournament/types';
 import { entryLabel } from '@/lib/categories';
+import { bwfResult } from '@/lib/bracket';
 
 type Staff = { id: string; name: string; email: string; role: 'coach' | 'admin'; status: 'invited' | 'active' };
 
@@ -14,7 +15,7 @@ function nextPowerOf2(n: number) {
 }
 
 export default function BracketsTab() {
-  const { participants, matches, generateCategoryBracket, courts, assignCourt, startMatch, updateScore, completeMatch, selectedCategories, tournamentId } = useTournamentStore();
+  const { participants, matches, generateCategoryBracket, courts, assignCourt, startMatch, updateScore, completeMatch, selectedCategories, tournamentId, saveError, clearSaveError, loadMatches } = useTournamentStore();
   const [selectedCat, setSelectedCat] = useState<Category | ''>('');
   const [assigningMatch, setAssigningMatch] = useState<string | null>(null);
   const [assignCourt2, setAssignCourt2] = useState('');
@@ -47,31 +48,38 @@ export default function BracketsTab() {
     if (!tournamentId) return; // legacy in-memory-only tournament, nothing to persist
 
     setPersisting(true);
+    const newMatches = useTournamentStore.getState().matches.filter((m) => !beforeIds.has(m.id));
+    const undo = () => useTournamentStore.setState((s) => ({ matches: s.matches.filter((m) => beforeIds.has(m.id)) }));
     try {
-      const allMatches = useTournamentStore.getState().matches;
-      const newMatches = allMatches.filter((m) => !beforeIds.has(m.id));
       const res = await fetch('/api/tournament/brackets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tournamentId, matches: newMatches }),
       });
-      const data = await res.json();
-      if (data.matches) {
-        // Replace in-memory match ids with real DB ids so scoring persists correctly
-        const idMap = new Map(newMatches.map((m, i) => [m.id, data.matches[i]?.id]));
-        useTournamentStore.setState((s) => ({
-          matches: s.matches.map((m) => (idMap.has(m.id) ? { ...m, id: idMap.get(m.id)! } : m)),
-        }));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        undo();
+        alert(`Bracket not saved: ${data.error ?? res.status}`);
       }
-    } catch (err) {
-      console.error('Failed to persist brackets:', err);
+    } catch {
+      undo();
+      alert('Bracket not saved: no connection');
     } finally {
+      // Reload from the database so ids, slots and round names are exactly what was stored
+      const r = await fetch(`/api/tournament/matches?tournamentId=${tournamentId}`).then((x) => x.json()).catch(() => null);
+      if (r?.matches) loadMatches(r.matches);
       setPersisting(false);
     }
   };
 
   return (
     <div>
+      {saveError && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3">
+          <p className="flex-1 text-sm text-red-700 font-medium">Not saved: {saveError}</p>
+          <button onClick={clearSaveError} className="text-xs text-red-600 underline">Dismiss</button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-bold text-stone-900">Tournament Brackets</h2>
@@ -232,7 +240,11 @@ export default function BracketsTab() {
           matchId={scoringMatch}
           match={matches.find((m) => m.id === scoringMatch)!}
           onSave={(sets) => { updateScore(scoringMatch, sets); setScoringMatch(null); }}
-          onComplete={(sets) => { updateScore(scoringMatch, sets); completeMatch(scoringMatch); setScoringMatch(null); }}
+          onComplete={async (sets) => {
+            const id = scoringMatch;
+            useTournamentStore.setState((s) => ({ matches: s.matches.map((m) => (m.id === id ? { ...m, sets } : m)) }));
+            if (await completeMatch(id)) setScoringMatch(null);
+          }}
           onClose={() => setScoringMatch(null)}
         />
       )}
@@ -246,7 +258,7 @@ function SeedBuilder({ category, players, persisting, onGenerate }: {
   persisting: boolean;
   onGenerate: (category: Category, orderedIds: string[], byeIds: string[]) => void;
 }) {
-  const [mode, setMode] = useState<'manual' | 'seed'>('manual');
+  const [mode, setMode] = useState<'random' | 'manual' | 'seed'>('random');
   const [seedOrder, setSeedOrder] = useState<Participant[]>(players);
   const [byeIds, setByeIds] = useState<Set<string>>(new Set());
 
@@ -271,7 +283,7 @@ function SeedBuilder({ category, players, persisting, onGenerate }: {
       ) : (
         <>
           <div className="inline-flex rounded-lg border border-stone-200 p-0.5 mb-4 bg-stone-50">
-            {([['manual', 'Pick who plays whom'], ['seed', 'Drag to seed']] as const).map(([m, label]) => (
+            {([['random', 'Random draw 🎲'], ['manual', 'Pick who plays whom'], ['seed', 'Drag to seed']] as const).map(([m, label]) => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
@@ -281,6 +293,10 @@ function SeedBuilder({ category, players, persisting, onGenerate }: {
               </button>
             ))}
           </div>
+
+          {mode === 'random' && (
+            <RandomDraw category={category} players={players} byes={requiredByes} persisting={persisting} onGenerate={onGenerate} />
+          )}
 
           {mode === 'manual' && (
             <ManualPairing category={category} players={players} persisting={persisting} onGenerate={onGenerate} />
@@ -330,6 +346,108 @@ function SeedBuilder({ category, players, persisting, onGenerate }: {
           </>)}
         </>
       )}
+    </div>
+  );
+}
+
+// Fair shuffle using the browser's secure random numbers
+function shuffled<T>(items: T[]): T[] {
+  const a = [...items];
+  const r = new Uint32Array(a.length);
+  crypto.getRandomValues(r);
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = r[i] % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Names tumble for a moment, then land: the first ones out get the byes, the rest pair off in order.
+// Nothing is saved until "Use this draw", so it can be rolled again in front of everyone.
+function RandomDraw({ category, players, byes, persisting, onGenerate }: {
+  category: Category;
+  players: Participant[];
+  byes: number;
+  persisting: boolean;
+  onGenerate: (category: Category, orderedIds: string[], byeIds: string[]) => void;
+}) {
+  const [order, setOrder] = useState<Participant[] | null>(null);
+  const [rolling, setRolling] = useState(false);
+  const [tumble, setTumble] = useState<Participant[]>(players);
+
+  const roll = () => {
+    setRolling(true);
+    setOrder(null);
+    const spin = setInterval(() => setTumble(shuffled(players)), 90);
+    setTimeout(() => {
+      clearInterval(spin);
+      setOrder(shuffled(players));
+      setRolling(false);
+    }, 1800);
+  };
+
+  const label = (p: Participant) => entryLabel(p.fullName, p.partnerName, category);
+  const byePlayers = order?.slice(0, byes) ?? [];
+  const rest = order?.slice(byes) ?? [];
+  const pairs: [Participant, Participant][] = [];
+  for (let i = 0; i + 1 < rest.length; i += 2) pairs.push([rest[i], rest[i + 1]]);
+
+  return (
+    <div>
+      <p className="text-stone-400 text-sm mb-4">
+        {players.length} entries{byes ? `, ${byes} bye${byes > 1 ? 's' : ''} (straight to round 2)` : ', no byes needed'}. Roll to draw byes and Round 1 at random.
+      </p>
+
+      {rolling && (
+        <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 mb-4 overflow-hidden">
+          <div className="text-3xl mb-2 inline-block animate-spin">🎲</div>
+          <div className="flex flex-wrap gap-1.5">
+            {tumble.map((p) => <span key={p.id} className="text-xs bg-white border border-orange-200 rounded-full px-2 py-1 text-stone-700">{label(p)}</span>)}
+          </div>
+        </div>
+      )}
+
+      {order && !rolling && (
+        <div className="space-y-3 mb-4">
+          {byePlayers.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-stone-500 mb-1.5">Byes</p>
+              <div className="flex flex-wrap gap-1.5">
+                {byePlayers.map((p) => <span key={p.id} className="text-sm bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1 text-emerald-800">{label(p)}</span>)}
+              </div>
+            </div>
+          )}
+          <div>
+            <p className="text-xs font-semibold text-stone-500 mb-1.5">Round 1</p>
+            <div className="space-y-1.5">
+              {pairs.map(([a, b], i) => (
+                <div key={a.id} className="flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-sm">
+                  <span className="text-xs font-mono text-stone-400 w-5">{i + 1}</span>
+                  <span className="flex-1 font-medium text-stone-900">{label(a)}</span>
+                  <span className="text-stone-300 text-xs">vs</span>
+                  <span className="flex-1 font-medium text-stone-900 text-right">{label(b)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-end gap-2">
+        <button onClick={roll} disabled={rolling || persisting}
+          className="px-4 py-2 rounded-lg text-sm font-semibold border border-stone-200 text-stone-700 hover:bg-stone-50 disabled:opacity-50">
+          {rolling ? 'Rolling…' : order ? 'Roll again' : 'Roll the dice 🎲'}
+        </button>
+        {order && !rolling && (
+          <button
+            disabled={persisting}
+            onClick={() => { if (confirm('Use this draw? It is saved for good and can\'t be redrawn.')) onGenerate(category, order.map((p) => p.id), byePlayers.map((p) => p.id)); }}
+            className="bg-[#111827] hover:bg-[#1F2937] disabled:opacity-50 text-white px-5 py-2 rounded-lg text-sm font-semibold"
+          >
+            {persisting ? 'Saving…' : 'Use this draw'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -511,7 +629,11 @@ function ScoreModal({ matchId, match, onSave, onComplete, onClose }: {
             className="flex-1 border border-stone-200 text-stone-600 py-2.5 rounded-lg text-sm hover:bg-stone-50 font-medium transition-colors">
             Save Draft
           </button>
-          <button onClick={() => onComplete(sets)}
+          <button onClick={() => {
+            const r = bwfResult(sets);
+            if ('problem' in r) { alert(r.problem); return; }
+            if (confirm(`Complete the match with ${r.winner === 1 ? match.player1Name : match.player2Name} as the winner?`)) onComplete(sets);
+          }}
             className="flex-1 bg-[#111827] text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-[#1F2937] transition-colors">
             Complete Match
           </button>
