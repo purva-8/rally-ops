@@ -67,7 +67,7 @@ Do **not** use the real tournament. Generating a draw is one-shot (a second atte
 
 1. As organizer, create a tournament named **"TEST – ignore"** with one singles category.
 2. Add 3 entries by hand, using made-up names (e.g. Test A, Test B, Test C), and approve them.
-3. Generate the draw. Expect one bye and one round-1 match. The match is labelled **Semifinal**, not "Final".
+3. Generate the draw (Random draw 🎲 → Roll → Use this draw). Expect one bye and one round-1 match. The match is labelled **Semifinal**, not "Final".
 4. Score the round-1 match with an **impossible** score first: game 1 at 25-3. The app must refuse it.
 5. Score it properly (21-15, 21-18) and press Complete.
    - Expect the **Final** to appear straight away.
@@ -76,11 +76,12 @@ Do **not** use the real tournament. Generating a draw is one-shot (a second atte
 8. Open the court link (`/coach/court-1`) on the phone, score the Final 21-10, 21-12, and let it finish.
    - The champion shows on the results page.
    - No red "Not saved" banner.
-9. Check that the games were saved once, not duplicated (read-only):
+9. In Admin → **Score desk**, open the finished round-1 match and press **Fix**. Swap the winner, then save. The Final should now show the new winner. Swap it back afterwards.
+10. Check that the games were saved once, not duplicated (read-only):
    ```sql
    select match_id, set_number, count(*) from match_sets group by 1,2 having count(*) > 1;  -- expect no rows
    ```
-10. Delete the test tournament yourself in Supabase (Table editor → tournaments → that one row), or leave it with status `completed` so it doesn't look open. Its entries, matches and sets are deleted with it (the foreign keys cascade).
+11. Delete the test tournament yourself in Supabase (Table editor → tournaments → that one row), or leave it with status `completed` so it doesn't look open. Its entries, matches and sets are deleted with it (the foreign keys cascade).
 
 **If any step fails, stop and roll back (section 4).**
 

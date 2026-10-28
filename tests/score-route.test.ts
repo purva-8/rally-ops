@@ -88,10 +88,37 @@ test('finishing the last first-round match creates the semifinals in slot order,
   assert.deepEqual(semis.map((x) => [x.position, x.player1_id, x.player2_id]), [[0, 'a', 'b'], [1, 'c', 'd']]);
   assert.deepEqual(r.body.nextMatches.map((x: any) => x.roundName), ['Semifinal', 'Semifinal']);
   assert.equal(r.body.match.roundName, 'Quarterfinal');
-  // correcting the result is refused now that the semifinal uses it
-  const again = await call(ORG, { matchId: 'm3', sets: [set(5, 21), set(7, 21)], status: 'completed' });
+  // a coach can't change a result the semifinal already uses
+  const again = await call(COACH, { matchId: 'm3', sets: [set(5, 21), set(7, 21)], status: 'completed' });
   assert.equal(again.status, 409);
   assert.equal(db.matches.filter((x) => x.round === 1).length, 2);
+});
+
+test('an organizer corrects a result after the next round exists: the new winner takes the slot', async () => {
+  await call(ORG, { matchId: 'm3', sets: [set(21, 5), set(21, 7)], status: 'completed' });
+  const fix = await call(ORG, { matchId: 'm3', sets: [set(5, 21), set(7, 21)], status: 'completed' });
+  assert.equal(fix.status, 200);
+  const semi = db.matches.find((x) => x.round === 1 && x.position === 1)!;
+  assert.deepEqual([semi.player1_id, semi.player2_id, semi.player2_name], ['c', 'e', 'E']);
+  assert.deepEqual(fix.body.nextMatches.map((x: any) => x.id), [semi.id]);
+  assert.equal(db.matches.filter((x) => x.round === 1).length, 2, 'no extra round made');
+  // same winner, different numbers: nothing moves
+  assert.equal((await call(ORG, { matchId: 'm3', sets: [set(10, 21), set(7, 21)], status: 'completed' })).status, 200);
+  assert.equal(db.matches.find((x) => x.id === semi.id)!.player2_id, 'e');
+  // once the semifinal has a score, the earlier result is locked until the semifinal is corrected
+  await call(ORG, { matchId: semi.id, sets: [set(3, 1)], status: 'in_progress' });
+  const late = await call(ORG, { matchId: 'm3', sets: [set(21, 5), set(21, 7)], status: 'completed' });
+  assert.equal(late.status, 409);
+  assert.equal(db.matches.find((x) => x.id === semi.id)!.player2_id, 'e');
+  assert.equal(db.matches.find((x) => x.id === 'm3')!.winner_id, 'e');
+});
+
+test('organizers may save a non-standard score; whoever won more games wins. Coaches may not.', async () => {
+  assert.equal((await call(COACH, { matchId: 'm3', sets: [set(15, 10)], status: 'completed', override: true })).status, 403);
+  assert.equal((await call(ORG, { matchId: 'm3', sets: [set(15, 10), set(10, 15)], status: 'completed', override: true })).status, 400);
+  const r = await call(ORG, { matchId: 'm3', sets: [set(15, 10)], status: 'completed', override: true });
+  assert.equal(r.status, 200);
+  assert.equal(db.matches.find((x) => x.id === 'm3')!.winner_id, 'd');
 });
 
 test('a result can be corrected before the next round exists, and a finished match cannot be reopened', async () => {

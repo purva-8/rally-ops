@@ -117,3 +117,12 @@ export function nextRoundFor(categoryMatches: BracketMatch[], round: number) {
   }
   return pairs;
 }
+
+// The later-round match a result feeds, and which side of it the winner sits on (same order as nextRoundFor)
+export function nextSlotOf<T extends BracketMatch>(categoryMatches: T[], matchId: string): { next: T; side: 1 | 2 } | null {
+  const self = categoryMatches.find((m) => m.id === matchId);
+  if (!self) return null;
+  const i = categoryMatches.filter((m) => m.round === self.round).sort(bracketOrder).findIndex((m) => m.id === matchId);
+  const next = categoryMatches.filter((m) => m.round === self.round + 1).sort(bracketOrder)[i >> 1];
+  return next ? { next, side: i % 2 === 0 ? 1 : 2 } : null;
+}
