@@ -6,6 +6,7 @@ import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../tournament/types';
 import type { Category, Match } from '../../tournament/types';
 import { entryLabel } from '@/lib/categories';
 import { bwfResult, winnerSide } from '@/lib/bracket';
+import { undoResult } from './undo';
 
 // Results come in on paper; one person types them in here as each match ends.
 // Every save goes to the server, which picks the winner and draws the next round.
@@ -201,7 +202,17 @@ function DeskRow({ match, names, onSaved }: {
         {finished && !open && (
           <>
             <span className="text-sm text-stone-700 ml-1"><b>{match.winnerName}</b> won {scoreText(match.sets)}</span>
-            <button onClick={() => setOpen(true)} className="ml-auto text-xs text-orange-600 font-semibold hover:underline">Fix</button>
+            <span className="ml-auto flex gap-3">
+              <button onClick={() => setOpen(true)} className="text-xs text-orange-600 font-semibold hover:underline">Fix</button>
+              <button disabled={busy} onClick={async () => {
+                setError(null);
+                setBusy(true);
+                const r = await undoResult(match);
+                setBusy(false);
+                if (r && !r.ok) setError(r.message);
+                else if (r) await onSaved(r.message);
+              }} className="text-xs text-red-600 font-semibold hover:underline disabled:opacity-50">Undo</button>
+            </span>
           </>
         )}
         {!finished && !editPlayers && (

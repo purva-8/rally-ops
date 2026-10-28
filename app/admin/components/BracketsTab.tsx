@@ -4,9 +4,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { Reorder } from 'framer-motion';
 import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../tournament/types';
-import type { Category, Participant } from '../../tournament/types';
+import type { Category, Match, Participant } from '../../tournament/types';
 import { entryLabel } from '@/lib/categories';
 import { bwfResult } from '@/lib/bracket';
+import { undoResult } from './undo';
 
 type Staff = { id: string; name: string; email: string; role: 'coach' | 'admin'; status: 'invited' | 'active' };
 
@@ -23,6 +24,11 @@ export default function BracketsTab() {
   const [scoringMatch, setScoringMatch] = useState<string | null>(null);
   const [persisting, setPersisting] = useState(false);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  // The last deleted draw, kept so it can be put back; dropped once a new draw is made for that category
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- rows exactly as the server returned them
+  const [deletedDraw, setDeletedDraw] = useState<{ category: Category; matches: any[]; sets: any[] } | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!tournamentId) return;
@@ -42,7 +48,64 @@ export default function BracketsTab() {
   const coaches = staff.filter((s) => s.role === 'coach' && s.status === 'active');
   const displayMatches = selectedCat ? matches.filter((m) => m.category === selectedCat) : [];
 
+  const reload = async () => {
+    const r = await fetch(`/api/tournament/matches?tournamentId=${tournamentId}`).then((x) => x.json()).catch(() => null);
+    if (r?.matches) loadMatches(r.matches);
+  };
+
+  const handleUndoResult = async (match: Match) => {
+    setBusyId(match.id);
+    const r = await undoResult(match);
+    if (r) { setNote({ ok: r.ok, text: r.message }); await reload(); }
+    setBusyId(null);
+  };
+
+  const handleDeleteDraw = async (category: Category) => {
+    const catMatches = matches.filter((m) => m.category === category);
+    const played = catMatches.filter((m) => !m.isBye && (m.status !== 'upcoming' || m.sets.length)).length;
+    if (!confirm(`Delete the whole ${CATEGORY_LABELS[category]} draw?\n\n${catMatches.length} matches${played ? `, including ${played} with scores,` : ''} will be removed and you can draw it again. You can undo this until you make a new draw.`)) return;
+    setPersisting(true);
+    try {
+      const res = await fetch('/api/tournament/brackets', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId, category }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setNote({ ok: false, text: data.error ?? `Not deleted (${res.status})` }); return; }
+      setDeletedDraw({ category, matches: data.deleted.matches, sets: data.deleted.sets });
+      setNote(null);
+    } catch {
+      setNote({ ok: false, text: 'No connection. Nothing was deleted.' });
+    } finally {
+      await reload();
+      setPersisting(false);
+    }
+  };
+
+  const handleRestoreDraw = async () => {
+    if (!deletedDraw) return;
+    setPersisting(true);
+    try {
+      const res = await fetch('/api/tournament/brackets/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId, ...deletedDraw }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setNote({ ok: false, text: data.error ?? `Not restored (${res.status})` }); return; }
+      setNote({ ok: true, text: `${CATEGORY_LABELS[deletedDraw.category]} draw is back, with its scores.` });
+      setDeletedDraw(null);
+    } catch {
+      setNote({ ok: false, text: 'No connection. The draw was not put back; try again.' });
+    } finally {
+      await reload();
+      setPersisting(false);
+    }
+  };
+
   const handleGenerateCategory = async (category: Category, orderedIds: string[], byeIds: string[]) => {
+    if (deletedDraw?.category === category) setDeletedDraw(null);
     const beforeIds = new Set(matches.map((m) => m.id));
     generateCategoryBracket(category, orderedIds, byeIds);
     if (!tournamentId) return; // legacy in-memory-only tournament, nothing to persist
@@ -78,6 +141,24 @@ export default function BracketsTab() {
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3">
           <p className="flex-1 text-sm text-red-700 font-medium">Not saved: {saveError}</p>
           <button onClick={clearSaveError} className="text-xs text-red-600 underline">Dismiss</button>
+        </div>
+      )}
+      {note && (
+        <div className={`mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 ${note.ok ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
+          <p className={`flex-1 text-sm font-medium ${note.ok ? 'text-emerald-800' : 'text-red-700'}`}>{note.text}</p>
+          <button onClick={() => setNote(null)} className="text-xs text-stone-500 underline">Dismiss</button>
+        </div>
+      )}
+      {deletedDraw && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-wrap items-center gap-3">
+          <p className="flex-1 text-sm text-amber-900 font-medium">
+            {CATEGORY_LABELS[deletedDraw.category]} draw deleted ({deletedDraw.matches.length} matches).
+          </p>
+          <button onClick={handleRestoreDraw} disabled={persisting}
+            className="text-xs bg-[#111827] text-white px-3 py-1.5 rounded-lg font-semibold disabled:opacity-50">
+            Undo delete
+          </button>
+          <button onClick={() => setDeletedDraw(null)} className="text-xs text-stone-500 underline">Dismiss</button>
         </div>
       )}
       <div className="flex items-center justify-between mb-6">
@@ -144,6 +225,14 @@ export default function BracketsTab() {
 
       {selectedCat && hasMatches && (
         <div className="space-y-2.5">
+          {tournamentId && (
+            <div className="flex justify-end">
+              <button onClick={() => handleDeleteDraw(selectedCat)} disabled={persisting}
+                className="text-xs border border-red-200 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 font-semibold disabled:opacity-50">
+                Delete this draw
+              </button>
+            </div>
+          )}
           {displayMatches.map((match) => (
             <div key={match.id} className={`bg-white rounded-xl border p-4 ${
               match.status === 'in_progress' ? 'border-emerald-200' : 'border-stone-200'
@@ -194,6 +283,12 @@ export default function BracketsTab() {
                     <button onClick={() => setScoringMatch(match.id)}
                       className="text-xs bg-[#111827] text-white px-3 py-1.5 rounded-lg hover:bg-[#1F2937] transition-colors font-semibold">
                       Enter Scores
+                    </button>
+                  )}
+                  {tournamentId && !match.isBye && (match.status !== 'upcoming' || match.sets.length > 0) && (
+                    <button onClick={() => handleUndoResult(match)} disabled={busyId === match.id}
+                      className="text-xs border border-red-200 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
+                      {match.status === 'completed' ? 'Undo result' : 'Clear score'}
                     </button>
                   )}
                 </div>
