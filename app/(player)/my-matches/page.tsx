@@ -9,6 +9,8 @@ import type { Category, Match } from '../../tournament/types';
 
 type RegEntry = {
   category: string;
+  player_id: string;
+  partner_id: string | null;
   tournaments: { id: string; name: string; status: string } | null;
 };
 
@@ -19,10 +21,12 @@ type TrackedCategory = {
   history: Match[];
   current: Match | null;
   eliminated: boolean;
+  // Profile ids that make up this entry (the player and any linked partner); either can appear on a match
+  team: string[];
 };
 
-function opponentOf(m: Match, userId: string) {
-  return m.player1Id === userId ? (m.player2Name ?? 'BYE') : m.player1Name;
+function opponentOf(m: Match, team: string[]) {
+  return team.includes(m.player1Id) ? (m.player2Name ?? 'BYE') : m.player1Name;
 }
 
 export default function MyMatchesPage() {
@@ -37,13 +41,28 @@ export default function MyMatchesPage() {
       if (!user) { router.push('/login?redirect=/my-matches'); return; }
       setUserId(user.id);
 
-      const { data: regs } = await supabase
-        .from('registrations')
-        .select('category, tournaments ( id, name, status )')
-        .eq('player_id', user.id)
-        .eq('status', 'approved');
+      // Profiles are found by auth_user_id (the profile id is not the login id), plus family members
+      const { data: me } = await supabase.from('player_profiles').select('id').eq('auth_user_id', user.id).maybeSingle();
+      const { data: family } = me ? await supabase.from('player_profiles').select('id').eq('parent_id', me.id) : { data: [] };
+      const mine = [me?.id, ...(family ?? []).map((f) => f.id)].filter((x): x is string => !!x);
+      const list = mine.join(',');
+      const { data: regs } = mine.length
+        ? await supabase
+          .from('registrations')
+          .select('category, player_id, partner_id, tournaments ( id, name, status )')
+          .or(`player_id.in.(${list}),partner_id.in.(${list})`)
+          .eq('status', 'approved')
+        : { data: [] };
 
-      const entries = (regs as unknown as RegEntry[] ?? []).filter((r) => r.tournaments);
+      // A pair can have two entries (one per partner); show it once
+      const seen = new Set<string>();
+      const entries = (regs as unknown as RegEntry[] ?? []).filter((r) => {
+        if (!r.tournaments) return false;
+        const key = `${r.tournaments.id}|${r.category}|${[r.player_id, r.partner_id].sort().join('|')}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       const tournamentIds = Array.from(new Set(entries.map((e) => e.tournaments!.id)));
 
       const matchesByTournament = new Map<string, Match[]>();
@@ -58,14 +77,15 @@ export default function MyMatchesPage() {
       const result: TrackedCategory[] = entries.map((e) => {
         const tid = e.tournaments!.id;
         const allMatches = matchesByTournament.get(tid) ?? [];
+        const team = [e.player_id, e.partner_id].filter((x): x is string => !!x);
         const myMatches = allMatches
-          .filter((m) => m.category === e.category && (m.player1Id === user.id || m.player2Id === user.id))
+          .filter((m) => m.category === e.category && (team.includes(m.player1Id) || (!!m.player2Id && team.includes(m.player2Id))))
           .sort((a, b) => a.round - b.round);
 
         const history = myMatches.filter((m) => m.status === 'completed');
         const current = myMatches.find((m) => m.status === 'upcoming' || m.status === 'in_progress') ?? null;
         const lastCompleted = history[history.length - 1];
-        const eliminated = !current && !!lastCompleted && lastCompleted.winnerId !== user.id;
+        const eliminated = !current && !!lastCompleted && !team.includes(lastCompleted.winnerId ?? '');
 
         return {
           tournamentId: tid,
@@ -74,6 +94,7 @@ export default function MyMatchesPage() {
           history,
           current,
           eliminated,
+          team,
         };
       });
 
@@ -137,7 +158,7 @@ export default function MyMatchesPage() {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm font-bold text-stone-900">vs {opponentOf(t.current, userId)}</p>
+                    <p className="text-sm font-bold text-stone-900">vs {opponentOf(t.current, t.team)}</p>
                     {t.current.courtId && <p className="text-xs text-stone-400 mt-1">Court: {t.current.courtId}</p>}
                   </div>
                 ) : t.eliminated ? (
@@ -158,10 +179,10 @@ export default function MyMatchesPage() {
                   <div className="mt-4 pt-4 border-t border-stone-100 space-y-2">
                     <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Match History</p>
                     {t.history.map((m) => {
-                      const iWon = m.winnerId === userId;
+                      const iWon = !!m.winnerId && t.team.includes(m.winnerId);
                       return (
                         <div key={m.id} className="flex items-center justify-between text-sm">
-                          <span className="text-stone-600">{m.roundName} vs {opponentOf(m, userId)}</span>
+                          <span className="text-stone-600">{m.roundName} vs {opponentOf(m, t.team)}</span>
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${iWon ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
                             {iWon ? 'W' : 'L'}
                           </span>

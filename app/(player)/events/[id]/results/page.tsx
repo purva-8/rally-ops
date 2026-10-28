@@ -10,7 +10,7 @@ import type { Category, Match } from '../../../../tournament/types';
 type Tournament = { id: string; name: string };
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === 'completed') return <span className="text-[11px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full font-medium">Final</span>;
+  if (status === 'completed') return <span className="text-[11px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full font-medium">Done</span>;
   if (status === 'in_progress') return (
     <span className="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />Live
@@ -48,8 +48,8 @@ export default function ResultsPage() {
   const champions = categories
     .map((cat) => {
       const catMatches = matches.filter((m) => m.category === cat);
-      const maxRound = catMatches.reduce((max, m) => Math.max(max, m.round), 0);
-      const final = catMatches.find((m) => m.round === maxRound && m.status === 'completed' && !m.isBye);
+      // Only the real final crowns a champion (round names come from the bracket size)
+      const final = catMatches.find((m) => m.roundName === 'Final' && m.status === 'completed' && !m.isBye);
       return final?.winnerName ? { cat, name: final.winnerName } : null;
     })
     .filter(Boolean) as { cat: Category; name: string }[];

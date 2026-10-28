@@ -1,6 +1,7 @@
 import { isEventOrganizer } from '@/lib/organizer';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { insertMatches } from '@/lib/matchRows';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -41,28 +42,42 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Insert matches into DB
-    const matchInserts = matches.map((m: any) => ({
-      tournament_id: tournamentId,
-      category: m.category,
-      round: m.round,
-      player1_id: m.player1Id,
-      player1_name: m.player1Name,
-      player2_id: m.player2Id ?? null,
-      player2_name: m.player2Name ?? null,
-      status: m.status ?? 'upcoming',
-      winner_id: m.winnerId ?? null,
-      winner_name: m.winnerName ?? null,
-      scheduled_at: m.scheduledAt ?? null,
-    }));
+    // Entries added by hand have no player profile; their id is the registration id, which the
+    // player columns can't hold, so they are stored by name only
+    const ids = Array.from(new Set(matches.flatMap((m: any) => [m.player1Id, m.player2Id]).filter(Boolean)));
+    const { data: known } = ids.length
+      ? await supabase.from('player_profiles').select('id').in('id', ids)
+      : { data: [] };
+    const profileIds = new Set((known ?? []).map((p: { id: string }) => p.id));
+    const pid = (id: string | null | undefined) => (id && profileIds.has(id) ? id : null);
 
-    const { data: insertedMatches, error: matchError } = await supabase
-      .from('matches')
-      .insert(matchInserts)
-      .select('id, category, round, player1_id, player1_name, player2_id, player2_name, status, winner_id, winner_name');
+    // Slot order inside round 1 decides who meets whom later, so it is saved with each match
+    const slot = new Map<string, number>();
+    const matchInserts = matches.map((m: any) => {
+      const position = slot.get(m.category) ?? 0;
+      slot.set(m.category, position + 1);
+      return {
+        tournament_id: tournamentId,
+        category: m.category,
+        round: m.round,
+        position: m.position ?? position,
+        player1_id: pid(m.player1Id),
+        player1_name: m.player1Name,
+        player2_id: pid(m.player2Id),
+        player2_name: m.player2Name ?? null,
+        status: m.status ?? 'upcoming',
+        winner_id: pid(m.winnerId),
+        winner_name: m.winnerName ?? null,
+        scheduled_at: m.scheduledAt ?? null,
+      };
+    });
+
+    const { data: insertedMatches, error: matchError } = await insertMatches(supabase, matchInserts,
+      'id, category, round, player1_id, player1_name, player2_id, player2_name, status, winner_id, winner_name');
 
     if (matchError) {
-      return NextResponse.json({ error: matchError.message }, { status: 500 });
+      console.error('bracket insert failed', matchError);
+      return NextResponse.json({ error: 'Could not save the bracket' }, { status: 500 });
     }
 
     return NextResponse.json({ matches: insertedMatches });

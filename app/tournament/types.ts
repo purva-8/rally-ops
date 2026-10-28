@@ -50,6 +50,8 @@ export interface Match {
   id: string;
   category: Category;
   round: number;
+  // Slot inside the round; winners of slots 2k and 2k+1 meet next
+  position?: number;
   roundName: string;
   player1Id: string;
   player1Name: string;

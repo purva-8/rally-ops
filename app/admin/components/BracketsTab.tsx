@@ -6,6 +6,7 @@ import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../tournament/types';
 import type { Category, Participant } from '../../tournament/types';
 import { entryLabel } from '@/lib/categories';
+import { bwfResult } from '@/lib/bracket';
 
 type Staff = { id: string; name: string; email: string; role: 'coach' | 'admin'; status: 'invited' | 'active' };
 
@@ -14,7 +15,7 @@ function nextPowerOf2(n: number) {
 }
 
 export default function BracketsTab() {
-  const { participants, matches, generateCategoryBracket, courts, assignCourt, startMatch, updateScore, completeMatch, selectedCategories, tournamentId } = useTournamentStore();
+  const { participants, matches, generateCategoryBracket, courts, assignCourt, startMatch, updateScore, completeMatch, selectedCategories, tournamentId, saveError, clearSaveError, loadMatches } = useTournamentStore();
   const [selectedCat, setSelectedCat] = useState<Category | ''>('');
   const [assigningMatch, setAssigningMatch] = useState<string | null>(null);
   const [assignCourt2, setAssignCourt2] = useState('');
@@ -47,31 +48,38 @@ export default function BracketsTab() {
     if (!tournamentId) return; // legacy in-memory-only tournament, nothing to persist
 
     setPersisting(true);
+    const newMatches = useTournamentStore.getState().matches.filter((m) => !beforeIds.has(m.id));
+    const undo = () => useTournamentStore.setState((s) => ({ matches: s.matches.filter((m) => beforeIds.has(m.id)) }));
     try {
-      const allMatches = useTournamentStore.getState().matches;
-      const newMatches = allMatches.filter((m) => !beforeIds.has(m.id));
       const res = await fetch('/api/tournament/brackets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tournamentId, matches: newMatches }),
       });
-      const data = await res.json();
-      if (data.matches) {
-        // Replace in-memory match ids with real DB ids so scoring persists correctly
-        const idMap = new Map(newMatches.map((m, i) => [m.id, data.matches[i]?.id]));
-        useTournamentStore.setState((s) => ({
-          matches: s.matches.map((m) => (idMap.has(m.id) ? { ...m, id: idMap.get(m.id)! } : m)),
-        }));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        undo();
+        alert(`Bracket not saved: ${data.error ?? res.status}`);
       }
-    } catch (err) {
-      console.error('Failed to persist brackets:', err);
+    } catch {
+      undo();
+      alert('Bracket not saved: no connection');
     } finally {
+      // Reload from the database so ids, slots and round names are exactly what was stored
+      const r = await fetch(`/api/tournament/matches?tournamentId=${tournamentId}`).then((x) => x.json()).catch(() => null);
+      if (r?.matches) loadMatches(r.matches);
       setPersisting(false);
     }
   };
 
   return (
     <div>
+      {saveError && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3">
+          <p className="flex-1 text-sm text-red-700 font-medium">Not saved: {saveError}</p>
+          <button onClick={clearSaveError} className="text-xs text-red-600 underline">Dismiss</button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-bold text-stone-900">Tournament Brackets</h2>
@@ -232,7 +240,11 @@ export default function BracketsTab() {
           matchId={scoringMatch}
           match={matches.find((m) => m.id === scoringMatch)!}
           onSave={(sets) => { updateScore(scoringMatch, sets); setScoringMatch(null); }}
-          onComplete={(sets) => { updateScore(scoringMatch, sets); completeMatch(scoringMatch); setScoringMatch(null); }}
+          onComplete={async (sets) => {
+            const id = scoringMatch;
+            useTournamentStore.setState((s) => ({ matches: s.matches.map((m) => (m.id === id ? { ...m, sets } : m)) }));
+            if (await completeMatch(id)) setScoringMatch(null);
+          }}
           onClose={() => setScoringMatch(null)}
         />
       )}
@@ -511,7 +523,11 @@ function ScoreModal({ matchId, match, onSave, onComplete, onClose }: {
             className="flex-1 border border-stone-200 text-stone-600 py-2.5 rounded-lg text-sm hover:bg-stone-50 font-medium transition-colors">
             Save Draft
           </button>
-          <button onClick={() => onComplete(sets)}
+          <button onClick={() => {
+            const r = bwfResult(sets);
+            if ('problem' in r) { alert(r.problem); return; }
+            if (confirm(`Complete the match with ${r.winner === 1 ? match.player1Name : match.player2Name} as the winner?`)) onComplete(sets);
+          }}
             className="flex-1 bg-[#111827] text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-[#1F2937] transition-colors">
             Complete Match
           </button>

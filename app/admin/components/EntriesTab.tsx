@@ -10,7 +10,7 @@ type Registration = {
   id: string;
   player_id: string | null;
   category: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'withdrawn';
   review_comment?: string | null;
   notes?: string | null;
   partner_name: string | null;
@@ -43,6 +43,7 @@ const STATUS_COLORS = {
   pending:  'bg-amber-100 text-amber-800',
   approved: 'bg-green-100 text-green-800',
   rejected: 'bg-red-100 text-red-800',
+  withdrawn: 'bg-stone-100 text-stone-500',
 };
 
 function displayName(r: Registration) {
@@ -121,27 +122,37 @@ export default function EntriesTab() {
     if (status === 'approved' && issues[id] && !confirm(`This entry breaks a rule:\n\n${issues[id].join('\n')}\n\nApprove it anyway?`)) return;
     setUpdating(id);
     const supabase = createClient();
-    await supabase
+    const { data, error } = await supabase
       .from('registrations')
       .update({ status, approved_at: status === 'approved' ? new Date().toISOString() : null, review_comment: comments[id]?.trim() || null })
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
+    if (error || !data?.length) {
+      alert(`Not saved: ${error?.message ?? 'you may not have permission to change this entry'}`);
+      setUpdating(null);
+      return;
+    }
     // The player gets one email covering all their decided entries (daily, or via Send updates)
     setRegistrations((prev) => prev.map((r) => (r.id === id ? { ...r, status, review_comment: comments[id]?.trim() || null } : r)));
     setUpdating(null);
   }
 
   async function bulkUpdateStatus(status: 'approved' | 'rejected') {
-    const ids = Array.from(selectedIds);
+    // A withdrawn entry stays withdrawn: the player took it back, so bulk actions skip it
+    const ids = Array.from(selectedIds).filter((i) => registrations.find((r) => r.id === i)?.status !== 'withdrawn');
     if (ids.length === 0) return;
     const flagged = ids.filter((i) => issues[i]);
     if (status === 'approved' && flagged.length && !confirm(`${flagged.length} of the selected entries break a rule (marked with a red warning). Approve them anyway?`)) return;
     setBulkUpdating(true);
     const supabase = createClient();
-    await supabase
+    const { data, error } = await supabase
       .from('registrations')
       .update({ status, approved_at: status === 'approved' ? new Date().toISOString() : null, review_comment: bulkComment.trim() || null })
-      .in('id', ids);
-    setRegistrations((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, status, review_comment: bulkComment.trim() || null } : r)));
+      .in('id', ids)
+      .select('id');
+    const done = new Set((data ?? []).map((r) => r.id));
+    if (error || done.size < ids.length) alert(`${ids.length - done.size} of ${ids.length} entries were not saved${error ? `: ${error.message}` : ''}`);
+    setRegistrations((prev) => prev.map((r) => (done.has(r.id) ? { ...r, status, review_comment: bulkComment.trim() || null } : r)));
     setSelectedIds(new Set());
     setBulkComment('');
     setBulkUpdating(false);
@@ -178,6 +189,7 @@ export default function EntriesTab() {
       status: 'approved',
       payment_status: 'waived',
     });
+    if (error) alert(`Entry not added: ${error.message}`);
     if (!error) {
       setAddForm({ name: '', email: '', mobile: '', qid: '', category: '', partnerName: '' });
       setShowAddForm(false);

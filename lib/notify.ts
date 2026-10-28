@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { categoryFee, isDoublesCategory } from '@/lib/categories';
 import { sendMails, type Mail } from '@/lib/email';
+import { roundLabel, totalRoundsFor } from './bracket';
+import { latestSets } from './matchRows';
 import {
   decisionEmail, fixtureEmail, resultEmail,
   type Decision, type Fixture, type Result,
@@ -131,13 +133,12 @@ async function loadMatchContext(admin: Admin, tournamentId: string) {
     .select('id, category, round, player1_id, player1_name, player2_id, player2_name, court_id, status, winner_id, scheduled_at, fixture_notified_at, result_notified_at')
     .eq('tournament_id', tournamentId);
   const matches = all ?? [];
-  const lastRound = new Map<string, number>();
-  for (const m of matches) lastRound.set(m.category, Math.max(lastRound.get(m.category) ?? 0, m.round));
-  const roundName = (m: { category: string; round: number }) => {
-    const fromEnd = (lastRound.get(m.category) ?? 0) - m.round;
-    return fromEnd === 0 ? 'Final' : fromEnd === 1 ? 'Semifinal' : fromEnd === 2 ? 'Quarterfinal' : `Round ${m.round + 1}`;
-  };
-  return { matches, roundName, isFinal: (m: { category: string; round: number }) => (lastRound.get(m.category) ?? 0) === m.round };
+  // Round names come from the bracket size (first-round slots), not from the rounds created so far
+  const slots = new Map<string, number>();
+  for (const m of matches) if (m.round === 0) slots.set(m.category, (slots.get(m.category) ?? 0) + 1);
+  const rounds = (c: string) => totalRoundsFor(slots.get(c) ?? 0);
+  const roundName = (m: { category: string; round: number }) => roundLabel(m.round, rounds(m.category));
+  return { matches, roundName, isFinal: (m: { category: string; round: number }) => rounds(m.category) - 1 === m.round };
 }
 
 async function sendFixtures(admin: Admin, t: { id: string; name: string }, summary: Summary) {
@@ -193,14 +194,14 @@ async function sendResults(admin: Admin, t: { id: string; name: string }, summar
   const todo = matches.filter((m) => m.status === 'completed' && m.player1_id && m.player2_id && !m.result_notified_at);
   if (!todo.length) return;
 
-  const sets = await inChunks<any>(todo.map((m) => m.id), (p) => admin.from('match_sets').select('match_id, set_number, player1_score, player2_score').in('match_id', p).order('set_number'));
+  const sets = await inChunks<any>(todo.map((m) => m.id), (p) => admin.from('match_sets').select('match_id, set_number, player1_score, player2_score, created_at').in('match_id', p).order('set_number'));
   const { recipientOf } = await resolveRecipients(admin, todo.flatMap((m) => [m.player1_id, m.player2_id]));
 
   type Group = { to: Recipient; items: Result[]; matchIds: Set<string> };
   const groups = new Map<string, Group>();
   const unreachableOnly: string[] = [];
   for (const m of todo) {
-    const matchSets = sets.filter((s) => s.match_id === m.id);
+    const matchSets = latestSets(sets, m.id);
     let reached = false;
     for (const [me, meName, opp, isP1] of [
       [m.player1_id, m.player1_name, m.player2_name, true],
