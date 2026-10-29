@@ -24,7 +24,7 @@ export function buildLines(people: BillPerson[], regs: BillRegistration[]): Line
   const mine = new Set(people.map((p) => p.id));
   const byId = new Map(regs.map((r) => [r.id, r]));
   const live = regs.filter((r) => r.status !== 'rejected' && r.status !== 'withdrawn');
-  const { charges: owed } = charges(
+  const owed = charges(
     live.map((r) => ({ ...r, fee: categoryFee(r.category, Number(r.tournaments?.entry_fee ?? 0)) })),
     (a, b) => mine.has(a) && mine.has(b),
   );
