@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
     const laterIds = later.map((m) => m.id);
     const { data: laterSets } = laterIds.length ? await admin.from('match_sets').select('match_id').in('match_id', laterIds) : { data: [] };
     const scored = new Set((laterSets ?? []).map((s) => s.match_id));
-    const started = later.find((m) => m.status !== 'upcoming' || scored.has(m.id));
+    // A bye (the odd winner out waiting for the next round) is 'finished' without being played
+    const started = later.find((m) => (m.player2_id || m.player2_name) && (m.status !== 'upcoming' || scored.has(m.id)));
     if (started) {
       return NextResponse.json({
         error: `${started.player1_name} vs ${started.player2_name ?? 'bye'} in a later round has already started or finished. Undo that match first.`,

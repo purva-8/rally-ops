@@ -7,10 +7,8 @@ import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../tournament/types';
 import type { Category, Match, Participant } from '../../tournament/types';
 import { entryLabel, isDoublesCategory, sortCategories } from '@/lib/categories';
 import { undoResult } from './undo';
+import { firstRoundByes } from '@/lib/bracket';
 
-function nextPowerOf2(n: number) {
-  return Math.pow(2, Math.ceil(Math.log2(n)));
-}
 
 export default function BracketsTab() {
   const { participants, matches, generateCategoryBracket, selectedCategories, tournamentId, saveError, clearSaveError, loadMatches } = useTournamentStore();
@@ -284,8 +282,7 @@ function SeedBuilder({ category, players, persisting, onGenerate }: {
   const [seedOrder, setSeedOrder] = useState<Participant[]>(players);
   const [byeIds, setByeIds] = useState<Set<string>>(new Set());
 
-  const size = players.length >= 2 ? nextPowerOf2(players.length) : 0;
-  const requiredByes = size - players.length;
+  const requiredByes = players.length >= 2 ? firstRoundByes(players.length) : 0;
   const byeCountValid = byeIds.size === requiredByes;
   const canGenerate = players.length >= 2 && byeCountValid;
 
@@ -417,7 +414,7 @@ function RandomDraw({ category, players, byes, persisting, onGenerate }: {
   return (
     <div>
       <p className="text-stone-400 text-sm mb-4">
-        {players.length} entries{byes ? `, ${byes} bye${byes > 1 ? 's' : ''} (straight to round 2)` : ', no byes needed'}. Roll to draw byes and Round 1 at random.
+        {players.length} entries{byes ? ', so 1 bye (straight to round 2)' : ', no byes in round 1'}. Later, when a round has an odd number of winners, the last one waits a round. Roll to draw Round 1 at random.
       </p>
 
       {rolling && (
@@ -485,8 +482,7 @@ function ManualPairing({ category, players, persisting, onGenerate }: {
   const [a, setA] = useState('');
   const [b, setB] = useState('');
 
-  const size = nextPowerOf2(players.length);
-  const requiredByes = size - players.length;
+  const requiredByes = firstRoundByes(players.length);
   const used = new Set(pairs.flat());
   const free = players.filter((p) => !used.has(p.id));
   const label = (p: Participant) => entryLabel(p.fullName, p.partnerName, category);

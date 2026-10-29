@@ -85,25 +85,37 @@ export async function POST(req: NextRequest) {
       if (match.status !== 'completed') updates.completed_at = new Date().toISOString();
     }
 
-    // A corrected winner moves into the next-round match in place of the old one, if that match hasn't started
-    let slotFix: { id: string; values: Record<string, unknown> } | null = null;
+    // A corrected winner moves into the next-round match in place of the old one, if that match hasn't started.
+    // A bye in between (a round with an odd number of winners) passes the new winner straight on.
+    const slotFixes: { id: string; values: Record<string, unknown> }[] = [];
     const winnerChanged = match.status === 'completed' && 'winner_name' in updates
       && ((updates.winner_id ?? null) !== (match.winner_id ?? null) || updates.winner_name !== match.winner_name);
     if (winnerChanged && nextRoundExists) {
-      const slot = nextSlotOf(catMatches ?? [], matchId);
-      if (!slot) return NextResponse.json({ error: 'Could not find the next-round match for this result' }, { status: 409 });
-      const { data: nextSets } = await admin.from('match_sets').select('id').eq('match_id', slot.next.id);
-      if (slot.next.status !== 'upcoming' || nextSets?.length) {
-        return NextResponse.json({
-          error: `${slot.next.player1_name} vs ${slot.next.player2_name ?? 'bye'} in the next round has already started or finished. Correct that match first.`,
-        }, { status: 409 });
+      const who = { id: updates.winner_id ?? null, name: updates.winner_name };
+      let from: string = matchId;
+      for (;;) {
+        const slot = nextSlotOf(catMatches ?? [], from);
+        if (!slot) {
+          if (!slotFixes.length) return NextResponse.json({ error: 'Could not find the next-round match for this result' }, { status: 409 });
+          break;
+        }
+        if (!slot.next.player2_id && !slot.next.player2_name) {
+          slotFixes.push({ id: slot.next.id, values: { player1_id: who.id, player1_name: who.name, winner_id: who.id, winner_name: who.name } });
+          from = slot.next.id;
+          continue;
+        }
+        const { data: nextSets } = await admin.from('match_sets').select('id').eq('match_id', slot.next.id);
+        if (slot.next.status !== 'upcoming' || nextSets?.length) {
+          return NextResponse.json({
+            error: `${slot.next.player1_name} vs ${slot.next.player2_name} in a later round has already started or finished. Correct that match first.`,
+          }, { status: 409 });
+        }
+        slotFixes.push({
+          id: slot.next.id,
+          values: slot.side === 1 ? { player1_id: who.id, player1_name: who.name } : { player2_id: who.id, player2_name: who.name },
+        });
+        break;
       }
-      slotFix = {
-        id: slot.next.id,
-        values: slot.side === 1
-          ? { player1_id: updates.winner_id ?? null, player1_name: updates.winner_name }
-          : { player2_id: updates.winner_id ?? null, player2_name: updates.winner_name },
-      };
     }
 
     // Replace the sets: add the new rows first, then remove the old ones, so a failure never leaves the match empty
@@ -130,8 +142,8 @@ export async function POST(req: NextRequest) {
       updated = data;
     }
 
-    if (slotFix) {
-      const { error } = await admin.from('matches').update(slotFix.values).eq('id', slotFix.id);
+    for (const fix of slotFixes) {
+      const { error } = await admin.from('matches').update(fix.values).eq('id', fix.id);
       if (error) {
         console.error('next-round slot update failed', error);
         return NextResponse.json({ error: 'Result corrected, but the next-round match still shows the old winner. Try again.' }, { status: 500 });
@@ -139,10 +151,11 @@ export async function POST(req: NextRequest) {
     }
 
     let nextMatches: ReturnType<typeof toClientMatches> = [];
-    if (slotFix) {
+    if (slotFixes.length) {
       const { data: all } = await admin.from('matches').select('*')
         .eq('tournament_id', match.tournament_id).eq('category', match.category);
-      nextMatches = toClientMatches(all ?? [], []).filter((m) => m.id === slotFix.id);
+      const fixed = new Set(slotFixes.map((f) => f.id));
+      nextMatches = toClientMatches(all ?? [], []).filter((m) => fixed.has(m.id));
     } else if (updated.status === 'completed') {
       const fresh = (catMatches ?? []).map((m) => (m.id === matchId ? updated : m));
       const pairs = nextRoundFor(fresh, match.round);
@@ -155,8 +168,11 @@ export async function POST(req: NextRequest) {
           player1_id: p.player1Id,
           player1_name: p.player1Name,
           player2_id: p.player2Id,
-          player2_name: p.player2Name,
-          status: 'upcoming',
+          player2_name: p.bye ? null : p.player2Name,
+          // An odd winner out waits for the next round: a bye, already through
+          ...(p.bye
+            ? { status: 'completed', winner_id: p.player1Id, winner_name: p.player1Name, completed_at: new Date().toISOString() }
+            : { status: 'upcoming' }),
         })), 'id');
         // 23505: another device finishing the same round at the same moment already created it
         if (error && error.code !== '23505') {

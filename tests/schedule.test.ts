@@ -1,28 +1,47 @@
 // Day and 2-hour block planning. Run with: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { autoPlan, withDefaults, blockCapacity, matchesFor, playOrder } from '../lib/schedule.ts';
+import { autoPlan, withDefaults, blockCapacity, matchesFor, playOrder, dayItems, round1Matches } from '../lib/schedule.ts';
 
 const entries = {
   male_singles_18plus: 24, female_singles_18plus: 12, male_singles_kids: 14, female_singles_kids: 10,
   male_doubles_18plus: 11, singles_u10: 6, spouse_doubles_open: 4, doubles_u10: 0,
 };
 
-test('10 or more entries play on day 1, fewer on day 2; empty categories are left out', () => {
-  const { assign } = autoPlan(entries);
-  for (const c of ['male_singles_18plus', 'female_singles_18plus', 'male_singles_kids', 'female_singles_kids', 'male_doubles_18plus']) assert.equal(assign[c].day, 0, c);
-  assert.equal(assign.singles_u10.day, 1);
+test("the organizers' first-day list plays on 30/10, everything else on 06/11; empty categories are left out", () => {
+  const { assign, firstDayRound1 } = autoPlan(entries);
+  assert.equal(firstDayRound1, true);
+  for (const c of ['male_singles_18plus', 'female_singles_18plus', 'male_singles_kids', 'male_doubles_18plus', 'singles_u10']) assert.equal(assign[c].day, 0, c);
+  assert.equal(assign.female_singles_kids.day, 1, 'not on the first-day list');
   assert.equal(assign.spouse_doubles_open.day, 1);
   assert.equal(assign.doubles_u10, undefined);
+  // an event with none of the first-day categories falls back to size: 10 or more on day 1
+  const other = autoPlan({ female_singles_kids: 12, spouse_doubles_open: 4 }).assign;
+  assert.deepEqual([other.female_singles_kids.day, other.spouse_doubles_open.day], [0, 1]);
 });
 
 test('children play in the early blocks, adults later, and every block is used', () => {
   const { assign } = autoPlan(entries);
-  assert.equal(assign.female_singles_kids.block, 0);
-  assert.equal(assign.male_singles_18plus.block, 2);
+  assert.equal(assign.singles_u10.block, 0);
+  assert.ok(assign.male_singles_18plus.block > assign.male_singles_kids.block, 'adults after children');
   const day1 = Object.entries(assign).filter(([, s]) => s.day === 0).map(([, s]) => s.block);
   assert.deepEqual([...new Set(day1)].sort(), [0, 1, 2]);
   assert.deepEqual(playOrder(['male_singles_18plus', 'male_singles_kids', 'female_singles_kids']), ['female_singles_kids', 'male_singles_kids', 'male_singles_18plus']);
+});
+
+test('round 1 only on the first day: n/2 matches there, the rest on day 2 as later rounds', () => {
+  const s = autoPlan(entries);
+  const [day0, day1] = dayItems(s, entries);
+  assert.equal(day0.male_singles_18plus, 12, '24 entries: 12 round-1 matches');
+  assert.equal(day0.male_doubles_18plus, 5, '11 entries: 5 matches, one waits');
+  assert.equal(day1.male_singles_18plus__later, 11);
+  assert.equal(day1.male_doubles_18plus__later, 5);
+  assert.equal(day1.female_singles_kids, 9, 'a day-2 category plays its whole draw');
+  assert.equal(day1.spouse_doubles_open__later, undefined);
+  // turned off, the first day plays whole draws
+  const [all] = dayItems({ ...s, firstDayRound1: false }, entries);
+  assert.equal(all.male_singles_18plus, 23);
+  assert.equal(round1Matches(7), 3);
 });
 
 test('a saved schedule wins; junk is ignored; new categories are filled in', () => {

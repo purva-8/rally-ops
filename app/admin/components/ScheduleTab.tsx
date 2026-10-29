@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { CATEGORY_LABELS, isDoublesCategory } from '@/lib/categories';
 import { formatDate } from '@/lib/format';
 import {
-  BLOCKS, COURTS, SMALL_CATEGORY, arrangeSchedule, autoPlan, blockCapacity, describeDay, matchesFor, playOrder, withDefaults,
+  BLOCKS, COURTS, LATER, arrangeSchedule, autoPlan, baseCategory, blockCapacity, dayItems, describeDay, playOrder, withDefaults,
   type Entry, type Schedule, type Slot,
 } from '@/lib/schedule';
 
@@ -65,10 +65,12 @@ export default function ScheduleTab() {
     return [fmt(first), fmt(second)];
   }, [eventDate]);
 
-  const dayPlans = useMemo(() => plan && ([0, 1] as const).map((day) => describeDay(
-    Object.fromEntries(Object.entries(plan.assign).filter(([c, s]) => s.day === day && entries[c]).map(([c, s]) => [c, s.block])),
-    people,
-  )), [plan, people, entries]);
+  // What each day holds (round 1 of the first-day categories on day 1, their later rounds on day 2) and how many matches
+  const items = useMemo(() => plan && dayItems(plan, entries), [plan, entries]);
+  const dayPlans = useMemo(() => plan && items && items.map((it, day) => describeDay(
+    Object.fromEntries(Object.keys(it).map((c) => [c, plan.assign[c]?.block ?? 0])),
+    people, it,
+  )), [plan, items, people]);
 
   // The plan as of the last change, so two quick clicks build on each other instead of the second undoing the first
   const latest = useRef<Schedule | null>(null);
@@ -90,7 +92,7 @@ export default function ScheduleTab() {
   };
 
   if (!tournamentId) return <p className="text-sm text-stone-400">Open an event to see its schedule.</p>;
-  if (!plan || !dayPlans) return <p className="text-sm text-stone-400">Loading entries…</p>;
+  if (!plan || !items || !dayPlans) return <p className="text-sm text-stone-400">Loading entries…</p>;
 
   const current = () => latest.current ?? plan;
   const move = (cat: string, slot: Slot) => { const p = current(); save({ ...p, assign: { ...p.assign, [cat]: slot } }); };
@@ -98,7 +100,8 @@ export default function ScheduleTab() {
   const cap = blockCapacity(plan.minutesPerMatch);
   const q = search.trim().toLowerCase();
   const cats = playOrder(Object.keys(entries));
-  const inSlot = (day: number, block: number) => cats.filter((c) => plan.assign[c]?.day === day && plan.assign[c]?.block === block);
+  const round1 = plan.firstDayRound1 !== false;
+  const inSlot = (day: number, block: number) => playOrder(Object.keys(items[day])).filter((c) => (plan.assign[c]?.block ?? 0) === block);
   const slotLabel = (s?: Slot) => (s ? `${days[s.day]}, ${BLOCKS[s.block]}` : 'Not placed');
   const span = (blocks: number[]) => `${BLOCKS[blocks[0]].split(' –')[0]} – ${BLOCKS[blocks[blocks.length - 1]].split('– ')[1]}`;
   const short = (c: string) => (CATEGORY_LABELS[c] ?? c).replace(/^(Singles|Doubles) - /, (m) => (m.startsWith('S') ? 'S: ' : 'D: '));
@@ -117,7 +120,7 @@ export default function ScheduleTab() {
         <div>
           <h2 className="text-lg font-bold text-stone-900">Schedule</h2>
           <p className="text-stone-400 text-sm">
-            {COURTS} courts, 2-hour blocks. Players come at the start of their block and stay until they are out.
+            {COURTS} courts, 2-hour blocks. Players come at the start of their block{round1 ? `; on ${days[0]} only round 1 is played, the rest on ${days[1]}` : ' and stay until they are out'}.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 print:hidden">
@@ -128,7 +131,7 @@ export default function ScheduleTab() {
               {[10, 15, 20, 25, 30].map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </label>
-          <button onClick={() => { if (confirm(`Start over: categories with ${SMALL_CATEGORY}+ entries on ${days[0]}, the rest on ${days[1]}, then arrange the times?`)) save(arrangeSchedule(autoPlan(entries, plan.minutesPerMatch), people), 'Reset and arranged'); }}
+          <button onClick={() => { if (confirm(`Start over: the ${days[0]} categories (men's singles and doubles 18+, women's singles 18+, kids under 10, boys 10-14, parent + child) play round 1 on ${days[0]}, everything else on ${days[1]}, then arrange the times?`)) save(arrangeSchedule(autoPlan(entries, plan.minutesPerMatch), people), 'Reset and arranged'); }}
             className="text-xs border border-stone-200 text-stone-600 px-3 py-2 rounded-lg hover:bg-stone-50">Start over</button>
           <button onClick={() => window.print()} className="text-xs border border-stone-200 text-stone-600 px-3 py-2 rounded-lg hover:bg-stone-50">Print</button>
         </div>
@@ -137,7 +140,13 @@ export default function ScheduleTab() {
       {/* Step 1: days. Step 2: arrange. */}
       <section className="bg-white border border-stone-200 rounded-xl p-4 mb-6 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <p className="text-sm font-bold text-stone-900">1. Which day does each category play?</p>
+          <div>
+            <p className="text-sm font-bold text-stone-900">1. Which day does each category play?</p>
+            <label className="flex items-center gap-2 text-xs text-stone-600 mt-1">
+              <input type="checkbox" checked={round1} onChange={(e) => save({ ...current(), firstDayRound1: e.target.checked })} />
+              {days[0]}: round 1 only (later rounds on {days[1]}). Press Arrange after changing.
+            </label>
+          </div>
           <button onClick={arrange} className="bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm">
             ✨ 2. Arrange times for families
           </button>
@@ -218,7 +227,19 @@ export default function ScheduleTab() {
                     </div>
                     <div className="divide-y divide-stone-100">
                       {here.length === 0 && <p className="px-4 py-3 text-sm text-stone-300">Free</p>}
-                      {here.map((c) => (
+                      {here.map((c) => c.endsWith(LATER) ? (
+                        <div key={c} className="px-4 py-3 bg-stone-50">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="text-sm font-bold text-stone-900 leading-snug">{CATEGORY_LABELS[baseCategory(c)] ?? c} <span className="font-semibold text-orange-700">· later rounds</span></p>
+                            <select value={block} aria-label={`Move later rounds of ${CATEGORY_LABELS[baseCategory(c)] ?? c}`}
+                              onChange={(e) => move(c, { day: 1, block: Number(e.target.value) })}
+                              className="text-[11px] border border-stone-200 rounded-md px-1 py-0.5 bg-white text-stone-600 shrink-0 print:hidden">
+                              {BLOCKS.map((l, b) => <option key={b} value={b}>{l.split(' –')[0]}</option>)}
+                            </select>
+                          </div>
+                          <p className="text-[11px] text-stone-400">{items[day][c]} matches · round 1 winners from {days[0]}</p>
+                        </div>
+                      ) : (
                         <div key={c} className="px-4 py-3">
                           <div className="flex items-start justify-between gap-2 mb-1.5">
                             <p className="text-sm font-bold text-stone-900 leading-snug">{CATEGORY_LABELS[c] ?? c}</p>
@@ -228,7 +249,7 @@ export default function ScheduleTab() {
                               {[0, 1].flatMap((d) => BLOCKS.map((l, b) => <option key={`${d}-${b}`} value={`${d}-${b}`}>{days[d].split(' ')[1] ?? days[d]} · {l.split(' –')[0]}</option>))}
                             </select>
                           </div>
-                          <p className="text-[11px] text-stone-400 mb-1.5">{entries[c]} {isDoublesCategory(c) ? 'pairs' : 'players'} · {matchesFor(entries[c])} matches</p>
+                          <p className="text-[11px] text-stone-400 mb-1.5">{entries[c]} {isDoublesCategory(c) ? 'pairs' : 'players'} · {day === 0 && round1 ? `round 1 only, ${items[day][c]} matches` : `${items[day][c]} matches`}</p>
                           <ol className="text-[13px] text-stone-700 space-y-0.5 list-decimal list-inside">
                             {names[c].map((n, i) => (
                               <li key={i} className={q && n.toLowerCase().includes(q) ? 'bg-amber-100 rounded px-1 font-semibold' : ''}>{n}</li>
@@ -283,7 +304,9 @@ export default function ScheduleTab() {
                   <td className="px-4 py-1.5 font-medium text-stone-900 whitespace-nowrap">{r.name}</td>
                   <td className="px-4 py-1.5 text-stone-600">{CATEGORY_LABELS[r.cat] ?? r.cat}</td>
                   <td className="px-4 py-1.5 text-stone-500">{isDoublesCategory(r.cat) ? r.with ?? '' : ''}</td>
-                  <td className="px-4 py-1.5 font-semibold text-stone-900 whitespace-nowrap">{slotLabel(plan.assign[r.cat])}</td>
+                  <td className="px-4 py-1.5 font-semibold text-stone-900 whitespace-nowrap">{slotLabel(plan.assign[r.cat])}
+                    {items[1][r.cat + LATER] !== undefined && <span className="block text-xs font-normal text-stone-500">if they win: {slotLabel({ day: 1, block: plan.assign[r.cat + LATER]?.block ?? 0 })}</span>}
+                  </td>
                 </tr>
               ))}
               {shownRows.length === 0 && <tr><td colSpan={4} className="px-4 py-3 text-stone-400">Nobody matches.</td></tr>}
