@@ -10,7 +10,7 @@ const display = Barlow_Condensed({ subsets: ['latin'], weight: ['500', '600', '7
 const C = { court: '#B4532A', courtDeep: '#8F3F1E', line: '#FBF5EC', floor: '#F3EADB', ink: '#2B1D14', muted: '#7A6656', gold: '#D9962B', rule: '#E4D6C1' };
 
 export type BoardEntry = { name: string; wins: number; out: boolean; champion: boolean };
-export type BoardSlot = { from: string; to: string; categories: { key: string; label: string; court: number; round: string | null; doubles: boolean; drawn: boolean; entries: BoardEntry[] }[] };
+export type BoardSlot = { from: string; to: string; columns: number; categories: { key: string; label: string; court: number; round: string | null; doubles: boolean; drawn: boolean; entries: BoardEntry[] }[] };
 
 // The sheet is laid out at a fixed poster width and scaled to fit the whole screen, so it never scrolls
 const SHEET_WIDTH = 1600;
@@ -72,14 +72,13 @@ export default function BoardView(props: Props) {
             style={{ background: C.line, borderColor: C.rule }} />
         </header>
 
-        <div className="grid gap-5" style={{ gridTemplateColumns: slots.map((s) => `${Math.min(s.categories.length, 3) * 3 + 1}fr`).join(' ') }}>
+        <div className="grid gap-5" style={{ gridTemplateColumns: slots.map((s) => `${s.columns * 3 + 1}fr`).join(' ') }}>
           {slots.map((s) => (
             <section key={s.from} className="rounded-xl overflow-hidden border" style={{ borderColor: C.rule, background: C.line }}>
               <div className="px-4 py-3 flex flex-wrap items-baseline justify-between gap-2" style={{ background: C.court, color: C.line }}>
                 <h2 className="[font-family:var(--lb-display)] font-bold text-3xl leading-none">{s.from} – {s.to}</h2>
-                <p className="text-sm font-semibold">Please arrive by {s.from}</p>
               </div>
-              <div className="grid gap-x-5 gap-y-4 p-4" style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(s.categories.length, 3))}, minmax(0, 1fr))` }}>
+              <div className="grid gap-x-5 gap-y-4 p-4" style={{ gridTemplateColumns: `repeat(${Math.max(1, s.columns)}, minmax(0, 1fr))` }}>
                 {s.categories.map((c) => (
                   <div key={c.key} className="min-w-0">
                     <div className="pb-1 mb-1 border-b-2" style={{ borderColor: C.courtDeep }}>
