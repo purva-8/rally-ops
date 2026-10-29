@@ -92,9 +92,11 @@ export default function ScoreDeskTab() {
 
       {note && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 font-medium">{note}</div>}
 
-      <div className="mb-4"><BackupBar tournamentId={tournamentId} /></div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <BackupBar tournamentId={tournamentId} />
+        <HistoryPanel tournamentId={tournamentId} onRestored={saved} />
+      </div>
       <MatchMaker mode="winners" tournamentId={tournamentId} names={names} matches={matches} onMade={saved} />
-      <HistoryPanel tournamentId={tournamentId} onRestored={saved} />
 
       {matches.length === 0 && (
         <p className="text-sm text-stone-400 mb-6">No matches yet. Make first matches in the Brackets tab as players arrive.</p>

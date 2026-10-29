@@ -44,12 +44,17 @@ export default function HistoryPanel({ tournamentId, onRestored }: { tournamentI
 
   const shown = (entries ?? []).filter((e) => !q || e.summary.toLowerCase().includes(q.trim().toLowerCase()));
   return (
-    <details className="mb-6 bg-white rounded-xl border border-stone-200" onToggle={(ev) => setOpen((ev.target as HTMLDetailsElement).open)}>
-      <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-3">
-        <span className="text-sm font-bold text-stone-900">History &amp; restore <span className="font-normal text-stone-400">· every score, undo, match made or removed</span></span>
-        <span className="text-xs text-stone-400">{open ? '▴' : '▾'}</span>
-      </summary>
-      <div className="border-t border-stone-100 p-4">
+    <>
+      <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        className={`px-3 py-1.5 border rounded-lg text-xs font-semibold ${open ? 'bg-stone-800 border-stone-800 text-white' : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'}`}>
+        ↺ History &amp; restore
+      </button>
+      {open && (
+      <div className="basis-full w-full mt-2 bg-white rounded-xl border border-stone-200 p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <p className="text-sm font-bold text-stone-900">History &amp; restore <span className="font-normal text-stone-400">· every score, undo, match made or removed</span></p>
+          <button onClick={() => setOpen(false)} className="text-xs text-stone-500 underline">Close</button>
+        </div>
         {!ready && <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">History needs a one-time database update: run <code>supabase/match_log.sql</code> in Supabase → SQL editor.</p>}
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search history by player"
           className="w-full mb-3 px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:border-orange-400" />
@@ -70,6 +75,7 @@ export default function HistoryPanel({ tournamentId, onRestored }: { tournamentI
           ))}
         </ul>
       </div>
-    </details>
+      )}
+    </>
   );
 }
