@@ -288,7 +288,7 @@ export default function EntriesTab() {
       </div>
 
       <div className="bg-white rounded-2xl border border-stone-200 p-1.5 mb-4 flex gap-1 shadow-sm">
-        {([['list', 'All entries'], ['register', 'Register new']] as const).map(([v, label]) => (
+        {([['register', 'Register new'], ['list', 'All entries']] as const).map(([v, label]) => (
           <button key={v} onClick={() => { setView(v); setAdded(null); }}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors flex-1 ${view === v ? 'bg-orange-600 text-white shadow-sm' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'}`}>
             {label}
