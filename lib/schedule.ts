@@ -1,11 +1,16 @@
-// Schedule in 2-hour blocks over the two days. Each category is given a day and a block; its players come
+// Schedule in three blocks a day over the two days (30/10: 4-7 PM in hours; 06/11: 4-10 PM in 2-hour blocks). Each category is given a day and a block; its players come
 // for that block. On the first day the organizers play only round 1 of its categories; their later rounds
 // go to the second day as "<category>__later" items. Pure functions only so they can be tested with `node --test`.
 import { CATEGORY_DEFS, sortCategories } from './categories';
 
-export const BLOCKS = ['4:00 – 6:00 PM', '6:00 – 8:00 PM', '8:00 – 10:00 PM'];
+// Both days have three blocks; the first day is 4-7 PM, the second 4-10 PM
+export const DAY_BLOCKS = [
+  ['4:00 – 5:00 PM', '5:00 – 6:00 PM', '6:00 – 7:00 PM'],
+  ['4:00 – 6:00 PM', '6:00 – 8:00 PM', '8:00 – 10:00 PM'],
+];
+export const BLOCKS = DAY_BLOCKS[1];
 export const COURTS = 4;
-export const BLOCK_MINUTES = 120;
+export const DAY_BLOCK_MINUTES = [60, 120];
 // Categories with fewer entries than this play on the second day (used when none of FIRST_DAY is in the event)
 export const SMALL_CATEGORY = 10;
 // The organizers' first-day list for Samanvayam 2026: men's singles and doubles 18+, women's singles 18+,
@@ -33,7 +38,7 @@ export function dayItems(s: Schedule, count: Record<string, number>) {
   if (r1) for (const c of on(0)) { const left = matchesFor(count[c]) - round1Matches(count[c]); if (left > 0) day1[c + LATER] = left; }
   return [day0, day1];
 }
-export const blockCapacity = (minutesPerMatch: number) => Math.floor(BLOCK_MINUTES / minutesPerMatch) * COURTS;
+export const blockCapacity = (minutesPerMatch: number, day = 1) => Math.floor(DAY_BLOCK_MINUTES[day] / minutesPerMatch) * COURTS;
 
 // Youngest play first: Under 10, kids, youth, then adults (and parent + child); singles before doubles in a band
 function band(cat: string) {
@@ -205,7 +210,7 @@ export function arrangeSchedule(s: Schedule, entries: Entry[]): Schedule {
   for (const e of entries) count[e.cat] = (count[e.cat] ?? 0) + 1;
   const assign: Record<string, Slot> = { ...s.assign };
   dayItems(s, count).forEach((items, day) => {
-    const blk = arrangeDay(Object.keys(items), entries, blockCapacity(s.minutesPerMatch), items);
+    const blk = arrangeDay(Object.keys(items), entries, blockCapacity(s.minutesPerMatch, day), items);
     for (const c of Object.keys(items)) assign[c] = { day: day as 0 | 1, block: blk[c] };
   });
   return { ...s, assign };

@@ -53,9 +53,11 @@ test('a saved schedule wins; junk is ignored; new categories are filled in', () 
   assert.equal(withDefaults(null, entries).minutesPerMatch, 20);
 });
 
-test('capacity: 4 courts for 2 hours', () => {
+test('capacity: 4 courts for 2 hours on day 2, 1 hour on 30/10 (4-7 PM)', () => {
   assert.equal(blockCapacity(20), 24);
   assert.equal(blockCapacity(25), 16);
+  assert.equal(blockCapacity(20, 0), 12);
+  assert.equal(blockCapacity(15, 0), 16);
   assert.equal(matchesFor(1), 0);
   assert.equal(matchesFor(12), 11);
 });
