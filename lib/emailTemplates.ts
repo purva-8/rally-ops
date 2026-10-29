@@ -126,9 +126,11 @@ ${d.items.map((i) => row(
 
 // 5. The family bill, receipt style
 export type BillLineMail = { person: string; category: string; note: string; amount: number; paid: boolean };
-export function billEmail(d: { name: string; tournamentName: string; lines: BillLineMail[]; paymentNote?: string | null }) {
-  const due = d.lines.filter((l) => !l.paid).reduce((s, l) => s + l.amount, 0);
-  const paid = d.lines.filter((l) => l.paid).reduce((s, l) => s + l.amount, 0);
+// paidSoFar: cash recorded at the desk, when known; otherwise worked out from the lines marked paid
+export function billEmail(d: { name: string; tournamentName: string; lines: BillLineMail[]; paymentNote?: string | null; paidSoFar?: number }) {
+  const total = d.lines.reduce((s, l) => s + l.amount, 0);
+  const paid = d.paidSoFar ?? d.lines.filter((l) => l.paid).reduce((s, l) => s + l.amount, 0);
+  const due = Math.max(0, total - paid);
   const people = Array.from(new Set(d.lines.map((l) => l.person)));
   const sections = people.map((p) => `
 <h3 style="margin:20px 0 4px;font-size:14px;color:#ea580c;text-transform:uppercase;letter-spacing:1px;">${esc(p)}</h3>

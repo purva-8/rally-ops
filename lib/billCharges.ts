@@ -21,13 +21,16 @@ const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase().re
 export const offPlatformId = (name: string | null | undefined) => `name:${norm(name)}`;
 export const isOffPlatform = (personId: string) => personId.startsWith('name:');
 
+type PairReg = Pick<ChargeReg, 'category' | 'player_id' | 'partner_id' | 'partner_name' | 'manual_name'>;
+const playerOf = (r: PairReg) => r.player_id ?? offPlatformId(r.manual_name);
+const partnerOf = (r: PairReg) => r.partner_id ?? offPlatformId(r.partner_name);
+// The same two people in the same category, whichever of them filed the entry
+export const pairOf = (r: PairReg) => `${r.category}|${[playerOf(r), partnerOf(r)].sort().join('|')}`;
+
 export function charges(regs: ChargeReg[], sameFamily: (a: string, b: string) => boolean) {
   const out: Charge[] = [];
   const seen = new Set<string>();
   const live = regs.filter((r) => (r.player_id || r.manual_name?.trim()) && r.fee > 0 && r.payment_status !== 'waived');
-  const playerOf = (r: ChargeReg) => r.player_id ?? offPlatformId(r.manual_name);
-  const partnerOf = (r: ChargeReg) => r.partner_id ?? offPlatformId(r.partner_name);
-  const pairOf = (r: ChargeReg) => `${r.category}|${[playerOf(r), partnerOf(r)].sort().join('|')}`;
   const add = (key: string, c: Charge) => { if (!seen.has(key)) { seen.add(key); out.push(c); } };
 
   // Own entries first, so a person's half of a pair is booked on their own entry when they have one
