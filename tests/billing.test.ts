@@ -18,13 +18,13 @@ test('singles in full; doubles half each; a pair where both entered is charged o
   assert.deepEqual(by, { dad: 65, son: 30 });
 });
 
-test('no repeats: a person in two pairs of one category is charged once, on their own entry', () => {
+test('a person named in two pairs of one category pays a half for each pair', () => {
   // dad in Parent + Child with two children
   const { by } = owed([reg('a', 'dad', 'mixed_doubles_open', 'son'), reg('b', 'son', 'mixed_doubles_open', 'dad'), reg('c', 'girl', 'mixed_doubles_open', 'dad')]);
-  assert.deepEqual(by, { dad: 30, son: 30, girl: 30 });
-  // gopi entered with sijith, and yadu named gopi too: gopi pays once, for his own entry
+  assert.deepEqual(by, { dad: 60, son: 30, girl: 30 });
+  // gopi entered with sijith, and yadu named gopi too: gopi's name is on two pairs, so two halves
   const c = charges([reg('g', 'gopi', 'male_doubles_18plus', 'sijith'), reg('y', 'yadu', 'male_doubles_18plus', 'gopi')], same);
-  assert.deepEqual(c.filter((x) => x.personId === 'gopi').map((x) => [x.regId, x.amount]), [['g', 30]]);
+  assert.deepEqual(c.filter((x) => x.personId === 'gopi').map((x) => [x.regId, x.amount]), [['g', 30], ['y', 30]]);
 });
 
 test('each person is charged only for themselves: a partner in another family pays on their own bill', () => {
@@ -36,9 +36,9 @@ test('everyone who plays is billed: a partner not on the platform pays their hal
   const c = charges([reg('a', 'dad', 'male_doubles_18plus', null, 'Ravi K'), reg('b', 'dad', 'spouse_doubles_open', null, ''), reg('c', 'gopi', 'male_doubles_18plus', null, ' ravi  k ')], same);
   const by: Record<string, number> = {};
   for (const x of c) by[x.personId] = (by[x.personId] ?? 0) + x.amount;
-  // Ravi K is named in two pairs of one category (with dad and with gopi): one bill of his own, charged once.
+  // Ravi K is named in two pairs (with dad and with gopi): one bill of his own, a half for each pair.
   // An entry with no partner at all charges only the player
-  assert.deepEqual(by, { dad: 60, gopi: 30, 'name:ravi k': 30 });
+  assert.deepEqual(by, { dad: 60, gopi: 30, 'name:ravi k': 60 });
   assert.ok(c.filter((x) => x.personId.startsWith('name:')).every((x) => x.offPlatform && x.asPartner));
 });
 
