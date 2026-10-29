@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { CATEGORY_LABELS, isDoublesCategory } from '@/lib/categories';
 import { formatDate } from '@/lib/format';
 import {
-  BLOCKS, COURTS, LATER, arrangeSchedule, autoPlan, baseCategory, blockCapacity, dayItems, describeDay, playOrder, withDefaults,
+  DAY_BLOCKS, COURTS, LATER, arrangeSchedule, autoPlan, baseCategory, blockCapacity, dayItems, describeDay, playOrder, withDefaults,
   type Entry, type Schedule, type Slot,
 } from '@/lib/schedule';
 
@@ -14,7 +14,7 @@ import {
 const FAMILY_PAIRS = new Set(['spouse_doubles_open', 'mixed_doubles_open']);
 
 // The whole tournament on one page. Organizers pick each category's day; "Arrange times" then gives every
-// category a 2-hour block so nobody is needed in two places at once, families are at the venue for as
+// category a block so nobody is needed in two places at once, families are at the venue for as
 // short a stretch as possible, and the courts stay busy. Everything can still be moved by hand.
 export default function ScheduleTab() {
   const { participants, tournamentId, eventDate } = useTournamentStore();
@@ -97,13 +97,12 @@ export default function ScheduleTab() {
   const current = () => latest.current ?? plan;
   const move = (cat: string, slot: Slot) => { const p = current(); save({ ...p, assign: { ...p.assign, [cat]: slot } }); };
   const arrange = () => save(arrangeSchedule(current(), people), 'Arranged and saved. Check the families below.');
-  const cap = blockCapacity(plan.minutesPerMatch);
   const q = search.trim().toLowerCase();
   const cats = playOrder(Object.keys(entries));
   const round1 = plan.firstDayRound1 !== false;
   const inSlot = (day: number, block: number) => playOrder(Object.keys(items[day])).filter((c) => (plan.assign[c]?.block ?? 0) === block);
-  const slotLabel = (s?: Slot) => (s ? `${days[s.day]}, ${BLOCKS[s.block]}` : 'Not placed');
-  const span = (blocks: number[]) => `${BLOCKS[blocks[0]].split(' –')[0]} – ${BLOCKS[blocks[blocks.length - 1]].split('– ')[1]}`;
+  const slotLabel = (s?: Slot) => (s ? `${days[s.day]}, ${DAY_BLOCKS[s.day][s.block]}` : 'Not placed');
+  const span = (day: number, blocks: number[]) => `${DAY_BLOCKS[day][blocks[0]].split(' –')[0]} – ${DAY_BLOCKS[day][blocks[blocks.length - 1]].split('– ')[1]}`;
   const short = (c: string) => (CATEGORY_LABELS[c] ?? c).replace(/^(Singles|Doubles) - /, (m) => (m.startsWith('S') ? 'S: ' : 'D: '));
 
   // Everyone, one row per person per category
@@ -120,7 +119,7 @@ export default function ScheduleTab() {
         <div>
           <h2 className="text-lg font-bold text-stone-900">Schedule</h2>
           <p className="text-stone-400 text-sm">
-            {COURTS} courts, 2-hour blocks. Players come at the start of their block{round1 ? `; on ${days[0]} only round 1 is played, the rest on ${days[1]}` : ' and stay until they are out'}.
+            {COURTS} courts. {days[0]}: 4–7 PM in 1-hour blocks; {days[1]}: 4–10 PM in 2-hour blocks. Players come at the start of their block{round1 ? `; on ${days[0]} only round 1 is played, the rest on ${days[1]}` : ' and stay until they are out'}.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 print:hidden">
@@ -196,7 +195,7 @@ export default function ScheduleTab() {
             <h3 className="text-base font-bold text-stone-900 mb-3 pb-1 border-b-2 border-stone-900">{days[day]}</h3>
 
             {(() => {
-              const allEvening = families.filter((f) => f.blocks.length === BLOCKS.length).length;
+              const allEvening = families.filter((f) => f.blocks.length === DAY_BLOCKS[day].length).length;
               return allEvening > 0 && (
                 <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
                   <b>{allEvening} {allEvening === 1 ? 'family is' : 'families are'} here all evening.</b>{' '}
@@ -209,12 +208,13 @@ export default function ScheduleTab() {
               <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
                 <b>{dp.doubleBooked.length} {dp.doubleBooked.length === 1 ? 'person plays' : 'people play'} two categories in the same block</b>
                 {' '}(they play them one after the other):{' '}
-                {dp.doubleBooked.map((x) => `${x.name} (${x.cats.map(short).join(' + ')}, ${BLOCKS[x.block].split(' –')[0]})`).join('; ')}
+                {dp.doubleBooked.map((x) => `${x.name} (${x.cats.map(short).join(' + ')}, ${DAY_BLOCKS[day][x.block].split(' –')[0]})`).join('; ')}
               </div>
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-              {BLOCKS.map((label, block) => {
+              {DAY_BLOCKS[day].map((label, block) => {
+                const cap = blockCapacity(plan.minutesPerMatch, day);
                 const here = inSlot(day, block);
                 const load = dp.load[block];
                 return (
@@ -234,7 +234,7 @@ export default function ScheduleTab() {
                             <select value={block} aria-label={`Move later rounds of ${CATEGORY_LABELS[baseCategory(c)] ?? c}`}
                               onChange={(e) => move(c, { day: 1, block: Number(e.target.value) })}
                               className="text-[11px] border border-stone-200 rounded-md px-1 py-0.5 bg-white text-stone-600 shrink-0 print:hidden">
-                              {BLOCKS.map((l, b) => <option key={b} value={b}>{l.split(' –')[0]}</option>)}
+                              {DAY_BLOCKS[1].map((l, b) => <option key={b} value={b}>{l.split(' –')[0]}</option>)}
                             </select>
                           </div>
                           <p className="text-[11px] text-stone-400">{items[day][c]} matches · round 1 winners from {days[0]}</p>
@@ -246,7 +246,7 @@ export default function ScheduleTab() {
                             <select value={`${day}-${block}`} aria-label={`Move ${CATEGORY_LABELS[c] ?? c}`}
                               onChange={(e) => { const [d, b] = e.target.value.split('-').map(Number); move(c, { day: d as 0 | 1, block: b }); }}
                               className="text-[11px] border border-stone-200 rounded-md px-1 py-0.5 bg-white text-stone-600 shrink-0 print:hidden">
-                              {[0, 1].flatMap((d) => BLOCKS.map((l, b) => <option key={`${d}-${b}`} value={`${d}-${b}`}>{days[d].split(' ')[1] ?? days[d]} · {l.split(' –')[0]}</option>))}
+                              {[0, 1].flatMap((d) => DAY_BLOCKS[d].map((l, b) => <option key={`${d}-${b}`} value={`${d}-${b}`}>{days[d].split(' ')[1] ?? days[d]} · {l.split(' –')[0]}</option>))}
                             </select>
                           </div>
                           <p className="text-[11px] text-stone-400 mb-1.5">{entries[c]} {isDoublesCategory(c) ? 'pairs' : 'players'} · {day === 0 && round1 ? `round 1 only, ${items[day][c]} matches` : `${items[day][c]} matches`}</p>
@@ -272,12 +272,12 @@ export default function ScheduleTab() {
                   {families.filter((f) => !q || f.people.some((p) => p.name.toLowerCase().includes(q))).map((f) => (
                     <div key={f.family} className={`bg-white border rounded-lg px-3 py-2 break-inside-avoid ${f.blocks.length === 3 ? 'border-amber-300' : 'border-stone-200'}`}>
                       <p className="text-xs font-semibold text-stone-500 mb-1">
-                        At the venue {span(f.blocks)}{f.blocks.length === 3 ? ' · all evening' : ''}
+                        At the venue {span(day, f.blocks)}{f.blocks.length === 3 ? ' · all evening' : ''}
                       </p>
                       {f.people.map((p) => (
                         <p key={p.name} className="text-[13px] text-stone-800 leading-snug">
                           <b>{p.name}</b>{' '}
-                          <span className="text-stone-500">{p.cats.map((c) => `${short(c)} ${BLOCKS[dp.block[c]].split(' –')[0]}`).join(' · ')}</span>
+                          <span className="text-stone-500">{p.cats.map((c) => `${short(c)} ${DAY_BLOCKS[day][dp.block[c]].split(' –')[0]}`).join(' · ')}</span>
                         </p>
                       ))}
                     </div>
