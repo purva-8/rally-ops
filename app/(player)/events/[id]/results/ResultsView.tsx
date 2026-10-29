@@ -1,40 +1,88 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import { Barlow, Barlow_Condensed } from 'next/font/google';
 import { createClient } from '@/lib/supabase/client';
-import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../../../tournament/types';
+import { CATEGORY_LABELS } from '../../../../tournament/types';
 import type { Category, Match } from '../../../../tournament/types';
 import { sortCategories } from '@/lib/categories';
 
-type Tournament = { id: string; name: string };
+const body = Barlow({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--lb-body' });
+const display = Barlow_Condensed({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--lb-display' });
 
-function StatusBadge({ status }: { status: string }) {
-  if (status === 'completed') return <span className="text-[11px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full font-medium">Done</span>;
-  if (status === 'in_progress') return (
-    <span className="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
-      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />Live
-    </span>
+// Court colours: the green of the floor, white lines, gold for whoever won
+const C = { court: '#0E4D3A', courtDeep: '#0A3A2C', line: '#F4F8F5', floor: '#EAF0EC', ink: '#13231C', muted: '#5B6D65', gold: '#E2B32E', live: '#E5484D' };
+
+type Tournament = { id: string; name: string; venue: string | null };
+
+const shortCat = (c: string) => CATEGORY_LABELS[c] ?? c;
+const roundTitle = (name: string, n: number) => (n > 1 && /final$/i.test(name) ? `${name}s` : name);
+
+// One player's (or pair's) line on a scorecard: name, then each game's points
+function Side({ name, games, won, decided }: { name: string; games: (number | null)[]; won: boolean; decided: boolean }) {
+  return (
+    <div className="flex items-stretch">
+      <span className="w-1 shrink-0 rounded-full mr-3" style={{ background: won ? C.gold : 'transparent' }} />
+      <span className={`flex-1 min-w-0 py-1.5 text-[15px] leading-tight ${won ? 'font-semibold' : decided ? 'opacity-60' : ''}`} style={{ color: C.ink }}>
+        {name}
+      </span>
+      <span className="flex shrink-0 [font-family:var(--lb-display)] tabular-nums text-lg">
+        {games.map((g, i) => (
+          <span key={i} className="w-8 text-center py-1" style={{ color: g === null ? 'transparent' : C.ink, fontWeight: g !== null && won ? 700 : 500 }}>
+            {g ?? 0}
+          </span>
+        ))}
+      </span>
+    </div>
   );
-  return <span className="text-[11px] bg-stone-50 text-stone-400 border border-stone-200 px-2 py-0.5 rounded-full font-medium">Upcoming</span>;
 }
 
-// Live results for one event: champions, then every match by category. Public: no login needed.
+function Scorecard({ m, highlight, quiet }: { m: Match; highlight: (s?: string) => boolean; quiet?: boolean }) {
+  const live = m.status === 'in_progress';
+  const decided = m.status === 'completed';
+  if (m.isBye) {
+    return (
+      <div className="py-2.5 pl-7 pr-3 text-[15px]" style={{ color: C.muted }}>
+        <span className={highlight(m.player1Name) ? 'font-semibold' : ''} style={{ color: C.ink }}>{m.player1Name}</span> goes straight through (bye)
+      </div>
+    );
+  }
+  const games = [0, 1, 2].map((i) => m.sets[i]);
+  const shown = Math.max(1, m.sets.length);
+  const p1won = decided && m.winnerName === m.player1Name;
+  const p2won = decided && m.winnerName === m.player2Name;
+  return (
+    <div className={`px-3 py-2 ${highlight(m.player1Name) || highlight(m.player2Name) ? 'bg-[#FFF8DE]' : ''}`}>
+      <Side name={m.player1Name} games={games.slice(0, shown).map((g) => (g ? g.player1Score : null))} won={p1won} decided={decided} />
+      <Side name={m.player2Name ?? ''} games={games.slice(0, shown).map((g) => (g ? g.player2Score : null))} won={p2won} decided={decided} />
+      {!quiet && (live || m.status === 'upcoming') && (
+        <p className="text-xs mt-0.5 pl-4 flex items-center gap-1.5" style={{ color: live ? C.live : C.muted }}>
+          {live && <span className="w-1.5 h-1.5 rounded-full motion-safe:animate-pulse" style={{ background: C.live }} />}
+          {live ? 'On court now' : 'To be played'}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Live results for one event: what's on court, champions, and every draw round by round. Public: no login needed.
 export default function ResultsView({ id }: { id: string }) {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCat, setSelectedCat] = useState<string>('all');
+  const [updated, setUpdated] = useState<Date | null>(null);
+  const [view, setView] = useState<string>('latest');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     const supabase = createClient();
     async function load() {
       const [{ data: t }, matchesRes] = await Promise.all([
-        supabase.from('tournaments').select('id, name').eq('id', id).single(),
-        fetch(`/api/tournament/matches?tournamentId=${id}`).then((r) => r.json()),
+        supabase.from('tournaments').select('id, name, venue').eq('id', id).single(),
+        fetch(`/api/tournament/matches?tournamentId=${id}`).then((r) => r.json()).catch(() => ({})),
       ]);
       setTournament(t);
-      setMatches(matchesRes.matches ?? []);
+      if (matchesRes.matches) { setMatches(matchesRes.matches); setUpdated(new Date()); }
       setLoading(false);
     }
     load();
@@ -42,100 +90,154 @@ export default function ResultsView({ id }: { id: string }) {
     return () => clearInterval(interval);
   }, [id]);
 
-  const categories = sortCategories(Array.from(new Set(matches.map((m) => m.category)))) as Category[];
-  const displayMatches = selectedCat === 'all' ? matches : matches.filter((m) => m.category === selectedCat);
+  const categories = useMemo(() => sortCategories(Array.from(new Set(matches.map((m) => m.category)))) as Category[], [matches]);
+  const q = search.trim().toLowerCase();
+  const highlight = (s?: string) => !!q && !!s && s.toLowerCase().includes(q);
+  const hits = (m: Match) => !q || highlight(m.player1Name) || highlight(m.player2Name);
+  const playable = matches.filter((m) => !m.isBye);
+  const live = playable.filter((m) => m.status === 'in_progress');
+  const recent = playable.filter((m) => m.status === 'completed')
+    .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? '')).slice(0, 8);
+  const champions = categories.flatMap((cat) => {
+    const final = matches.find((m) => m.category === cat && m.roundName === 'Final' && m.status === 'completed' && !m.isBye);
+    return final?.winnerName ? [{ cat, name: final.winnerName, runnerUp: final.winnerName === final.player1Name ? final.player2Name : final.player1Name }] : [];
+  });
 
-  const champions = categories
-    .map((cat) => {
-      const catMatches = matches.filter((m) => m.category === cat);
-      // Only the real final crowns a champion (round names come from the bracket size)
-      const final = catMatches.find((m) => m.roundName === 'Final' && m.status === 'completed' && !m.isBye);
-      return final?.winnerName ? { cat, name: final.winnerName } : null;
-    })
-    .filter(Boolean) as { cat: Category; name: string }[];
+  const shell = `${body.variable} ${display.variable} [font-family:var(--lb-body)] min-h-screen`;
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F4F4F5] flex items-center justify-center">
-        <div className="text-stone-300 text-sm">Loading results...</div>
-      </div>
-    );
+    return <div className={`${shell} flex items-center justify-center`} style={{ background: C.floor, color: C.muted }}>Loading results…</div>;
   }
 
+  const sectionTitle = 'text-[22px] font-semibold [font-family:var(--lb-display)] mb-2';
+  const panel = 'bg-white rounded-xl overflow-hidden divide-y divide-[#E3EAE6] border border-[#DCE5E0]';
+
   return (
-    <div className="min-h-screen bg-[#F4F4F5]">
-      <div className="bg-[#111827]">
-        <div className="max-w-2xl mx-auto px-4 pt-6 pb-8">
-          <Link href={`/events/${id}`} className="inline-flex items-center gap-1 text-xs text-white/40 hover:text-white/70 transition-colors mb-4">
-            ← Back to tournament
-          </Link>
-          <h1 className="text-xl font-extrabold text-white tracking-tight">{tournament?.name}</h1>
-          <p className="text-sm text-white/40 mt-1">Live results, updates every 15s</p>
-        </div>
-      </div>
-
-      <main className="max-w-2xl mx-auto px-4 -mt-3 pb-10">
-        {champions.length > 0 && (
-          <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-4 mb-4">
-            <h2 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">Champions</h2>
-            <div className="space-y-2">
-              {champions.map(({ cat, name }) => (
-                <div key={cat} className="flex items-center justify-between text-sm">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CATEGORY_COLORS[cat]}`}>{CATEGORY_LABELS[cat]}</span>
-                  <span className="font-bold text-stone-900">🏆 {name}</span>
-                </div>
-              ))}
-            </div>
+    <div className={shell} style={{ background: C.floor, color: C.ink }}>
+      {/* Header: the court, with its doubles and singles side lines */}
+      <header style={{ background: C.court }}>
+        <div className="max-w-3xl mx-auto px-4 pt-7 pb-6">
+          <div className="border-x-2 border-t-2 px-4 pt-4 pb-5 relative" style={{ borderColor: 'rgba(244,248,245,.85)' }}>
+            <div className="absolute inset-y-0 left-3 right-3 border-x pointer-events-none" style={{ borderColor: 'rgba(244,248,245,.35)' }} />
+            <p className="text-sm relative" style={{ color: 'rgba(244,248,245,.7)' }}>Live results{tournament?.venue ? `, ${tournament.venue}` : ''}</p>
+            <h1 className="[font-family:var(--lb-display)] font-bold text-[40px] sm:text-[52px] leading-[0.95] mt-1 relative" style={{ color: C.line }}>
+              {tournament?.name ?? 'Tournament'}
+            </h1>
+            <p className="text-sm mt-3 relative flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'rgba(244,248,245,.75)' }}>
+              {live.length > 0 && (
+                <span className="flex items-center gap-1.5" style={{ color: C.line }}>
+                  <span className="w-2 h-2 rounded-full motion-safe:animate-pulse" style={{ background: C.live }} />
+                  {live.length} on court now
+                </span>
+              )}
+              <span>{playable.filter((m) => m.status === 'completed').length} of {playable.length} matches played</span>
+              {updated && <span>Updated {updated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>}
+            </p>
           </div>
-        )}
+        </div>
+      </header>
 
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-          <button onClick={() => setSelectedCat('all')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-              selectedCat === 'all' ? 'bg-[#111827] text-white' : 'bg-white border border-stone-200 text-stone-500'
-            }`}>
-            All
-          </button>
-          {categories.map((cat) => (
-            <button key={cat} onClick={() => setSelectedCat(cat)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                selectedCat === cat ? 'bg-[#111827] text-white' : 'bg-white border border-stone-200 text-stone-500'
-              }`}>
-              {CATEGORY_LABELS[cat]}
+      {/* What to look at: the latest, or one category's draw */}
+      <nav className="sticky top-0 z-10 border-b" style={{ background: C.courtDeep, borderColor: 'rgba(244,248,245,.12)' }}>
+        <div className="max-w-3xl mx-auto px-4 flex gap-1 overflow-x-auto py-2">
+          {[{ id: 'latest', label: 'Latest' }, ...categories.map((c) => ({ id: c, label: shortCat(c) }))].map((t) => (
+            <button key={t.id} onClick={() => setView(t.id)}
+              className="shrink-0 px-3 py-1.5 rounded-md text-sm whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              style={view === t.id ? { background: C.line, color: C.court, fontWeight: 600 } : { color: 'rgba(244,248,245,.75)' }}>
+              {t.label}
             </button>
           ))}
         </div>
+      </nav>
 
-        {displayMatches.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-stone-200 p-10 text-center text-stone-400 text-sm">
-            Brackets haven&apos;t been generated yet.
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {displayMatches.map((m) => (
-              <div key={m.id} className={`bg-white rounded-xl border p-4 ${m.status === 'in_progress' ? 'border-emerald-200' : 'border-stone-200'}`}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[m.category]}`}>{CATEGORY_LABELS[m.category]}</span>
-                  <span className="text-[11px] text-stone-400">{m.roundName}</span>
-                  <StatusBadge status={m.status} />
-                </div>
-                <p className="font-semibold text-stone-900 text-sm">
-                  {m.isBye ? (
-                    <>{m.player1Name} <span className="text-stone-400 font-normal">(bye)</span></>
-                  ) : (
-                    <>{m.player1Name} <span className="text-stone-300 font-normal">vs</span> {m.player2Name}</>
-                  )}
-                </p>
-                {!m.isBye && m.sets.length > 0 && (
-                  <p className="text-sm text-stone-500 mt-1">
-                    {m.sets.map((s, i) => <span key={i}>{s.player1Score}–{s.player2Score}{i < m.sets.length - 1 ? ', ' : ''}</span>)}
-                    {m.winnerName && <> · <strong className="text-orange-600">{m.winnerName}</strong></>}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+      <main className="max-w-3xl mx-auto px-4 py-6 pb-28 space-y-8">
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Find a player"
+          aria-label="Find a player"
+          className="w-full rounded-lg border border-[#DCE5E0] px-3.5 py-2.5 text-[15px] bg-white focus:outline-none focus:ring-2 focus:ring-[#0E4D3A]"
+          style={{ color: C.ink }} />
+
+        {matches.length === 0 && (
+          <p className="text-[15px]" style={{ color: C.muted }}>The draws haven&apos;t been made yet. Results appear here as soon as matches are played.</p>
         )}
+
+        {view === 'latest' && matches.length > 0 && (
+          <>
+            {live.filter(hits).length > 0 && (
+              <section>
+                <h2 className={sectionTitle}>On court now</h2>
+                <div className={panel}>
+                  {live.filter(hits).map((m) => (
+                    <div key={m.id}>
+                      <p className="px-4 pt-2.5 text-xs" style={{ color: C.muted }}>{shortCat(m.category)}, {m.roundName.toLowerCase()}</p>
+                      <Scorecard m={m} highlight={highlight} quiet />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {champions.length > 0 && !q && (
+              <section>
+                <h2 className={sectionTitle}>Champions</h2>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {champions.map((c) => (
+                    <div key={c.cat} className="rounded-xl px-4 py-3 border-l-4 bg-white" style={{ borderColor: C.gold }}>
+                      <p className="text-xs" style={{ color: C.muted }}>{shortCat(c.cat)}</p>
+                      <p className="[font-family:var(--lb-display)] text-2xl font-semibold leading-tight">{c.name}</p>
+                      {c.runnerUp && <p className="text-xs mt-0.5" style={{ color: C.muted }}>Runner-up: {c.runnerUp}</p>}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section>
+              <h2 className={sectionTitle}>Latest results</h2>
+              {recent.filter(hits).length === 0 ? (
+                <p className="text-[15px]" style={{ color: C.muted }}>{q ? 'No results for that name yet. Pick a category above to see their draw.' : 'No matches finished yet.'}</p>
+              ) : (
+                <div className={panel}>
+                  {recent.filter(hits).map((m) => (
+                    <div key={m.id}>
+                      <p className="px-4 pt-2.5 text-xs" style={{ color: C.muted }}>{shortCat(m.category)}, {m.roundName.toLowerCase()}</p>
+                      <Scorecard m={m} highlight={highlight} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+
+        {view !== 'latest' && (() => {
+          const catMatches = matches.filter((m) => m.category === view);
+          const rounds = Array.from(new Set(catMatches.map((m) => m.round))).sort((a, b) => a - b);
+          const champ = champions.find((c) => c.cat === view);
+          return (
+            <section className="space-y-6">
+              <div>
+                <h2 className="[font-family:var(--lb-display)] text-3xl font-bold leading-tight">{shortCat(view)}</h2>
+                {champ && <p className="text-[15px] mt-1">Champion: <b>{champ.name}</b></p>}
+              </div>
+              {rounds.map((r) => {
+                const inRound = catMatches.filter((m) => m.round === r).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+                const shown = inRound.filter(hits);
+                if (!shown.length) return null;
+                return (
+                  <div key={r}>
+                    <h3 className="text-[17px] font-semibold [font-family:var(--lb-display)] mb-1.5" style={{ color: C.court }}>
+                      {roundTitle(inRound[0].roundName, inRound.filter((m) => !m.isBye).length)}
+                    </h3>
+                    <div className={panel}>
+                      {shown.map((m) => <Scorecard key={m.id} m={m} highlight={highlight} />)}
+                    </div>
+                  </div>
+                );
+              })}
+              {q && !catMatches.some(hits) && <p className="text-[15px]" style={{ color: C.muted }}>Nobody by that name in this category.</p>}
+            </section>
+          );
+        })()}
       </main>
     </div>
   );
