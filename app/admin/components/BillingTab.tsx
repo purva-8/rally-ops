@@ -3,17 +3,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTournamentStore } from '../../tournament/store';
 
 type Line = { regId: string; person: string; category: string; note: string; amount: number; paid: boolean; pending: boolean };
-type Bill = { headId: string; head: string; email: string | null; qid: string | null; mobile: string | null; lines: Line[]; due: number; paid: number; balance: number; pendingAmount: number };
+type Bill = { headId: string; head: string; email: string | null; qid: string | null; mobile: string | null; lines: Line[]; due: number; paid: number; balance: number; pendingAmount: number; offPlatform?: boolean };
 
 type YetItem = { person: string; family: string; category: string; amount: number; why: string };
 type Yet = { total: number; pending: YetItem[] };
-type Off = { regId: string; person: string; enteredBy: string; family: string; category: string; amount: number; paid: boolean };
 
 export default function BillingTab() {
   const tournamentId = useTournamentStore((s) => s.tournamentId);
   const [bills, setBills] = useState<Bill[]>([]);
   const [yet, setYet] = useState<Yet | null>(null);
-  const [off, setOff] = useState<Off[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -25,17 +23,16 @@ export default function BillingTab() {
     const d = await r.json().catch(() => ({}));
     setBills(d.bills ?? []);
     setYet(d.yetToBill ?? null);
-    setOff(d.offPlatform ?? []);
     setLoading(false);
   }, [tournamentId]);
   useEffect(() => { load(); }, [load]);
 
-  async function act(action: 'email' | 'markPaid' | 'markPartnerPaid', headIds?: string[], regIds?: string[]) {
-    if (action !== 'email' && !confirm(action === 'markPaid' ? 'Mark these bills as paid?' : 'Mark this half as paid?')) return;
+  async function act(action: 'email' | 'markPaid', headIds?: string[]) {
+    if (action === 'markPaid' && !confirm('Mark these bills as paid?')) return;
     setBusy(true); setNote('Working...');
     const r = await fetch('/api/tournament/billing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, tournamentId, headIds, regIds }),
+      body: JSON.stringify({ action, tournamentId, headIds }),
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) setNote(d.error ?? 'Failed');
@@ -45,17 +42,17 @@ export default function BillingTab() {
     setTimeout(() => setNote(''), 7000);
   }
 
-  // Grand total: every family bill plus the halves of partners who are not on the platform
-  const offTotal = off.reduce((s, o) => s + o.amount, 0);
-  const total = bills.reduce((s, b) => s + b.due, 0) + offTotal;
-  const paid = bills.reduce((s, b) => s + b.paid, 0) + off.filter((o) => o.paid).reduce((s, o) => s + o.amount, 0);
+  // Grand total: every family's bill and every bill of someone not on the platform
+  const total = bills.reduce((s, b) => s + b.due, 0);
+  const paid = bills.reduce((s, b) => s + b.paid, 0);
+  const offCount = bills.filter((b) => b.offPlatform).length;
 
   return (
     <div>
       <div className="mb-5 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-lg font-bold text-stone-900">Billing</h2>
-          <p className="text-stone-400 text-sm">One bill per family head, with only that family's people on it: each person pays their own fee, half for doubles. Partners who are not on the platform are listed apart. Approved entries only; everything is due until you hit Mark paid.</p>
+          <p className="text-stone-400 text-sm">One bill per family head, with only that family's people on it: each person pays their own fee, half for doubles. Everyone not on the platform (entered at the desk, or a partner typed by name) gets a bill of their own{offCount ? ` (${offCount} at the bottom)` : ''}. Approved entries only; everything is due until you hit Mark paid.</p>
         </div>
         <button onClick={() => act('email')} disabled={busy || bills.every((b) => b.balance <= 0)}
           className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-500 disabled:opacity-40">
@@ -98,29 +95,6 @@ export default function BillingTab() {
           </div>
         </details>
       )}
-      {off.length > 0 && (
-        <details className="mb-4 bg-white rounded-xl border border-stone-200">
-          <summary className="cursor-pointer list-none p-4 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold text-stone-900">Partners not on the platform</p>
-              <p className="text-xs text-stone-400">{off.length} partner half{off.length === 1 ? '' : 's'}, not on any family bill. Collect from the partner at the desk.</p>
-            </div>
-            <p className="text-lg font-black text-stone-700 shrink-0">QAR {offTotal - off.filter((o) => o.paid).reduce((s, o) => s + o.amount, 0)} due ▾</p>
-          </summary>
-          <ul className="border-t border-stone-100 px-4 py-2 text-sm divide-y divide-stone-100">
-            {off.map((o) => (
-              <li key={o.regId} className="py-1.5 flex items-center justify-between gap-3">
-                <span className="text-stone-700">{o.person} <span className="text-stone-400">· {o.category} · with {o.enteredBy}{o.family && o.family !== o.enteredBy ? ` (${o.family} family)` : ''}</span></span>
-                <span className="flex items-center gap-2 shrink-0">
-                  <span className={o.paid ? 'text-emerald-600 font-semibold' : 'font-semibold text-stone-800'}>{o.paid ? 'Paid' : `QAR ${o.amount}`}</span>
-                  {!o.paid && <button onClick={() => act('markPartnerPaid', undefined, [o.regId])} disabled={busy}
-                    className="px-2 py-1 bg-green-600 text-white rounded-md text-xs hover:bg-green-700 disabled:opacity-40">Mark paid</button>}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
       {note && <p className="text-sm bg-green-50 border border-green-200 text-green-800 rounded-lg px-3 py-2 mb-3">{note}</p>}
       {loading && <p className="text-sm text-stone-400">Loading...</p>}
       {!loading && bills.length === 0 && <p className="text-sm text-stone-400">No approved entries with a fee yet.</p>}
@@ -130,7 +104,7 @@ export default function BillingTab() {
           <div key={b.headId} className="bg-white rounded-xl border border-stone-200">
             <div className="flex items-center gap-3 p-4">
               <button onClick={() => setOpen(open === b.headId ? null : b.headId)} className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-semibold text-stone-900 truncate">{b.head}</p>
+                <p className="text-sm font-semibold text-stone-900 truncate">{b.head}{b.offPlatform && <span className="ml-2 text-[10px] font-semibold text-stone-500 bg-stone-100 rounded px-1.5 py-0.5 align-middle">Not on the platform</span>}</p>
                 <p className="text-xs text-stone-400 truncate">{b.email ?? 'no email on file'}{b.mobile ? ` · ${b.mobile}` : ''} · {b.lines.length} entr{b.lines.length === 1 ? 'y' : 'ies'}</p>
               </button>
               <div className="text-right shrink-0">

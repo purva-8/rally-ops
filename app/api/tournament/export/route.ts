@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    type Table = { headers: string[]; rows: Record<string, any>[]; familyHalves?: Record<string, any>[]; partnersOffPlatform?: Record<string, any>[] };
+    type Table = { headers: string[]; rows: Record<string, any>[]; familyHalves?: Record<string, any>[] };
     const fee0 = Number(tournament.entry_fee ?? 0);
 
     const registrationsTable = async () => {
@@ -99,23 +99,21 @@ export async function GET(req: NextRequest) {
           'Registered on': formatDateTime(r.created_at),
         };
       });
-      // Same rule as the bills (lib/billCharges): each person pays for themselves. A linked partner with no entry of their
-      // own for that pair pays their half on their own family's bill; a partner not on the platform is on no family's bill
+      // Same rule as the bills (lib/billCharges): each person pays for themselves. The rows above carry each entry's own
+      // share; these are the halves of partners, on the partner's own family's bill, or under their own name when they
+      // are not on the platform
       const liveRegs = regs.filter((r) => r.status === 'approved' || r.status === 'pending');
-      const { charges: owed, offPlatform } = charges(
+      const owed = charges(
         liveRegs.map((r) => ({ ...r, fee: categoryFee(r.category, fee0) })),
         (x, y) => householdOf(x) === householdOf(y),
       );
       const statusOf = new Map(liveRegs.map((r) => [r.id, r.status]));
       const familyHalves = owed.filter((c) => c.asPartner).map((c) => ({
-        'Family head': profiles.get(householdOf(c.personId) ?? '')?.full_name ?? '', Person: profiles.get(c.personId)?.full_name ?? '',
-        Category: categoryLabel(c.category), Partner: profiles.get(c.partnerId ?? '')?.full_name ?? '', Amount: c.amount, Payment: c.paid ? 'paid' : 'unpaid', Status: statusOf.get(c.regId),
+        'Family head': c.offPlatform ? `${c.personName} (not on the platform)` : profiles.get(householdOf(c.personId) ?? '')?.full_name ?? '',
+        Person: c.personName ?? profiles.get(c.personId)?.full_name ?? '', Category: categoryLabel(c.category),
+        Partner: c.partnerId ? profiles.get(c.partnerId)?.full_name ?? '' : c.partnerName ?? '', Amount: c.amount, Payment: c.paid ? 'paid' : 'unpaid', Status: statusOf.get(c.regId),
       }));
-      const partnersOffPlatform = offPlatform.map((o) => ({
-        Partner: o.partnerName || 'Partner not named', Category: categoryLabel(o.category), 'Entered with': profiles.get(o.playerId)?.full_name ?? '',
-        'Their family': profiles.get(householdOf(o.playerId) ?? '')?.full_name ?? '', Amount: o.amount, Payment: o.paid ? 'paid' : 'unpaid', Status: statusOf.get(o.regId),
-      }));
-      return { headers: Object.keys(rows[0] ?? { '#': 0, Player: 0, Category: 0, Partner: 0, Status: 0, 'Fee due (QAR)': 0, Payment: 0 }), rows, familyHalves, partnersOffPlatform } as Table;
+      return { headers: Object.keys(rows[0] ?? { '#': 0, Player: 0, Category: 0, Partner: 0, Status: 0, 'Fee due (QAR)': 0, Payment: 0 }), rows, familyHalves } as Table;
     };
 
     const matchesTable = async () => {
@@ -180,9 +178,6 @@ export async function GET(req: NextRequest) {
       const halves = reg.familyHalves ?? [];
       const halvesSum = halves.reduce((a, h) => a + Number(h.Amount || 0), 0);
       const halvesPaid = halves.filter((h) => String(h.Payment).toLowerCase() === 'paid').reduce((a, h) => a + Number(h.Amount || 0), 0);
-      const offP = reg.partnersOffPlatform ?? [];
-      const offSum = offP.reduce((a, h) => a + Number(h.Amount || 0), 0);
-      const offPaid = offP.filter((h) => String(h.Payment).toLowerCase() === 'paid').reduce((a, h) => a + Number(h.Amount || 0), 0);
 
       const summary: (string | number)[][] = [
         [tournament.name],
@@ -196,11 +191,9 @@ export async function GET(req: NextRequest) {
         ['Withdrawn', count((r) => r.Status === 'withdrawn')],
         [],
         ['MONEY (QAR, excludes rejected and withdrawn)', ''],
-        ['Family bills (each family pays for its own people)', sum(live) + halvesSum],
-        ['Partners not on the platform (on no family bill)', offSum],
-        ['Grand total due', sum(live) + halvesSum + offSum],
-        ['Marked paid', sum(paid) + halvesPaid + offPaid],
-        ['Still to collect', sum(live) + halvesSum + offSum - sum(paid) - halvesPaid - offPaid],
+        ['Grand total due (every family, and everyone not on the platform)', sum(live) + halvesSum],
+        ['Marked paid', sum(paid) + halvesPaid],
+        ['Still to collect', sum(live) + halvesSum - sum(paid) - halvesPaid],
         [],
         ['ENTRIES PER CATEGORY', 'Entries'],
       ];
@@ -257,7 +250,6 @@ export async function GET(req: NextRequest) {
       }));
       halves.forEach((h) => billLines.push({ '#': billLines.length + 1, 'Family head': h['Family head'], Person: h.Person, Category: h.Category, 'Partner': h.Partner, 'Pays for': 'Own half of the pair (entered by their partner)', 'Amount (QAR)': Number(h.Amount), Payment: h.Payment || 'unpaid', Status: h.Status }));
       addSheet('Bill lines', tableSheet({ headers: ['#', 'Family head', 'Person', 'Category', 'Partner', 'Pays for', 'Amount (QAR)', 'Payment', 'Status'], rows: billLines }));
-      if (offP.length) addSheet('Partners not on platform', tableSheet({ headers: ['Partner', 'Category', 'Entered with', 'Their family', 'Amount', 'Payment', 'Status'], rows: offP }));
       // One bill per family: its lines (who plays what and what each line costs), then the family total
       const famBill: (string | number)[][] = [['FAMILY BILLS', '', '', '', '', '', ''], ['Family head', 'Person', 'Category', 'Partner', 'Pays for', 'Amount (QAR)', 'Payment'], []];
       const heads = Array.from(new Set(billLines.map((l) => String(l['Family head'])))).sort((a, b) => a.localeCompare(b));

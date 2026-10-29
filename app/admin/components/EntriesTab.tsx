@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTournamentStore } from '../../tournament/store';
-import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS, isDoublesCategory, sortCategories } from '@/lib/categories';
+import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS, categoryFee, isDoublesCategory, sortCategories } from '@/lib/categories';
 import { formatDateTime } from '@/lib/format';
 
 type Registration = {
@@ -114,6 +114,7 @@ export default function EntriesTab() {
   const { tournamentId, eventDate } = useTournamentStore();
   const [tournamentName, setTournamentName] = useState('');
   const [categories, setCategories] = useState<string[]>([]);
+  const [entryFee, setEntryFee] = useState(0);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -148,9 +149,9 @@ export default function EntriesTab() {
     if (!tournamentId) return;
     fetchRegistrations();
     fetch(`/api/tournament/eligibility?tournamentId=${tournamentId}`).then((r) => r.json()).then((d) => setIssues(d.issues ?? {})).catch(() => {});
-    createClient().from('tournaments').select('name, categories').eq('id', tournamentId).single()
+    createClient().from('tournaments').select('name, categories, entry_fee').eq('id', tournamentId).single()
       .then(({ data }) => {
-        if (data) { setTournamentName(data.name); setCategories(data.categories ?? []); }
+        if (data) { setTournamentName(data.name); setCategories(data.categories ?? []); setEntryFee(Number(data.entry_fee ?? 0)); }
       });
   }, [tournamentId]);
 
@@ -238,7 +239,8 @@ export default function EntriesTab() {
       manual_qid: addForm.qid.trim(),
       partner_name: addForm.partnerName.trim() || null,
       status: 'approved',
-      payment_status: 'waived',
+      // Nobody plays free: billed under their own name (they are not on the platform), like every other entry
+      payment_status: categoryFee(addForm.category, entryFee) > 0 ? 'unpaid' : 'waived',
     });
     if (error) alert(`Entry not added: ${error.message}`);
     if (!error) {
