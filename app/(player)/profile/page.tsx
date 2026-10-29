@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { qidTakenMessage } from '@/lib/qidCheck';
 import { IconEdit, IconLogout, IconUser } from '@/components/icons';
 import { formatDate } from '@/lib/format';
 import { CATEGORY_LABELS } from '@/lib/categories';
@@ -71,6 +72,7 @@ export default function ProfilePage() {
   const [qidEdit, setQidEdit] = useState<string | null>(null);
   const [qidDraft, setQidDraft] = useState('');
   const [qidMsg, setQidMsg] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [kidForm, setKidForm] = useState({ full_name: '', relationship: '', gender: '', dob: '' });
 
   useEffect(() => {
@@ -104,7 +106,7 @@ export default function ProfilePage() {
         const idList = ids.join(',');
         const { data: billRows } = await supabase
           .from('registrations')
-          .select('id, category, status, payment_status, player_id, partner_id, partner_name, tournaments ( name, entry_fee ), player_profiles!registrations_player_id_fkey ( full_name )')
+          .select('id, category, status, payment_status, partner_paid, player_id, partner_id, partner_name, tournaments ( name, entry_fee ), player_profiles!registrations_player_id_fkey ( full_name )')
           .or(`player_id.in.(${idList}),partner_id.in.(${idList})`);
         // Names of partners' entries (profiles of other families are private, so the server supplies just the entrant's name)
         const { names } = await fetch('/api/named-entries').then((r) => r.json()).catch(() => ({ names: {} }));
@@ -129,6 +131,13 @@ export default function ProfilePage() {
   async function saveProfile() {
     if (!profile) return;
     setSaving(true);
+    setSaveError('');
+    // One account per family: an account holder can't take a Qatar ID another account already has
+    const qid = form.qid.trim();
+    if (qid && qid !== (profile.qid ?? '')) {
+      const taken = await qidTakenMessage(qid);
+      if (taken) { setSaveError(taken); setSaving(false); return; }
+    }
     const { data, error } = await createClient()
       .from('player_profiles')
       .update({ full_name: form.full_name, mobile: form.mobile || null, qid: form.qid.trim() || null, dob: form.dob || null, samanvayam_id: form.sid.trim() || null })
@@ -374,9 +383,10 @@ export default function ProfilePage() {
                   </>
                 );
               })()}
+              {saveError && <p className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-xl">{saveError}</p>}
               <div className="flex gap-3 pt-1">
                 <button
-                  onClick={() => setEditing(false)}
+                  onClick={() => { setEditing(false); setSaveError(''); }}
                   className="flex-1 py-2.5 border border-stone-200 rounded-xl text-sm font-medium text-stone-500 hover:bg-stone-50 transition-colors"
                 >
                   Cancel

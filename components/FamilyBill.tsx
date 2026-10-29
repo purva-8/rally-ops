@@ -1,3 +1,4 @@
+import { charges } from '@/lib/billCharges';
 import { categoryFee, categoryLabel, isDoublesCategory } from '@/lib/categories';
 import Avatar from '@/components/Avatar';
 
@@ -10,34 +11,32 @@ export type BillRegistration = {
   player_id: string | null;
   partner_id: string | null;
   partner_name: string | null;
+  partner_paid?: boolean | null;
   tournaments: { name: string; entry_fee: number } | null;
   player_profiles: { full_name: string } | null;
 };
 
 type Line = { key: string; personId: string; label: string; note: string; amount: number; paid: boolean };
 
-// Turns registrations into per-person charges. A doubles fee is per pair (for example 30 + 30):
-// with a linked partner each person carries their own half.
+// Turns registrations into this family's charges, with the same rule as the organizers' bills (lib/billCharges):
+// each person pays for themselves, half a doubles fee per pair, once even when both partners entered.
 export function buildLines(people: BillPerson[], regs: BillRegistration[]): Line[] {
   const mine = new Set(people.map((p) => p.id));
-  const lines: Line[] = [];
-  for (const r of regs) {
-    if (r.status === 'rejected' || r.status === 'withdrawn') continue;
-    const fee = categoryFee(r.category, Number(r.tournaments?.entry_fee ?? 0));
-    if (fee <= 0 || r.payment_status === 'waived') continue;
-    const paid = r.payment_status === 'paid';
-    const label = categoryLabel(r.category);
-    if (isDoublesCategory(r.category) && (r.partner_id || r.partner_name) && r.player_id) {
-      const half = fee / 2;
-      if (mine.has(r.player_id)) lines.push({ key: r.id + 'a', personId: r.player_id, label, note: `with ${r.partner_name ?? 'partner'} · half of ${fee}`, amount: half, paid });
-      // A partner in this household who has no entry of their own is covered by this one
-      const partnerFiled = regs.some((o) => o.id !== r.id && o.player_id === r.partner_id && o.category === r.category && o.status !== 'withdrawn' && o.status !== 'rejected');
-      if (r.partner_id && mine.has(r.partner_id) && !partnerFiled) lines.push({ key: r.id + 'b', personId: r.partner_id, label, note: `with ${r.player_profiles?.full_name ?? 'partner'} · half of ${fee}`, amount: half, paid });
-    } else if (r.player_id && mine.has(r.player_id)) {
-      lines.push({ key: r.id, personId: r.player_id, label, note: '', amount: fee, paid });
-    }
-  }
-  return lines;
+  const byId = new Map(regs.map((r) => [r.id, r]));
+  const live = regs.filter((r) => r.status !== 'rejected' && r.status !== 'withdrawn');
+  const { charges: owed } = charges(
+    live.map((r) => ({ ...r, fee: categoryFee(r.category, Number(r.tournaments?.entry_fee ?? 0)) })),
+    (a, b) => mine.has(a) && mine.has(b),
+  );
+  return owed.filter((c) => mine.has(c.personId)).map((c, i) => {
+    const r = byId.get(c.regId)!;
+    const doubles = isDoublesCategory(c.category);
+    const partner = c.asPartner ? r.player_profiles?.full_name : r.partner_name;
+    return {
+      key: `${c.regId}-${c.personId}-${i}`, personId: c.personId, label: categoryLabel(c.category),
+      note: doubles ? `with ${partner ?? 'partner'} · half of ${c.amount * 2}` : '', amount: c.amount, paid: c.paid,
+    };
+  });
 }
 
 export default function FamilyBill({ people, regs }: { people: BillPerson[]; regs: BillRegistration[] }) {

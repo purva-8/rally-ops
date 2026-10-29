@@ -90,7 +90,7 @@ export default function MyEntriesPage() {
       const idList = list.map((p) => p.id).join(',');
       const { data: billData } = await supabase
         .from('registrations')
-        .select('id, category, status, payment_status, player_id, partner_id, partner_name, tournaments ( name, entry_fee ), player_profiles!registrations_player_id_fkey ( full_name )')
+        .select('id, category, status, payment_status, partner_paid, player_id, partner_id, partner_name, tournaments ( name, entry_fee ), player_profiles!registrations_player_id_fkey ( full_name )')
         .or(`player_id.in.(${idList}),partner_id.in.(${idList})`);
       // Names of partners' entries (profiles of other families are private, so the server supplies just the entrant's name)
       const { names } = await fetch('/api/named-entries').then((r) => r.json()).catch(() => ({ names: {} }));
@@ -165,10 +165,11 @@ export default function MyEntriesPage() {
           <div className="space-y-4">
             {people.map((person) => {
               const mine = entries.filter((e) => e.player_id === person.id);
-              // Doubles someone else entered naming this person as partner, with no entry of their own: billed to them, so shown here too
+              // Doubles someone else entered naming this person as partner, when this person has no entry of their own for that
+              // same pair: billed to them, so shown here too (a parent can be in Parent + Child with two children)
               const live = (r: BillRegistration) => r.status !== 'withdrawn' && r.status !== 'rejected';
               const named = billRegs.filter((r) => r.partner_id === person.id && r.player_id !== person.id && live(r)
-                && !billRegs.some((o) => o.player_id === person.id && o.category === r.category && live(o)));
+                && !billRegs.some((o) => o.player_id === person.id && o.category === r.category && o.partner_id === r.player_id && live(o)));
               if (mine.length === 0 && named.length === 0) return null;
               // Same numbers as the family bill on the profile: each person's own share (doubles are halved)
               const due = buildLines(people.map((p) => ({ id: p.id, name: p.name, gender: p.gender ?? null })), billRegs)

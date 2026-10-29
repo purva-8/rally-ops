@@ -19,6 +19,7 @@ class Query {
   delete() { this.op = 'delete'; return this; }
   eq(c: string, v: any) { this.filters.push((r) => r[c] === v); return this; }
   in(c: string, vs: any[]) { this.filters.push((r) => vs.includes(r[c])); return this; }
+  is(c: string, v: any) { this.filters.push((r) => (r[c] ?? null) === v); return this; }
   order() { return this; }
   limit(n: number) { this.max = n; return this; }
   maybeSingle() { this.mode = 'maybe'; return this; }
@@ -49,6 +50,13 @@ class Query {
   }
 }
 
-const client = { from: (t: string) => new Query(t), auth: { getUser: async () => ({ data: { user: session.user } }) } };
+export const authUsers: Record<string, string> = {};
+const client = {
+  from: (t: string) => new Query(t),
+  auth: {
+    getUser: async () => ({ data: { user: session.user } }),
+    admin: { getUserById: async (id: string) => ({ data: { user: authUsers[id] ? { id, email: authUsers[id] } : null } }) },
+  },
+};
 export async function createClient() { return client; }
 export function createAdminClient() { return client; }
