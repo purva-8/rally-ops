@@ -36,8 +36,9 @@ test('everyone who plays is billed: a partner not on the platform pays their hal
   const c = charges([reg('a', 'dad', 'male_doubles_18plus', null, 'Ravi K'), reg('b', 'dad', 'spouse_doubles_open', null, ''), reg('c', 'gopi', 'male_doubles_18plus', null, ' ravi  k ')], same);
   const by: Record<string, number> = {};
   for (const x of c) by[x.personId] = (by[x.personId] ?? 0) + x.amount;
-  // Ravi K is named in two pairs of one category (with dad and with gopi): one bill of his own, charged once
-  assert.deepEqual(by, { dad: 60, gopi: 30, 'name:ravi k': 30, 'name:partner not named': 30 });
+  // Ravi K is named in two pairs of one category (with dad and with gopi): one bill of his own, charged once.
+  // An entry with no partner at all charges only the player
+  assert.deepEqual(by, { dad: 60, gopi: 30, 'name:ravi k': 30 });
   assert.ok(c.filter((x) => x.personId.startsWith('name:')).every((x) => x.offPlatform && x.asPartner));
 });
 

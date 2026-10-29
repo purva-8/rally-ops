@@ -18,7 +18,7 @@ export type Charge = {
 };
 
 const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
-export const offPlatformId = (name: string | null | undefined) => `name:${norm(name) || 'partner not named'}`;
+export const offPlatformId = (name: string | null | undefined) => `name:${norm(name)}`;
 export const isOffPlatform = (personId: string) => personId.startsWith('name:');
 
 export function charges(regs: ChargeReg[], sameFamily: (a: string, b: string) => boolean) {
@@ -40,10 +40,11 @@ export function charges(regs: ChargeReg[], sameFamily: (a: string, b: string) =>
     });
   }
   for (const r of live) {
-    if (!isDoublesCategory(r.category)) continue;
+    // No partner yet (none linked, none named): only the player is charged until one is added
+    if (!isDoublesCategory(r.category) || (!r.partner_id && !r.partner_name?.trim())) continue;
     const partner = partnerOf(r);
     add(`${r.category}|${partner}`, {
-      regId: r.id, personId: partner, personName: r.partner_id ? null : (r.partner_name ?? '').trim() || 'Partner not named', category: r.category,
+      regId: r.id, personId: partner, personName: r.partner_id ? null : (r.partner_name ?? '').trim(), category: r.category,
       partnerId: r.player_id, partnerName: r.player_id ? null : (r.manual_name ?? '').trim(), amount: r.fee / 2,
       // Halves within one family used to be paid together with the entry
       paid: !!r.partner_paid || (!!r.partner_id && !!r.player_id && sameFamily(r.player_id, r.partner_id) && r.payment_status === 'paid'),
