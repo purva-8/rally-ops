@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../tournament/types';
 import type { Category, Match } from '../../tournament/types';
-import { isDoublesCategory, sortCategories } from '@/lib/categories';
+import { entryLabel, isDoublesCategory, sortCategories } from '@/lib/categories';
 import { undoResult } from './undo';
+import MatchMaker from './MatchMaker';
 
 
 export default function BracketsTab() {
@@ -21,6 +22,12 @@ export default function BracketsTab() {
   const categories: Category[] = selectedCategories.length > 0 ? sortCategories(selectedCategories) : ['male_singles', 'female_singles', 'male_doubles', 'female_doubles', 'spouse_doubles'];
 
   const hasMatches = selectedCat ? matches.some((m) => m.category === selectedCat) : false;
+  // Every entry, by category, under the name matches use ("A / B" for a doubles pair)
+  const names = useMemo(() => {
+    const byCat = new Map<string, { id: string; label: string }[]>();
+    for (const p of participants) for (const c of p.categories) byCat.set(c, [...(byCat.get(c) ?? []), { id: p.id, label: entryLabel(p.fullName, p.partnerName, c) }]);
+    return byCat;
+  }, [participants]);
   const displayMatches = selectedCat ? matches.filter((m) => m.category === selectedCat) : [];
 
   const reload = async () => {
@@ -108,7 +115,7 @@ export default function BracketsTab() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-bold text-stone-900">Tournament Brackets</h2>
-          <p className="text-stone-400 text-sm">{matches.length} matches. Make new ones on the Score desk (Match maker).</p>
+          <p className="text-stone-400 text-sm">{matches.length} matches. Pick a category to make its first matches as players arrive; winners are paired up on the Score desk.</p>
         </div>
       </div>
 
@@ -167,11 +174,9 @@ export default function BracketsTab() {
         </div>
       )}
 
-      {selectedCat && !hasMatches && (
-        <div className="text-center py-10 px-4 text-stone-500 bg-white rounded-xl border border-stone-200 text-sm">
-          No matches in this category yet. Rounds are no longer drawn ahead: make matches as players arrive with the
-          <b> Match maker</b> on the <b>Score desk</b> tab.
-        </div>
+      {selectedCat && tournamentId && (
+        <MatchMaker mode="first" category={selectedCat} tournamentId={tournamentId} names={names} matches={matches}
+          onMade={async (msg) => { setNote({ ok: true, text: msg }); await reload(); }} />
       )}
 
       {selectedCat && hasMatches && (

@@ -9,8 +9,8 @@ import { matchResult, winnerSide } from '@/lib/bracket';
 import { undoResult } from './undo';
 import MatchMaker from './MatchMaker';
 
-// Results come in on paper; one person types them in here as each match ends. The server picks the winner.
-// Matches are made here as players arrive (Match maker); nothing is drawn ahead.
+// Scores come in from the coaches; one person types them in here as each match ends. The server picks the winner.
+// First matches are made in Brackets; winners are paired up for their next match here. Nothing is drawn ahead.
 export default function ScoreDeskTab() {
   const { matches, participants, tournamentId, loadMatches } = useTournamentStore();
   const [cat, setCat] = useState<Category | 'all'>('all');
@@ -69,7 +69,7 @@ export default function ScoreDeskTab() {
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <h2 className="text-lg font-bold text-stone-900">Score desk</h2>
-          <p className="text-stone-400 text-sm">Make matches as players arrive, then type in each scoresheet as it comes back.</p>
+          <p className="text-stone-400 text-sm">Type in each score as the coach reports it, then pair up the winners for their next match. First matches are made in Brackets.</p>
         </div>
         <a href="/leaderboard" target="_blank" rel="noreferrer"
           className="text-xs font-semibold text-orange-600 hover:text-orange-700 border border-orange-200 rounded-lg px-3 py-2">
@@ -89,10 +89,10 @@ export default function ScoreDeskTab() {
 
       {note && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 font-medium">{note}</div>}
 
-      <MatchMaker tournamentId={tournamentId} names={names} matches={matches} onMade={saved} />
+      <MatchMaker mode="winners" tournamentId={tournamentId} names={names} matches={matches} onMade={saved} />
 
       {matches.length === 0 && (
-        <p className="text-sm text-stone-400 mb-6">No matches yet. Make them with the Match maker as players arrive.</p>
+        <p className="text-sm text-stone-400 mb-6">No matches yet. Make first matches in the Brackets tab as players arrive.</p>
       )}
 
       <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">To enter ({ready.length})</h3>
