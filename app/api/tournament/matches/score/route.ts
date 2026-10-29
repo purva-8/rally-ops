@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { matchResult, impossibleGame, nextRoundFor, nextSlotOf, validSets, winnerSide } from '@/lib/bracket';
-import { insertMatches, toClientMatches } from '@/lib/matchRows';
+import { matchResult, impossibleGame, validSets, winnerSide } from '@/lib/bracket';
+import { toClientMatches } from '@/lib/matchRows';
 import { isEventOrganizer } from '@/lib/organizer';
 
 // Saves a match's court, referee, sets and status. Only organizers and co-organizers may call it: scores
-// come in on paper and are typed in on the admin Score desk. The winner is worked out here from the sets, never taken from the browser, and
-// when the last match of a round finishes the next round is created here so every device sees it.
-// Organizers (not coaches) may also save a score that isn't a standard 21-point result (`override`:
-// whoever won more games wins) and correct a result after the next round exists, as long as the
-// next-round match it feeds hasn't started; the new winner then takes the old winner's place there.
+// come in on paper and are typed in on the admin Score desk. The winner is worked out here from the sets, never taken
+// from the browser. Next matches are not drawn here: they are made on the spot as players arrive (Match maker).
+// Organizers may also save a score that isn't a standard 21-point result (`override`: whoever won more games wins)
+// and correct a result after the winner has a later match, as long as that match hasn't started; the new winner
+// then takes the old winner's place there.
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const body = await req.json().catch(() => ({}));
@@ -42,7 +42,6 @@ export async function POST(req: NextRequest) {
 
     const { data: catMatches } = await admin.from('matches').select('*')
       .eq('tournament_id', match.tournament_id).eq('category', match.category);
-    const nextRoundExists = (catMatches ?? []).some((m) => m.round === match.round + 1);
 
     if (match.status === 'completed') {
       if (status && status !== 'completed') return NextResponse.json({ error: 'This match is already finished' }, { status: 409 });
@@ -85,36 +84,28 @@ export async function POST(req: NextRequest) {
       if (match.status !== 'completed') updates.completed_at = new Date().toISOString();
     }
 
-    // A corrected winner moves into the next-round match in place of the old one, if that match hasn't started.
-    // A bye in between (a round with an odd number of winners) passes the new winner straight on.
+    // A corrected winner takes the old winner's place in their later matches in this category, if those haven't
+    // started. A bye (an odd winner out in an old drawn bracket) passes the new winner straight on.
     const slotFixes: { id: string; values: Record<string, unknown> }[] = [];
     const winnerChanged = match.status === 'completed' && 'winner_name' in updates
       && ((updates.winner_id ?? null) !== (match.winner_id ?? null) || updates.winner_name !== match.winner_name);
-    if (winnerChanged && nextRoundExists) {
+    if (winnerChanged && match.winner_name) {
       const who = { id: updates.winner_id ?? null, name: updates.winner_name };
-      let from: string = matchId;
-      for (;;) {
-        const slot = nextSlotOf(catMatches ?? [], from);
-        if (!slot) {
-          if (!slotFixes.length) return NextResponse.json({ error: 'Could not find the next-round match for this result' }, { status: 409 });
-          break;
-        }
-        if (!slot.next.player2_id && !slot.next.player2_name) {
-          slotFixes.push({ id: slot.next.id, values: { player1_id: who.id, player1_name: who.name, winner_id: who.id, winner_name: who.name } });
-          from = slot.next.id;
+      const later = (catMatches ?? []).filter((m) => m.id !== matchId && m.round > match.round
+        && (m.player1_name === match.winner_name || m.player2_name === match.winner_name));
+      for (const m of later) {
+        const side = m.player1_name === match.winner_name ? 1 : 2;
+        if (!m.player2_id && !m.player2_name) {
+          slotFixes.push({ id: m.id, values: { player1_id: who.id, player1_name: who.name, winner_id: who.id, winner_name: who.name } });
           continue;
         }
-        const { data: nextSets } = await admin.from('match_sets').select('id').eq('match_id', slot.next.id);
-        if (slot.next.status !== 'upcoming' || nextSets?.length) {
+        const { data: nextSets } = await admin.from('match_sets').select('id').eq('match_id', m.id);
+        if (m.status !== 'upcoming' || nextSets?.length) {
           return NextResponse.json({
-            error: `${slot.next.player1_name} vs ${slot.next.player2_name} in a later round has already started or finished. Correct that match first.`,
+            error: `${m.player1_name} vs ${m.player2_name} has already started or finished. Correct that match first.`,
           }, { status: 409 });
         }
-        slotFixes.push({
-          id: slot.next.id,
-          values: slot.side === 1 ? { player1_id: who.id, player1_name: who.name } : { player2_id: who.id, player2_name: who.name },
-        });
-        break;
+        slotFixes.push({ id: m.id, values: side === 1 ? { player1_id: who.id, player1_name: who.name } : { player2_id: who.id, player2_name: who.name } });
       }
     }
 
@@ -156,33 +147,6 @@ export async function POST(req: NextRequest) {
         .eq('tournament_id', match.tournament_id).eq('category', match.category);
       const fixed = new Set(slotFixes.map((f) => f.id));
       nextMatches = toClientMatches(all ?? [], []).filter((m) => fixed.has(m.id));
-    } else if (updated.status === 'completed') {
-      const fresh = (catMatches ?? []).map((m) => (m.id === matchId ? updated : m));
-      const pairs = nextRoundFor(fresh, match.round);
-      if (pairs) {
-        const { error } = await insertMatches(admin, pairs.map((p) => ({
-          tournament_id: match.tournament_id,
-          category: match.category,
-          round: match.round + 1,
-          position: p.position,
-          player1_id: p.player1Id,
-          player1_name: p.player1Name,
-          player2_id: p.player2Id,
-          player2_name: p.bye ? null : p.player2Name,
-          // An odd winner out waits for the next round: a bye, already through
-          ...(p.bye
-            ? { status: 'completed', winner_id: p.player1Id, winner_name: p.player1Name, completed_at: new Date().toISOString() }
-            : { status: 'upcoming' }),
-        })), 'id');
-        // 23505: another device finishing the same round at the same moment already created it
-        if (error && error.code !== '23505') {
-          console.error('next round insert failed', error);
-          return NextResponse.json({ error: 'Result saved, but the next round could not be created. Reload and try again.' }, { status: 500 });
-        }
-        const { data: all } = await admin.from('matches').select('*')
-          .eq('tournament_id', match.tournament_id).eq('category', match.category);
-        nextMatches = toClientMatches(all ?? [], []).filter((m) => m.round === match.round + 1);
-      }
     }
 
     const { data: savedSets } = await admin.from('match_sets').select('*').eq('match_id', matchId);

@@ -9,6 +9,7 @@ export default function ParticipantsTab() {
   const { participants, deleteParticipant, updateParticipant } = useTournamentStore();
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState<Category | ''>('');
+  const [sort, setSort] = useState<'az' | 'za' | 'newest' | 'oldest'>('az');
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
 
@@ -17,7 +18,8 @@ export default function ParticipantsTab() {
       p.email.toLowerCase().includes(search.toLowerCase()) || p.mobile.includes(search);
     const matchCat = !filterCat || p.categories.includes(filterCat);
     return matchSearch && matchCat;
-  });
+  }).sort((a, b) => sort === 'az' ? a.fullName.localeCompare(b.fullName) : sort === 'za' ? b.fullName.localeCompare(a.fullName)
+    : sort === 'newest' ? (b.registeredAt ?? '').localeCompare(a.registeredAt ?? '') : (a.registeredAt ?? '').localeCompare(b.registeredAt ?? ''));
 
   return (
     <div>
@@ -43,6 +45,10 @@ export default function ParticipantsTab() {
           {(Object.keys(CATEGORY_LABELS) as Category[]).map((cat) => (
             <option key={cat} value={cat}>{CATEGORY_LABELS[cat]}</option>
           ))}
+        </select>
+        <select value={sort} onChange={(e) => setSort(e.target.value as 'az' | 'za' | 'newest' | 'oldest')} aria-label="Sort"
+          className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500">
+          <option value="az">Name A–Z</option><option value="za">Name Z–A</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option>
         </select>
       </div>
 

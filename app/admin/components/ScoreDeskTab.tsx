@@ -7,9 +7,10 @@ import type { Category, Match } from '../../tournament/types';
 import { entryLabel, sortCategories } from '@/lib/categories';
 import { matchResult, winnerSide } from '@/lib/bracket';
 import { undoResult } from './undo';
+import MatchMaker from './MatchMaker';
 
-// Results come in on paper; one person types them in here as each match ends.
-// Every save goes to the server, which picks the winner and draws the next round.
+// Results come in on paper; one person types them in here as each match ends. The server picks the winner.
+// Matches are made here as players arrive (Match maker); nothing is drawn ahead.
 export default function ScoreDeskTab() {
   const { matches, participants, tournamentId, loadMatches } = useTournamentStore();
   const [cat, setCat] = useState<Category | 'all'>('all');
@@ -68,7 +69,7 @@ export default function ScoreDeskTab() {
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <h2 className="text-lg font-bold text-stone-900">Score desk</h2>
-          <p className="text-stone-400 text-sm">Type in each scoresheet as it comes back. The next round is drawn by itself.</p>
+          <p className="text-stone-400 text-sm">Make matches as players arrive, then type in each scoresheet as it comes back.</p>
         </div>
         <a href="/leaderboard" target="_blank" rel="noreferrer"
           className="text-xs font-semibold text-orange-600 hover:text-orange-700 border border-orange-200 rounded-lg px-3 py-2">
@@ -88,8 +89,10 @@ export default function ScoreDeskTab() {
 
       {note && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 font-medium">{note}</div>}
 
+      <MatchMaker tournamentId={tournamentId} names={names} matches={matches} onMade={saved} />
+
       {matches.length === 0 && (
-        <p className="text-sm text-stone-400 mb-6">No draws yet. Make them in the Brackets tab first.</p>
+        <p className="text-sm text-stone-400 mb-6">No matches yet. Make them with the Match maker as players arrive.</p>
       )}
 
       <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">To enter ({ready.length})</h3>
@@ -126,6 +129,7 @@ function DeskRow({ match, names, onSaved }: {
   names: { id: string; label: string }[];
   onSaved: (msg: string) => Promise<void>;
 }) {
+  const tournamentId = useTournamentStore((s) => s.tournamentId);
   const finished = match.status === 'completed';
   const fromMatch = (): Games => [0, 1, 2].map((i) => {
     const s = match.sets[i];
@@ -177,9 +181,7 @@ function DeskRow({ match, names, onSaved }: {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setError(data.error ?? `Not saved (${res.status})`); return; }
       const winner = data.match?.winnerName ?? '';
-      const next = (data.nextMatches ?? []) as Match[];
-      const drawn = !finished && next.length ? ` ${next[0].roundName}${next.length > 1 ? 's' : ''} drawn for ${CATEGORY_LABELS[match.category] ?? match.category}.` : '';
-      await onSaved(`${finished ? 'Corrected' : 'Saved'}: ${winner} won ${match.roundName.toLowerCase()} (${scoreText(sets)}).${drawn}`);
+      await onSaved(`${finished ? 'Corrected' : 'Saved'}: ${winner} won ${match.roundName.toLowerCase()} (${scoreText(sets)}).`);
       if (finished) setOpen(false);
     } catch {
       setError('No connection. Not saved; try again.');
@@ -218,7 +220,21 @@ function DeskRow({ match, names, onSaved }: {
           </>
         )}
         {!finished && !editPlayers && (
-          <button onClick={() => setEditPlayers(true)} className="ml-auto text-xs text-stone-400 hover:text-stone-700 underline">Change players</button>
+          <span className="ml-auto flex gap-3">
+            <button onClick={() => setEditPlayers(true)} className="text-xs text-stone-400 hover:text-stone-700 underline">Change players</button>
+            {match.sets.length === 0 && match.status === 'upcoming' && (
+              <button disabled={busy} onClick={async () => {
+                if (!confirm(`Take back ${match.player1Name} vs ${match.player2Name}? Both can be put in another match.`)) return;
+                setError(null); setBusy(true);
+                const res = await fetch('/api/tournament/matches/quick', { method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ tournamentId, matchId: match.id }) }).catch(() => null);
+                const d = await res?.json().catch(() => ({})) ?? {};
+                setBusy(false);
+                if (!res?.ok) setError(d.error ?? 'No connection. Not removed.');
+                else await onSaved(`Taken back: ${match.player1Name} vs ${match.player2Name}`);
+              }} className="text-xs text-red-500 hover:text-red-700 underline disabled:opacity-50">Take back</button>
+            )}
+          </span>
         )}
       </div>
 

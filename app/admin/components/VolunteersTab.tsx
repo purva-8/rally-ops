@@ -11,6 +11,8 @@ export default function VolunteersTab() {
   const [copied, setCopied] = useState(false);
   const [view, setView] = useState<'all' | 'volunteers' | 'remarks' | 'solved'>('all');
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<'list' | 'az' | 'za'>('list');
 
   useEffect(() => {
     if (!tournamentId) return;
@@ -19,7 +21,11 @@ export default function VolunteersTab() {
 
   const wa = (m: string) => `https://wa.me/${m.replace(/\D/g, '')}`;
   const open = (v: Vol) => v.remarks.length > 0 && !v.solved;
-  const shown = list.filter((v) => view === 'all' ? true : view === 'volunteers' ? v.volunteer : view === 'remarks' ? open(v) : v.solved);
+  const q = search.trim().toLowerCase();
+  const shown = list
+    .filter((v) => view === 'all' ? true : view === 'volunteers' ? v.volunteer : view === 'remarks' ? open(v) : v.solved)
+    .filter((v) => !q || [v.name, v.mobile, v.familyHead, ...(v.family ?? []), ...v.remarks].some((x) => x?.toLowerCase().includes(q)))
+    .sort((a, b) => (sort === 'az' ? a.name.localeCompare(b.name) : sort === 'za' ? b.name.localeCompare(a.name) : 0));
   async function setSolved(v: Vol, solved: boolean) {
     setBusyKey(v.key);
     const r = await fetch('/api/tournament/volunteers', {
@@ -54,8 +60,20 @@ export default function VolunteersTab() {
             className={`px-4 py-2 rounded-xl text-sm font-medium flex-1 transition-colors ${view === k ? 'bg-orange-600 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-50'}`}>{label}</button>
         ))}
       </div>
+      {list.length > 0 && (
+        <div className="mb-3 flex items-center gap-2 flex-wrap">
+          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, mobile, family or remark"
+            className="flex-1 min-w-[200px] px-3 py-2 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:border-orange-400" />
+          <select value={sort} onChange={(e) => setSort(e.target.value as 'list' | 'az' | 'za')} aria-label="Sort"
+            className="px-3 py-2 border border-stone-200 rounded-lg text-sm bg-white text-stone-700">
+            <option value="list">As registered</option><option value="az">Name A–Z</option><option value="za">Name Z–A</option>
+          </select>
+          {q && <span className="text-xs text-stone-400">{shown.length} of {list.length}</span>}
+        </div>
+      )}
       {loading && <p className="text-sm text-stone-400">Loading...</p>}
       {!loading && list.length === 0 && <p className="text-sm text-stone-400">Nothing here yet.</p>}
+      {!loading && list.length > 0 && shown.length === 0 && <p className="text-sm text-stone-400">Nobody matches.</p>}
       <div className="space-y-2">
         {shown.map((v, i) => (
           <div key={i} className="bg-white rounded-xl border border-stone-200 p-4 flex flex-wrap items-center gap-3">

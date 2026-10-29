@@ -16,6 +16,7 @@ export default function PairsTab() {
   const [pick, setPick] = useState<Record<string, string>>({});
   const [note, setNote] = useState('');
   const [ov, setOv] = useState<Overview | null>(null);
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     if (!tournamentId) return;
@@ -53,7 +54,9 @@ export default function PairsTab() {
     if (r.ok) await load();
   }
 
-  const cats = Array.from(new Set(entries.map((e) => e.categoryLabel)));
+  const q = search.trim().toLowerCase();
+  const matching = entries.filter((e) => !q || [e.name, e.mobile, e.says, e.categoryLabel].some((x) => x?.toLowerCase().includes(q)));
+  const cats = Array.from(new Set(matching.map((e) => e.categoryLabel)));
 
   return (
     <div>
@@ -114,12 +117,19 @@ export default function PairsTab() {
       {note && <p className="text-sm bg-green-50 border border-green-200 text-green-800 rounded-lg px-3 py-2 mb-3">{note}</p>}
       {loading && <p className="text-sm text-stone-400">Loading...</p>}
       {!loading && entries.length === 0 && <p className="text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg px-3 py-3">Everyone in doubles is paired.</p>}
+      {entries.length > 0 && (
+        <div className="mb-4 flex items-center gap-2">
+          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, mobile, partner or category"
+            className="flex-1 px-3 py-2 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:border-orange-400" />
+          {q && <span className="text-xs text-stone-400 shrink-0">{matching.length} of {entries.length}</span>}
+        </div>
+      )}
 
       {cats.map((c) => (
         <div key={c} className="mb-6">
           <h3 className="text-sm font-bold text-stone-700 mb-2">{c}</h3>
           <div className="space-y-2">
-            {entries.filter((e) => e.categoryLabel === c).map((e) => {
+            {matching.filter((e) => e.categoryLabel === c).map((e) => {
               const chosen = pick[e.id] ?? e.suggestion ?? '';
               return (
                 <div key={e.id} className="bg-white rounded-xl border border-stone-200 p-3 flex flex-wrap items-center gap-3">
