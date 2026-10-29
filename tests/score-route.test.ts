@@ -60,7 +60,7 @@ test('coaches cannot score (only organizers, on the Score desk); a referee staff
 });
 
 test('the server picks the winner from the sets, ignoring a winner sent by the browser', async () => {
-  const r = await call(ORG, { matchId: 'm3', sets: [set(15, 21), set(21, 19), set(12, 15)], status: 'completed', winnerId: 'd', winnerName: 'D' });
+  const r = await call(ORG, { matchId: 'm3', sets: [set(15, 21), set(21, 19), set(12, 21)], status: 'completed', winnerId: 'd', winnerName: 'D' });
   assert.equal(r.status, 200);
   assert.equal(r.body.match.winnerId, 'e');
   assert.equal(db.matches.find((x) => x.id === 'm3')!.winner_name, 'E');
@@ -71,7 +71,7 @@ test('level games, unfinished games and impossible scores cannot complete a matc
   assert.equal(r.status, 400);
   assert.equal((await call(ORG, { matchId: 'm3', sets: [set(21, 19)], status: 'completed' })).status, 400);
   assert.equal((await call(ORG, { matchId: 'm3', sets: [set(20, 18), set(21, 3)], status: 'completed' })).status, 400);
-  assert.equal((await call(ORG, { matchId: 'm3', sets: [set(21, 10), set(10, 21), set(21, 3)], status: 'completed' })).status, 400); // game 3 is to 15
+  assert.equal((await call(ORG, { matchId: 'm3', sets: [set(21, 10), set(10, 21), set(15, 3)], status: 'completed' })).status, 400); // game 3 is to 21
   assert.equal((await call(ORG, { matchId: 'm3', sets: [set(25, 3)], status: 'in_progress' })).status, 400);
   assert.equal(db.matches.find((x) => x.id === 'm3')!.status, 'upcoming');
 });
