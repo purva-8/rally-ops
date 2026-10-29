@@ -42,11 +42,10 @@ export function winnerSide(sets: SetScore[]): 1 | 2 | null {
   return null;
 }
 
-// Tournament scoring, set by the organizers for every category: best of 3 games, games 1 and 2 to 21 and
-// game 3 (only played at one game all) to 15. First to reach the target wins the game: no 2-point lead,
-// so 21-20 and 15-14 are finished games.
-export function gameTarget(gameIndex: number) {
-  return gameIndex >= 2 ? 15 : 21;
+// Tournament scoring, set by the organizers for every category: best of 3 games, every game to 21 (game 3 is
+// only played at one game all). First to reach 21 wins the game: no 2-point lead, so 21-20 is a finished game.
+export function gameTarget(_gameIndex: number) { // eslint-disable-line @typescript-eslint/no-unused-vars
+  return 21;
 }
 
 // The side that won game `gameIndex` (0-based), or null while it is still being played

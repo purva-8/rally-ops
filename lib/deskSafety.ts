@@ -24,13 +24,14 @@ export function clearDraft(matchId: string) {
   try { localStorage.removeItem(key(matchId)); } catch { /* nothing to clear */ }
 }
 
-// fetch that tries again (up to 3 times, 1s then 2s apart) when the network drops or the server is briefly down.
-// Only for requests that are safe to repeat: saving the same score twice gives the same result.
+// fetch that tries again (up to 3 times, 1s then 2s apart) when the network drops, a try hangs for 15s (a stalled
+// hotspot) or the server is briefly down. Only for requests that are safe to repeat: the server accepts the same
+// score sent twice as one save.
 export async function fetchRetry(url: string, init: RequestInit, tries = 3): Promise<Response> {
   let last: unknown;
   for (let i = 0; i < tries; i++) {
     try {
-      const res = await fetch(url, init);
+      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(15000) });
       if (![502, 503, 504].includes(res.status) || i === tries - 1) return res;
     } catch (err) {
       last = err;

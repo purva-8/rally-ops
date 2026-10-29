@@ -51,6 +51,16 @@ test('two desks: a save based on an old view is refused, nothing is overwritten,
   assert.equal((await call(score, { matchId: 'm1', sets: A_WINS, status: 'completed', expected: { status: 'completed', sets: B_WINS } })).status, 200);
 });
 
+test('the same save sent twice (reply lost on a weak connection) is accepted once, not called a clash', async () => {
+  const save = { matchId: 'm1', sets: A_WINS, status: 'completed', expected: { status: 'upcoming', sets: [] } };
+  assert.equal((await call(score, save)).status, 200);
+  const again = await call(score, save);
+  assert.equal(again.status, 200);
+  assert.equal(again.body.alreadySaved, true);
+  assert.equal(again.body.match.winnerName, 'A');
+  assert.equal((await log()).filter((e) => e.action === 'score').length, 1, 'one history entry, not two');
+});
+
 test('every change is in the history, and only organizers can see it', async () => {
   await call(score, { matchId: 'm1', sets: A_WINS, status: 'completed' });
   await call(reset, { matchId: 'm1' });
