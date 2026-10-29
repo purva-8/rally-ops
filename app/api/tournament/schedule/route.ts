@@ -10,7 +10,7 @@ import { validSlot, type Slot } from '@/lib/schedule';
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { tournamentId, schedule } = (await req.json().catch(() => ({}))) as
-    { tournamentId?: string; schedule?: { minutesPerMatch?: unknown; assign?: Record<string, unknown> } };
+    { tournamentId?: string; schedule?: { minutesPerMatch?: unknown; firstDayRound1?: unknown; assign?: Record<string, unknown> } };
   const minutes = schedule?.minutesPerMatch;
   if (!tournamentId || !schedule || !Number.isInteger(minutes) || (minutes as number) < 5 || (minutes as number) > 60
     || !schedule.assign || typeof schedule.assign !== 'object') {
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     if (!t || !(await isEventOrganizer(admin, tournamentId, user.id, t.created_by))) {
       return NextResponse.json({ error: 'Only organizers can change the schedule' }, { status: 403 });
     }
-    const { error } = await admin.from('tournaments').update({ schedule: { minutesPerMatch: minutes, assign } }).eq('id', tournamentId);
+    const { error } = await admin.from('tournaments').update({ schedule: { minutesPerMatch: minutes, firstDayRound1: schedule.firstDayRound1 !== false, assign } }).eq('id', tournamentId);
     if (error) {
       console.error('schedule save failed', error);
       const missing = /schedule/.test(error.message ?? '');
