@@ -157,8 +157,8 @@ export const useTournamentStore = create<TournamentState & Actions & { _hasHydra
           .filter((p): p is Participant => !!p);
         if (catPlayers.length < 2) return;
 
-        const size = Math.pow(2, Math.ceil(Math.log2(catPlayers.length)));
-        const totalRounds = Math.log2(size);
+        // Rounds halve (an odd one out waits a round), so n entries take ceil(log2 n) rounds
+        const totalRounds = Math.ceil(Math.log2(catPlayers.length));
         const roundName = getRoundName(0, totalRounds - 1);
 
         const byePlayers = catPlayers.filter((p) => byeSet.has(p.id));

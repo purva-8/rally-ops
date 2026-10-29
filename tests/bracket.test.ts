@@ -2,7 +2,7 @@
 // Expected values are worked out by hand here, not computed with the code under test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gameWinner, impossibleGame, matchResult, totalRoundsFor, roundLabel, winnerSide, nextRoundFor, validSets, bracketOrder, type BracketMatch } from '../lib/bracket.ts';
+import { gameWinner, impossibleGame, matchResult, totalRoundsFor, roundLabel, winnerSide, nextRoundFor, validSets, bracketOrder, firstRoundByes, type BracketMatch } from '../lib/bracket.ts';
 
 test('round names come from the bracket size, not from rounds that exist so far', () => {
   // 8 entrants -> 4 first-round slots -> 3 rounds: QF, SF, F
@@ -64,56 +64,68 @@ test('old rows without a position fall back to creation time then id', () => {
   assert.deepEqual([c, b, a].sort(bracketOrder).map((m) => m.id), ['b', 'a', 'c']);
 });
 
-// Full knockout simulation for every entrant count the event could plausibly have.
-// The first round is laid out the way the store builds it: byes first, then pairs.
-test('every draw from 2 to 40 entrants ends with exactly one champion and nobody lost or duplicated', () => {
-  for (let n = 2; n <= 40; n++) {
-    let size = 1;
-    while (size < n) size *= 2; // hand rule: smallest power of two >= n
-    const byes = size - n;
-    const players = Array.from({ length: n }, (_, i) => `p${i}`);
-    const ms: BracketMatch[] = [];
-    let pos = 0;
-    for (let i = 0; i < byes; i++) ms.push({ id: `r0-${pos}`, round: 0, position: pos++, status: 'completed', winner_id: players[i], winner_name: players[i] });
-    const active = players.slice(byes);
-    assert.equal(active.length % 2, 0, `n=${n}: odd number left after byes`);
-    const entrants = new Map<string, string[]>();
-    for (let i = 0; i < active.length; i += 2) {
-      const id = `r0-${pos}`;
-      entrants.set(id, [active[i], active[i + 1]]);
-      ms.push({ id, round: 0, position: pos++, status: 'upcoming' });
+// Full knockout simulation for every entrant count the event could plausibly have, the way the organizers
+// run it: round 1 pairs everyone (one bye if the count is odd, laid out first like the store does), and in any
+// later round with an odd number of winners the last one waits a round.
+function simulate(n: number) {
+  const players = Array.from({ length: n }, (_, i) => `p${i}`);
+  const byes = firstRoundByes(n);
+  const ms: BracketMatch[] = [];
+  const entrants = new Map<string, [string, string | null]>();
+  let pos = 0;
+  for (let i = 0; i < byes; i++) ms.push({ id: `r0-${pos}`, round: 0, position: pos++, status: 'completed', winner_id: players[i], winner_name: players[i] });
+  const active = players.slice(byes);
+  for (let i = 0; i < active.length; i += 2) {
+    const id = `r0-${pos}`;
+    entrants.set(id, [active[i], active[i + 1]]);
+    ms.push({ id, round: 0, position: pos++, status: 'upcoming' });
+  }
+  const rounds = totalRoundsFor(ms.length);
+  const perRound: string[] = [];
+  const appearances = new Map<string, number>();
+  for (let r = 0; r < rounds; r++) {
+    const inRound = ms.filter((x) => x.round === r);
+    perRound.push(`${inRound.filter((x) => entrants.has(x.id)).length}${inRound.some((x) => !entrants.has(x.id)) ? '+bye' : ''}`);
+    for (const m of inRound.filter((x) => x.status !== 'completed')) {
+      const [a, b] = entrants.get(m.id)!;
+      for (const p of [a, b!]) appearances.set(`${r}:${p}`, (appearances.get(`${r}:${p}`) ?? 0) + 1);
+      m.status = 'completed';
+      m.winner_id = Number(a.slice(1)) < Number(b!.slice(1)) ? a : b!;
+      m.winner_name = m.winner_id;
     }
-    assert.equal(ms.length, size / 2, `n=${n}: first round should have size/2 slots`);
-    const rounds = totalRoundsFor(ms.length);
-    assert.equal(2 ** rounds, size, `n=${n}: rounds`);
+    const next = nextRoundFor(ms, r);
+    if (r === rounds - 1) { assert.equal(next, null, `n=${n}: nothing after the final`); break; }
+    assert.ok(next, `n=${n}: round ${r + 2} should be created`);
+    assert.ok(next!.filter((p) => p.bye).length <= 1, `n=${n}: at most one bye a round`);
+    for (const p of next!) {
+      const id = `r${r + 1}-${p.position}`;
+      if (p.bye) ms.push({ id, round: r + 1, position: p.position, status: 'completed', winner_id: p.player1Id, winner_name: p.player1Name });
+      else { entrants.set(id, [p.player1Id!, p.player2Id]); ms.push({ id, round: r + 1, position: p.position, status: 'upcoming' }); }
+    }
+  }
+  return { ms, rounds, perRound, appearances, played: [...entrants.keys()].length };
+}
 
-    // the lower-numbered player always wins, so the champion must be p0
-    const appearances = new Map<string, number>();
-    for (let r = 0; r < rounds; r++) {
-      for (const m of ms.filter((x) => x.round === r && x.status !== 'completed')) {
-        const [a, b] = entrants.get(m.id)!;
-        for (const p of [a, b]) appearances.set(`${r}:${p}`, (appearances.get(`${r}:${p}`) ?? 0) + 1);
-        m.status = 'completed';
-        m.winner_id = Number(a.slice(1)) < Number(b.slice(1)) ? a : b;
-        m.winner_name = m.winner_id;
-      }
-      const next = nextRoundFor(ms, r);
-      if (r === rounds - 1) { assert.equal(next, null, `n=${n}: nothing after the final`); break; }
-      assert.ok(next, `n=${n}: round ${r + 2} should be created`);
-      assert.equal(next!.length, ms.filter((x) => x.round === r).length / 2);
-      for (const p of next!) {
-        const id = `r${r + 1}-${p.position}`;
-        entrants.set(id, [p.player1Id, p.player2Id]);
-        ms.push({ id, round: r + 1, position: p.position, status: 'upcoming' });
-      }
-    }
+test('12 entries: 6 matches, 3, then 2 of the 3 winners play while one waits, then the final', () => {
+  const { perRound, played, ms, rounds } = simulate(12);
+  assert.deepEqual(perRound, ['6', '3', '1+bye', '1']);
+  assert.equal(played, 11);
+  assert.equal(ms.filter((m) => m.round === rounds - 1)[0].winner_id, 'p0');
+  assert.deepEqual([3, 4, 5, 6, 13].map((n) => simulate(n).perRound), [
+    ['1+bye', '1'], ['2', '1'], ['2+bye', '1+bye', '1'], ['3', '1+bye', '1'], ['6+bye', '3+bye', '2', '1'],
+  ]);
+});
+
+test('every draw from 2 to 40 entrants: one champion, n-1 matches, nobody twice in a round, at most one bye a round', () => {
+  for (let n = 2; n <= 40; n++) {
+    const { ms, rounds, appearances, played } = simulate(n);
+    assert.equal(firstRoundByes(n), n % 2);
+    assert.equal(rounds, Math.ceil(Math.log2(n)), `n=${n}: rounds`);
     const finals = ms.filter((m) => m.round === rounds - 1);
     assert.equal(finals.length, 1, `n=${n}: one final`);
     assert.equal(finals[0]!.winner_id, 'p0', `n=${n}: champion`);
+    assert.equal(played, n - 1, `n=${n}: matches played`);
     for (const [k, v] of appearances) assert.equal(v, 1, `n=${n}: ${k} plays twice in one round`);
-    // every entrant either got a bye or played round 1
-    const inRound0 = new Set([...players.slice(0, byes), ...active]);
-    assert.equal(inRound0.size, n);
   }
 });
 

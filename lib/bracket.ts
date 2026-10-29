@@ -98,23 +98,29 @@ export function bracketOrder<T extends BracketMatch>(a: T, b: T) {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
+// Byes the first round needs, as the organizers run it: none for an even number of entries, one for odd.
+// Later rounds take care of themselves (see nextRoundFor). 12 entries: 6 matches, 3, then 2 of the 3
+// winners play while the third waits, and the final is that winner against the one who waited.
+export const firstRoundByes = (entries: number) => entries % 2;
+
+export type NextSlot = { position: number; player1Id: string | null; player1Name: string; player2Id: string | null; player2Name: string; bye?: boolean };
+
 // The next round's matches once every match of `round` is completed, or null when it is not due yet.
-// Winner of slot 2k meets winner of slot 2k+1.
+// Winner of slot 2k meets winner of slot 2k+1. With an odd number of winners the last one waits:
+// a bye straight into the round after.
 export function nextRoundFor(categoryMatches: BracketMatch[], round: number) {
   const current = categoryMatches.filter((m) => m.round === round).sort(bracketOrder);
   if (current.length < 2) return null; // a single match in a round is the final
   if (categoryMatches.some((m) => m.round === round + 1)) return null; // already made
   // Entries added by hand have no profile id, so a winner is known by id or by name
   if (!current.every((m) => m.status === 'completed' && (m.winner_id || m.winner_name))) return null;
-  const pairs: { position: number; player1Id: string | null; player1Name: string; player2Id: string | null; player2Name: string }[] = [];
-  for (let i = 0; i + 1 < current.length; i += 2) {
-    pairs.push({
-      position: i / 2,
-      player1Id: current[i].winner_id ?? null,
-      player1Name: current[i].winner_name ?? '',
-      player2Id: current[i + 1].winner_id ?? null,
-      player2Name: current[i + 1].winner_name ?? '',
-    });
+  const pairs: NextSlot[] = [];
+  for (let i = 0; i < current.length; i += 2) {
+    const a = current[i];
+    const b = current[i + 1];
+    pairs.push(b
+      ? { position: i / 2, player1Id: a.winner_id ?? null, player1Name: a.winner_name ?? '', player2Id: b.winner_id ?? null, player2Name: b.winner_name ?? '' }
+      : { position: i / 2, player1Id: a.winner_id ?? null, player1Name: a.winner_name ?? '', player2Id: null, player2Name: '', bye: true });
   }
   return pairs;
 }
