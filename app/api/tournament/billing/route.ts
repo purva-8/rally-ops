@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isEventOrganizer } from '@/lib/organizer';
-import { loadBills, loadYetToBill } from '@/lib/billing';
+import { loadBilling, loadBills, loadYetToBill } from '@/lib/billing';
 import { sendMails } from '@/lib/email';
 import { billEmail } from '@/lib/emailTemplates';
 
@@ -23,16 +23,23 @@ export async function GET(req: NextRequest) {
   if (a.error) return a.error;
   const admin = createAdminClient();
   const fee = Number(a.t!.entry_fee ?? 0);
-  const [bills, yetToBill] = await Promise.all([loadBills(admin, a.t!.id, fee), loadYetToBill(admin, a.t!.id, fee)]);
-  return NextResponse.json({ bills, yetToBill });
+  const [{ bills, offPlatform }, yetToBill] = await Promise.all([loadBilling(admin, a.t!.id, fee), loadYetToBill(admin, a.t!.id, fee)]);
+  return NextResponse.json({ bills, offPlatform, yetToBill });
 }
 
 // { action: 'email' | 'markPaid', tournamentId, headIds?: string[] }  (no headIds = everyone with a balance)
+// { action: 'markPartnerPaid', tournamentId, regIds: string[] }: halves of partners who are not on the platform
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const a = await authorize(body.tournamentId ?? null);
   if (a.error) return a.error;
   const admin = createAdminClient();
+  if (body.action === 'markPartnerPaid') {
+    const { offPlatform } = await loadBilling(admin, a.t!.id, Number(a.t!.entry_fee ?? 0));
+    const ids = offPlatform.filter((o) => Array.isArray(body.regIds) && body.regIds.includes(o.regId)).map((o) => o.regId);
+    if (ids.length) await admin.from('registrations').update({ partner_paid: true }).in('id', ids);
+    return NextResponse.json({ ok: true, updated: ids.length });
+  }
   const all = await loadBills(admin, a.t!.id, Number(a.t!.entry_fee ?? 0));
   const ids: string[] | undefined = Array.isArray(body.headIds) && body.headIds.length ? body.headIds : undefined;
   const chosen = all.filter((f) => (ids ? ids.includes(f.headId) : f.balance > 0));

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { qidTakenMessage } from '@/lib/qidCheck';
 import Avatar from '@/components/Avatar';
 import { formatDate } from '@/lib/format';
 import { registrationClosed, ON_SPOT_CUTOFF } from '@/components/RegistrationClosed';
@@ -148,6 +149,11 @@ function RegisterPageInner() {
     setIdentityError('');
     const supabase = createClient();
     const qid = identityForm.qid.trim();
+    // One account per family: an account holder can't take a Qatar ID another account already has
+    if (!profile.parent_id && qid !== (profile.qid ?? '')) {
+      const taken = await qidTakenMessage(qid);
+      if (taken) { setIdentityError(taken); setSavingIdentity(false); return; }
+    }
     const { data, error } = await supabase
       .from('player_profiles')
       .update({ dob: identityForm.dob, qid, ...(samanvayam ? { samanvayam_member: identityForm.member, samanvayam_id: identityForm.sid.trim() || null } : {}) })
