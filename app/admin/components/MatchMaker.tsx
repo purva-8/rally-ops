@@ -11,14 +11,20 @@ type Rolled = { pairs: [Entry, Entry][]; waiting: Entry | null };
 
 // Matches made as players arrive: tick who is here, roll the dice (or, for two, just make the match).
 // Nothing is drawn ahead; each match goes straight onto the Score desk and the leaderboard.
-export default function MatchMaker({ tournamentId, names, matches, onMade }: {
+// mode 'first' (Brackets): first matches, for entries that haven't played yet.
+// mode 'winners' (Score desk): next matches, for entries that have won and are free.
+export default function MatchMaker({ tournamentId, names, matches, onMade, mode, category }: {
   tournamentId: string;
   names: Map<string, Entry[]>;
   matches: Match[];
   onMade: (msg: string) => Promise<void>;
+  mode: 'first' | 'winners';
+  // a fixed category (the one picked in Brackets); otherwise the box has its own picker
+  category?: string;
 }) {
   const cats = sortCategories(Array.from(names.keys()));
-  const [cat, setCat] = useState('');
+  const [ownCat, setCat] = useState('');
+  const cat = category ?? ownCat;
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [rolled, setRolled] = useState<Rolled | null>(null);
   const [rolling, setRolling] = useState(false);
@@ -36,11 +42,17 @@ export default function MatchMaker({ tournamentId, names, matches, onMade }: {
       .map((e) => ({ ...e, s: standing(e.label, rows) }))
       .sort((a, b) => rank(a.s) - rank(b.s) || b.s.wins - a.s.wins || a.label.localeCompare(b.label));
   }, [names, cat, rows]);
-  const free = entries.filter((e) => !e.s.out && !e.s.playing);
+  // Who this box is for: first matches list everyone, and only those who haven't played can be ticked. Next matches
+  // list the winners first, then anyone still waiting for a first match (with an odd count they may meet a winner).
+  const fresh = (s: Standing) => !s.out && !s.playing && s.wins === 0;
+  const shownEntries = mode === 'winners' ? entries.filter((e) => e.s.wins > 0 || fresh(e.s)) : entries;
+  const free = shownEntries.filter((e) => (mode === 'winners' ? !e.s.out && !e.s.playing && !e.s.champion : fresh(e.s)));
   const chosen = free.filter((e) => picked.has(e.label));
   const winsOf = (e: Entry) => entries.find((x) => x.label === e.label)?.s.wins ?? 0;
 
   const reset = () => { setPicked(new Set()); setRolled(null); setFinal(false); setError(null); };
+  const [seenCat, setSeenCat] = useState(cat);
+  if (cat !== seenCat) { setSeenCat(cat); reset(); }
   const toggle = (label: string) => {
     setRolled(null); setFinal(false);
     setPicked((p) => { const n = new Set(p); if (n.has(label)) n.delete(label); else n.add(label); return n; });
@@ -62,18 +74,23 @@ export default function MatchMaker({ tournamentId, names, matches, onMade }: {
     if (!res?.ok) { setError(d.error ?? 'No connection. Not saved; try again.'); return; }
     const made = pairs.map(([a, b]) => `${a.label} vs ${b.label}`).join(', ');
     reset();
-    await onMade(`${final && pairs.length === 1 ? 'Final' : `${pairs.length} match${pairs.length === 1 ? '' : 'es'}`} made in ${CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS] ?? cat}: ${made}. They are on the Score desk below.`);
+    await onMade(`${final && pairs.length === 1 ? 'Final' : `${pairs.length} match${pairs.length === 1 ? '' : 'es'}`} made in ${CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS] ?? cat}: ${made}. They are on the Score desk.`);
   }
 
   return (
     <section className="mb-6 bg-white rounded-xl border border-orange-200 p-4">
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <h3 className="text-sm font-bold text-stone-900 mr-auto">Match maker <span className="font-normal text-stone-400">· tick who is here, then roll the dice</span></h3>
-        <select value={cat} onChange={(e) => { setCat(e.target.value); reset(); }}
-          className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500">
-          <option value="">Pick a category…</option>
-          {cats.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c as keyof typeof CATEGORY_LABELS] ?? c} ({names.get(c)?.length ?? 0})</option>)}
-        </select>
+        <h3 className="text-sm font-bold text-stone-900 mr-auto">
+          {mode === 'first' ? 'First matches' : 'Next matches for winners'}
+          <span className="font-normal text-stone-400"> · {mode === 'first' ? 'tick who has arrived, then roll the dice' : 'tick the winners who are ready, then roll the dice'}</span>
+        </h3>
+        {category === undefined && (
+          <select value={cat} onChange={(e) => { setCat(e.target.value); reset(); }}
+            className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <option value="">Pick a category…</option>
+            {cats.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c as keyof typeof CATEGORY_LABELS] ?? c} ({names.get(c)?.length ?? 0})</option>)}
+          </select>
+        )}
       </div>
 
       {cat && (
@@ -84,20 +101,20 @@ export default function MatchMaker({ tournamentId, names, matches, onMade }: {
             {picked.size > 0 && <button onClick={reset} className="underline">Clear</button>}
           </div>
           <div className="flex flex-wrap gap-1.5 mb-3">
-            {entries.map((e) => {
-              const can = !e.s.out && !e.s.playing;
+            {shownEntries.map((e) => {
+              const can = free.includes(e);
               const on = can && picked.has(e.label);
               return (
                 <button key={e.label} onClick={() => can && toggle(e.label)} disabled={!can}
                   className={`text-sm rounded-lg border px-2.5 py-1.5 text-left ${on ? 'bg-orange-600 border-orange-600 text-white' : can ? 'bg-white border-stone-200 text-stone-800 hover:border-orange-300' : 'bg-stone-50 border-stone-100 text-stone-400'}`}>
                   {e.label}
                   <span className={`ml-1.5 text-[11px] ${on ? 'text-orange-100' : 'text-stone-400'}`}>
-                    {e.s.champion ? '🏆 champion' : e.s.out ? 'out' : e.s.playing ? 'on court / waiting' : e.s.wins ? `${e.s.wins} win${e.s.wins === 1 ? '' : 's'}` : 'new'}
+                    {e.s.champion ? '🏆 champion' : e.s.out ? 'out' : e.s.playing ? 'on court / waiting' : e.s.wins ? `${e.s.wins} win${e.s.wins === 1 ? '' : 's'}` : mode === 'winners' ? "hasn't played" : 'new'}
                   </span>
                 </button>
               );
             })}
-            {entries.length === 0 && <p className="text-sm text-stone-400">Nobody is entered in this category.</p>}
+            {shownEntries.length === 0 && <p className="text-sm text-stone-400">{mode === 'winners' ? 'Nobody is free for a next match in this category yet. First matches are made in Brackets.' : 'Nobody is entered in this category.'}</p>}
           </div>
 
           {chosen.length === 2 && !rolled && (
