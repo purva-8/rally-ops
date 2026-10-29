@@ -10,8 +10,8 @@ import { sortCategories } from '@/lib/categories';
 const body = Barlow({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--lb-body' });
 const display = Barlow_Condensed({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--lb-display' });
 
-// Court colours: the green of the floor, white lines, gold for whoever won
-const C = { court: '#0E4D3A', courtDeep: '#0A3A2C', line: '#F4F8F5', floor: '#EAF0EC', ink: '#13231C', muted: '#5B6D65', gold: '#E2B32E', live: '#E5484D' };
+// Terracotta and beige, gold for whoever won, green for a match on court
+const C = { court: '#B4532A', courtDeep: '#8F3F1E', line: '#FBF5EC', floor: '#F3EADB', ink: '#2B1D14', muted: '#7A6656', gold: '#D9962B', live: '#2E9E5B' };
 
 type Tournament = { id: string; name: string; venue: string | null };
 
@@ -52,7 +52,7 @@ function Scorecard({ m, highlight, quiet }: { m: Match; highlight: (s?: string) 
   const p1won = decided && m.winnerName === m.player1Name;
   const p2won = decided && m.winnerName === m.player2Name;
   return (
-    <div className={`px-3 py-2 ${highlight(m.player1Name) || highlight(m.player2Name) ? 'bg-[#FFF8DE]' : ''}`}>
+    <div className={`px-3 py-2 ${highlight(m.player1Name) || highlight(m.player2Name) ? 'bg-[#FFF1D6]' : ''}`}>
       <Side name={m.player1Name} games={games.slice(0, shown).map((g) => (g ? g.player1Score : null))} won={p1won} decided={decided} />
       <Side name={m.player2Name ?? ''} games={games.slice(0, shown).map((g) => (g ? g.player2Score : null))} won={p2won} decided={decided} />
       {!quiet && (live || m.status === 'upcoming') && (
@@ -110,20 +110,20 @@ export default function ResultsView({ id }: { id: string }) {
   }
 
   const sectionTitle = 'text-[22px] font-semibold [font-family:var(--lb-display)] mb-2';
-  const panel = 'bg-white rounded-xl overflow-hidden divide-y divide-[#E3EAE6] border border-[#DCE5E0]';
+  const panel = 'bg-white rounded-xl overflow-hidden divide-y divide-[#EFE5D6] border border-[#E6D9C6]';
 
   return (
     <div className={shell} style={{ background: C.floor, color: C.ink }}>
-      {/* Header: the court, with its doubles and singles side lines */}
+      {/* Header: terracotta, framed by a badminton court's doubles and singles side lines */}
       <header style={{ background: C.court }}>
         <div className="max-w-3xl mx-auto px-4 pt-7 pb-6">
-          <div className="border-x-2 border-t-2 px-4 pt-4 pb-5 relative" style={{ borderColor: 'rgba(244,248,245,.85)' }}>
-            <div className="absolute inset-y-0 left-3 right-3 border-x pointer-events-none" style={{ borderColor: 'rgba(244,248,245,.35)' }} />
-            <p className="text-sm relative" style={{ color: 'rgba(244,248,245,.7)' }}>Live results{tournament?.venue ? `, ${tournament.venue}` : ''}</p>
+          <div className="border-x-2 border-t-2 px-4 pt-4 pb-5 relative" style={{ borderColor: 'rgba(251,245,236,.85)' }}>
+            <div className="absolute inset-y-0 left-3 right-3 border-x pointer-events-none" style={{ borderColor: 'rgba(251,245,236,.35)' }} />
+            <p className="text-sm relative" style={{ color: 'rgba(251,245,236,.7)' }}>Live results{tournament?.venue ? `, ${tournament.venue}` : ''}</p>
             <h1 className="[font-family:var(--lb-display)] font-bold text-[40px] sm:text-[52px] leading-[0.95] mt-1 relative" style={{ color: C.line }}>
               {tournament?.name ?? 'Tournament'}
             </h1>
-            <p className="text-sm mt-3 relative flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'rgba(244,248,245,.75)' }}>
+            <p className="text-sm mt-3 relative flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'rgba(251,245,236,.75)' }}>
               {live.length > 0 && (
                 <span className="flex items-center gap-1.5" style={{ color: C.line }}>
                   <span className="w-2 h-2 rounded-full motion-safe:animate-pulse" style={{ background: C.live }} />
@@ -138,22 +138,22 @@ export default function ResultsView({ id }: { id: string }) {
       </header>
 
       {/* What to look at: the latest, or one category's draw */}
-      <nav className="sticky top-0 z-10 border-b" style={{ background: C.courtDeep, borderColor: 'rgba(244,248,245,.12)' }}>
+      <nav className="sticky top-0 z-10 border-b" style={{ background: C.courtDeep, borderColor: 'rgba(251,245,236,.12)' }}>
         <div className="max-w-3xl mx-auto px-4 flex gap-1 overflow-x-auto py-2">
           {[{ id: 'latest', label: 'Latest' }, ...categories.map((c) => ({ id: c, label: shortCat(c) }))].map((t) => (
             <button key={t.id} onClick={() => setView(t.id)}
               className="shrink-0 px-3 py-1.5 rounded-md text-sm whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-              style={view === t.id ? { background: C.line, color: C.court, fontWeight: 600 } : { color: 'rgba(244,248,245,.75)' }}>
+              style={view === t.id ? { background: C.line, color: C.court, fontWeight: 600 } : { color: 'rgba(251,245,236,.75)' }}>
               {t.label}
             </button>
           ))}
         </div>
       </nav>
 
-      <main className="max-w-3xl mx-auto px-4 py-6 pb-28 space-y-8">
+      <main className="max-w-3xl mx-auto px-4 py-6 pb-12 space-y-8">
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Find a player"
           aria-label="Find a player"
-          className="w-full rounded-lg border border-[#DCE5E0] px-3.5 py-2.5 text-[15px] bg-white focus:outline-none focus:ring-2 focus:ring-[#0E4D3A]"
+          className="w-full rounded-lg border border-[#E6D9C6] px-3.5 py-2.5 text-[15px] bg-white focus:outline-none focus:ring-2 focus:ring-[#B4532A]"
           style={{ color: C.ink }} />
 
         {matches.length === 0 && (
