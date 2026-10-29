@@ -68,10 +68,11 @@ export function validSlot(v: unknown): v is Slot {
 export type Person = { key: string; family: string; name: string };
 export type Entry = { cat: string; people: Person[] };
 
-// What the arrangement costs, worst first: matches beyond what the courts can hold, a person needed in
-// two categories in the same block, a family kept at the venue across blocks, courts standing idle or
-// overfull, and (lightly) children playing late.
-const W = { overload: 100, doubleBooked: 40, familySpread: 10, balance: 0.2, lateKids: 0.5 };
+// What the arrangement costs, worst first: matches beyond what the courts can hold, a family kept at the
+// venue all evening (organizers asked for this not to happen; a player then plays two categories back to
+// back in one block instead), a person needed in two categories in the same block (more for three), a
+// family spread across blocks, courts standing idle or overfull, and (lightly) children playing late.
+const W = { overload: 100, allEvening: 90, doubleBooked: 40, tripleBooked: 80, familySpread: 10, balance: 0.2, lateKids: 0.5 };
 
 export type DayPlan = {
   block: Record<string, number>;
@@ -116,11 +117,15 @@ export function arrangeDay(cats: string[], entries: Entry[], capacity: number): 
     for (let i = 0; i < n; i++) load[blk[i]] += matches[i];
     let c = 0;
     for (const l of load) c += W.overload * Math.max(0, l - capacity) + W.balance * (l - total / B) ** 2;
-    for (const pc of personCats) if (pc.length > 1) c += W.doubleBooked * (pc.length - new Set(pc.map((i) => blk[i])).size);
+    for (const pc of personCats) if (pc.length > 1) {
+      const per = new Array(B).fill(0);
+      for (const i of pc) per[blk[i]]++;
+      for (const k of per) if (k > 1) c += W.doubleBooked * (k - 1) + W.tripleBooked * Math.max(0, k - 2);
+    }
     for (const fc of familyCats) if (fc.length > 1) {
       let lo = B, hi = -1;
       for (const i of fc) { lo = Math.min(lo, blk[i]); hi = Math.max(hi, blk[i]); }
-      c += W.familySpread * (hi - lo);
+      c += W.familySpread * (hi - lo) + (hi - lo === B - 1 ? W.allEvening : 0);
     }
     for (let i = 0; i < n; i++) c += W.lateKids * (3 - band(ordered[i])) * blk[i];
     return c;

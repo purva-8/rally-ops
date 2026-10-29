@@ -186,6 +186,16 @@ export default function ScheduleTab() {
           <section key={day} className="mb-10">
             <h3 className="text-base font-bold text-stone-900 mb-3 pb-1 border-b-2 border-stone-900">{days[day]}</h3>
 
+            {(() => {
+              const allEvening = families.filter((f) => f.blocks.length === BLOCKS.length).length;
+              return allEvening > 0 && (
+                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+                  <b>{allEvening} {allEvening === 1 ? 'family is' : 'families are'} here all evening.</b>{' '}
+                  Fitting them into two blocks would put more matches in a block than {COURTS} courts can play. To fix it: shorter matches
+                  (Minutes per match), fewer categories on this day, or move one category by hand, then Arrange again.
+                </div>
+              );
+            })()}
             {dp.doubleBooked.length > 0 && (
               <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
                 <b>{dp.doubleBooked.length} {dp.doubleBooked.length === 1 ? 'person plays' : 'people play'} two categories in the same block</b>

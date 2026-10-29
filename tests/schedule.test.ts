@@ -64,16 +64,16 @@ const day: Entry[] = [
 ];
 const cats = ['singles_u10', 'male_singles_kids', 'male_singles_18plus', 'mixed_doubles_open', 'male_doubles_18plus', 'spouse_doubles_open'];
 
-test('arranging a day: nobody is needed twice in one block, the courts are not overfilled, the family is not split far', () => {
+test('arranging a day: no family all evening, nobody in three categories at once, the courts are not overfilled', () => {
   const block = arrangeDay(cats, day, 24);
   const d = describeDay(block, day);
-  // dad plays 4 categories and there are 3 blocks, so one pair of them must share a block; nothing else may
-  const dad = d.doubleBooked.filter((x) => x.name === 'dad');
-  assert.ok(dad.length === 1 && dad[0].cats.length === 2, JSON.stringify(d.doubleBooked));
-  assert.deepEqual(d.doubleBooked.filter((x) => x.name !== 'dad'), []);
-  assert.ok(d.load.every((l) => l <= 24), `load ${d.load}`);
   const f = d.families.find((x) => x.family === 'F')!;
   assert.deepEqual(f.people.map((p) => p.name), ['dad', 'mum', 'son']);
+  assert.ok(d.families.every((x) => x.blocks.length < 3), JSON.stringify(d.families.filter((x) => x.blocks.length === 3)));
+  // dad's 4 categories fit in 2 blocks only by pairing them up: two at a time, never three
+  assert.ok(d.doubleBooked.every((x) => x.cats.length === 2), JSON.stringify(d.doubleBooked));
+  assert.deepEqual(d.doubleBooked.filter((x) => x.name !== 'dad' && x.name !== 'son'), []);
+  assert.ok(d.load.every((l) => l <= 24), `load ${d.load}`);
   assert.ok(Object.keys(block).length === cats.length);
 });
 
