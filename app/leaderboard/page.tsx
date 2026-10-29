@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import ResultsView from '../events/[id]/results/ResultsView';
+import ResultsView from '../(player)/events/[id]/results/ResultsView';
 
 // Short public address for the live results: the current event (?event=<id> picks another).
 // "Current" is the latest event that isn't finished yet, or else the latest event.
