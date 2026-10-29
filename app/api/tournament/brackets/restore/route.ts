@@ -8,7 +8,7 @@ import { insertMatches } from '@/lib/matchRows';
 type Row = Record<string, any>;
 
 const MATCH_COLUMNS = ['id', 'round', 'position', 'player1_id', 'player1_name', 'player2_id', 'player2_name', 'court_id',
-  'referee_id', 'referee_name', 'status', 'winner_id', 'winner_name', 'scheduled_at', 'completed_at', 'created_at'];
+  'referee_id', 'referee_name', 'status', 'winner_id', 'winner_name', 'scheduled_at', 'completed_at', 'created_at', 'label'];
 
 // Undo for "Delete draw": puts back the matches and scores the delete returned, with their old ids.
 // Only into an empty category, so it can't double up a draw made in the meantime.

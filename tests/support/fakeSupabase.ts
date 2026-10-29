@@ -11,6 +11,7 @@ class Query {
   private payload: any;
   private mode: 'one' | 'maybe' | null = null;
   private max = Infinity;
+  private skip = 0;
   private table: string;
   constructor(table: string) { this.table = table; db[table] ??= []; }
   select() { return this; }
@@ -22,6 +23,7 @@ class Query {
   is(c: string, v: any) { this.filters.push((r) => (r[c] ?? null) === v); return this; }
   order() { return this; }
   limit(n: number) { this.max = n; return this; }
+  range(from: number, to: number) { this.skip = from; this.max = to - from + 1; return this; }
   maybeSingle() { this.mode = 'maybe'; return this; }
   single() { this.mode = 'one'; return this; }
   then(res: any, rej: any) { return Promise.resolve(this.run()).then(res, rej); }
@@ -40,7 +42,7 @@ class Query {
       out = t.filter(match); out.forEach((r) => Object.assign(r, this.payload));
     } else if (this.op === 'delete') {
       out = t.filter(match); db[this.table] = t.filter((r) => !match(r));
-    } else out = t.filter(match).slice(0, this.max);
+    } else out = t.filter(match).slice(this.skip, this.skip + this.max);
     out = out.map((r) => ({ ...r }));
     if (this.mode) {
       if (out.length > 1 || (this.mode === 'one' && out.length === 0)) return { data: null, error: { message: 'not single' } };

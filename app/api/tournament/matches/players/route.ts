@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isEventOrganizer } from '@/lib/organizer';
 import { toClientMatches } from '@/lib/matchRows';
+import { logMatch, snapshot, vs } from '@/lib/matchLog';
 
 type Side = { id?: string | null; name?: string };
 
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
     const profileIds = new Set((known ?? []).map((p: { id: string }) => p.id));
     const pid = (s?: Side) => (s?.id && profileIds.has(s.id) ? s.id : null);
 
+    const before = await snapshot(admin, matchId);
     const { data: updated, error } = await admin.from('matches').update({
       player1_id: pid(player1), player1_name: clean(player1),
       player2_id: pid(player2), player2_name: clean(player2),
@@ -49,6 +51,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Could not save the players' }, { status: 500 });
     }
 
+    await logMatch(admin, { tournamentId: match.tournament_id, matchId, category: match.category, action: 'players', by: user.id,
+      summary: `${vs(match)} changed to ${vs(updated)}`, before, after: { match: updated, sets: [] } });
     const { data: all } = await admin.from('matches').select('*').eq('tournament_id', match.tournament_id).eq('category', match.category);
     const rows = (all ?? []).map((m) => (m.id === matchId ? updated : m));
     const [client] = toClientMatches(rows, []).filter((m) => m.id === matchId);

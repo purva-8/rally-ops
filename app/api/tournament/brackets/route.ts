@@ -2,7 +2,8 @@ import { isEventOrganizer } from '@/lib/organizer';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { insertMatches } from '@/lib/matchRows';
+import { insertMatches, latestSets } from '@/lib/matchRows';
+import { logMatch, vs } from '@/lib/matchLog';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -118,6 +119,8 @@ export async function DELETE(req: NextRequest) {
       console.error('draw delete failed', error);
       return NextResponse.json({ error: 'Could not delete the draw' }, { status: 500 });
     }
+    for (const m of rows ?? []) await logMatch(admin, { tournamentId, matchId: m.id, category, action: 'delete', by: user.id,
+      summary: `${vs(m)}: removed with the whole ${category} draw`, before: { match: m, sets: latestSets(sets ?? [], m.id) }, after: null });
     return NextResponse.json({ deleted: { matches: rows, sets: sets ?? [] } });
   } catch (err) {
     console.error('Error deleting draw:', err);

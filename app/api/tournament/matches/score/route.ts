@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { matchResult, impossibleGame, validSets, winnerSide } from '@/lib/bracket';
 import { toClientMatches } from '@/lib/matchRows';
 import { isEventOrganizer } from '@/lib/organizer';
+import { logMatch, scoreText, snapshot, vs } from '@/lib/matchLog';
 
 // Saves a match's court, referee, sets and status. Only organizers and co-organizers may call it: scores
 // come in on paper and are typed in on the admin Score desk. The winner is worked out here from the sets, never taken
@@ -14,7 +15,7 @@ import { isEventOrganizer } from '@/lib/organizer';
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const body = await req.json().catch(() => ({}));
-  const { matchId, sets, courtId, refereeId, refereeName, override } = body;
+  const { matchId, sets, courtId, refereeId, refereeName, override, expected, force } = body;
   let { status } = body;
 
   if (!matchId || !validSets(sets)) {
@@ -39,6 +40,20 @@ export async function POST(req: NextRequest) {
 
     const isBye = !match.player2_id && !match.player2_name;
     if (isBye) return NextResponse.json({ error: 'A bye has no score' }, { status: 400 });
+
+    // Two desks on one match: the browser says what it last saw; if someone has changed it since, nothing is
+    // overwritten without asking (force)
+    const before = await snapshot(admin, matchId);
+    if (expected && !force && before) {
+      const seen = JSON.stringify((expected.sets ?? []).map((x: { player1Score: number; player2Score: number }) => [x.player1Score, x.player2Score]));
+      const now = JSON.stringify(before.sets.map((x) => [x.player1_score, x.player2_score]));
+      if (seen !== now || (expected.status && expected.status !== match.status)) {
+        return NextResponse.json({
+          error: `Someone else saved this match since you opened it: ${match.winner_name && match.status === 'completed' ? `${match.winner_name} won ` : ''}${scoreText(before.sets) || 'no score'}.`,
+          conflict: true, current: { status: match.status, sets: before.sets.map((x) => ({ player1Score: x.player1_score, player2Score: x.player2_score })) },
+        }, { status: 409 });
+      }
+    }
 
     const { data: catMatches } = await admin.from('matches').select('*')
       .eq('tournament_id', match.tournament_id).eq('category', match.category);
@@ -134,7 +149,10 @@ export async function POST(req: NextRequest) {
     }
 
     for (const fix of slotFixes) {
+      const was = await snapshot(admin, fix.id);
       const { error } = await admin.from('matches').update(fix.values).eq('id', fix.id);
+      if (!error) await logMatch(admin, { tournamentId: match.tournament_id, matchId: fix.id, category: match.category, action: 'players',
+        summary: `${vs(was?.match)}: ${updated.winner_name} takes ${match.winner_name}'s place after a corrected result`, before: was, after: await snapshot(admin, fix.id), by: user.id });
       if (error) {
         console.error('next-round slot update failed', error);
         return NextResponse.json({ error: 'Result corrected, but the next-round match still shows the old winner. Try again.' }, { status: 500 });
@@ -148,6 +166,12 @@ export async function POST(req: NextRequest) {
       const fixed = new Set(slotFixes.map((f) => f.id));
       nextMatches = toClientMatches(all ?? [], []).filter((m) => fixed.has(m.id));
     }
+
+    const after = await snapshot(admin, matchId);
+    await logMatch(admin, {
+      tournamentId: match.tournament_id, matchId, category: match.category, action: 'score', before, after, by: user.id,
+      summary: `${vs(match)}: ${after?.match.status === 'completed' ? `${after.match.winner_name} won ` : ''}${scoreText(after?.sets) || 'no score'}${match.status === 'completed' ? ` (was ${match.winner_name} ${scoreText(before?.sets)})` : ''}`,
+    });
 
     const { data: savedSets } = await admin.from('match_sets').select('*').eq('match_id', matchId);
     const rows = (catMatches ?? []).map((m) => (m.id === matchId ? updated : m));
