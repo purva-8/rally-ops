@@ -8,7 +8,7 @@ import BoardView, { type BoardSlot } from './BoardView';
 // category in alphabetical order, and how each entry is doing (wins, out, champion) once matches are played.
 // Names only (no contact details). ?event=<id> picks another event; otherwise the latest one not finished.
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Schedule & results' };
+export const metadata = { title: 'RallyOps: Schedule' };
 
 const dayName = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 

@@ -295,8 +295,8 @@ export default function RallyOpsHome() {
       <section
         className="relative overflow-hidden px-6 py-10 flex-1 flex flex-col items-center justify-center text-center"
         style={{
-          backgroundColor: '#EEF2FF',
-          backgroundImage: 'radial-gradient(circle, #c7d2fe 1px, transparent 1px)',
+          backgroundColor: '#F3EADB',
+          backgroundImage: 'radial-gradient(circle, #E4D6C1 1px, transparent 1px)',
           backgroundSize: '28px 28px',
         }}
       >
@@ -314,7 +314,7 @@ export default function RallyOpsHome() {
               Not your spreadsheet.
             </h1>
             <svg className="absolute -bottom-1 left-0 w-full" viewBox="0 0 600 16" preserveAspectRatio="none" fill="none">
-              <path d="M4,10 Q100,2 200,10 Q300,18 400,10 Q500,2 596,10" stroke="#f97316" strokeWidth="4" strokeLinecap="round"/>
+              <path d="M4,10 Q100,2 200,10 Q300,18 400,10 Q500,2 596,10" stroke="#B4532A" strokeWidth="4" strokeLinecap="round"/>
             </svg>
           </div>
 

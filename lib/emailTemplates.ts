@@ -37,7 +37,7 @@ export function registrationEmail(d: {
 }) {
   const total = d.entries.reduce((s, e) => s + e.fee, 0);
   return layout({
-    banner: '#ea580c', emoji: '🏸', title: "You've successfully registered", subtitle: d.tournamentName,
+    banner: '#B4532A', emoji: '🏸', title: "You've successfully registered", subtitle: d.tournamentName,
     body: `
 <p style="margin:0 0 16px;">Hi ${esc(d.playerName)}, we have received your registration for the categories below. The organizers will review each entry and email you the decision.</p>
 <table width="100%" style="border-collapse:collapse;margin-bottom:16px;">
@@ -86,7 +86,7 @@ export function fixtureEmail(d: { name: string; tournamentName: string; items: F
   const finals = d.items.filter((i) => i.isFinal);
   const hasFinal = finals.length > 0;
   return layout({
-    banner: hasFinal ? '#7c3aed' : '#2563eb', emoji: hasFinal ? '🏆' : '📅',
+    banner: hasFinal ? '#7c3aed' : '#8F3F1E', emoji: hasFinal ? '🏆' : '📅',
     title: hasFinal ? "It's final time. Let's go!" : 'Your matches are set', subtitle: d.tournamentName,
     body: `
 <p style="margin:0 0 16px;">${hasFinal
@@ -133,18 +133,18 @@ export function billEmail(d: { name: string; tournamentName: string; lines: Bill
   const due = Math.max(0, total - paid);
   const people = Array.from(new Set(d.lines.map((l) => l.person)));
   const sections = people.map((p) => `
-<h3 style="margin:20px 0 4px;font-size:14px;color:#ea580c;text-transform:uppercase;letter-spacing:1px;">${esc(p)}</h3>
+<h3 style="margin:20px 0 4px;font-size:14px;color:#B4532A;text-transform:uppercase;letter-spacing:1px;">${esc(p)}</h3>
 <table width="100%" style="border-collapse:collapse;">
 ${d.lines.filter((l) => l.person === p).map((l) => row(esc(l.category), l.paid ? `<span style="color:#16a34a;">Paid</span>` : `QAR ${l.amount}`, l.note ? esc(l.note) : undefined)).join('')}
 </table>`).join('');
   return layout({
-    banner: '#ea580c', emoji: '🧾', title: 'Your bill', subtitle: d.tournamentName,
+    banner: '#B4532A', emoji: '🧾', title: 'Your bill', subtitle: d.tournamentName,
     body: `
 <p style="margin:0 0 8px;">Hi ${esc(d.name)}, here is the bill for your family's approved entries.</p>
 ${sections}
 <table width="100%" style="border-collapse:collapse;margin-top:18px;border-top:2px dashed #d6d3d1;">
 ${paid > 0 ? row('Paid so far', `QAR ${paid}`) : ''}
-<tr><td style="padding:14px 0 0;font-size:16px;font-weight:800;">Amount due</td><td style="padding:14px 0 0;font-size:20px;font-weight:800;text-align:right;color:#ea580c;">QAR ${due}</td></tr>
+<tr><td style="padding:14px 0 0;font-size:16px;font-weight:800;">Amount due</td><td style="padding:14px 0 0;font-size:20px;font-weight:800;text-align:right;color:#B4532A;">QAR ${due}</td></tr>
 </table>
 <p style="margin:18px 0 0;font-size:13px;color:#57534e;">${esc(d.paymentNote ?? 'The organizers will share payment details. Please keep this email for your records.')}</p>
 <p style="margin:14px 0 0;text-align:center;font-size:14px;">Thanks for playing 🏸</p>`,
