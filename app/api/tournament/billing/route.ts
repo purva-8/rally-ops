@@ -47,13 +47,17 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.action === 'email') {
-    const reachable = chosen.filter((f) => f.email);
+    // People not on the platform pay at the desk: their bills are never emailed
+    const reachable = chosen.filter((f) => f.email && !f.offPlatform);
     const results = await sendMails(reachable.map((f) => ({
       to: f.email!, kind: 'bill', tournamentId: a.t!.id,
       subject: `Your bill for ${a.t!.name}`,
-      html: billEmail({ name: f.head, tournamentName: a.t!.name, lines: f.lines }),
+      html: billEmail({
+        name: f.head, tournamentName: a.t!.name, lines: f.lines,
+        paymentNote: 'Please bring the exact amount in cash and pay at the registration desk. If anything on this bill looks wrong, please contact us as soon as possible.',
+      }),
     })));
-    return NextResponse.json({ ok: true, sent: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length, noEmail: chosen.length - reachable.length });
+    return NextResponse.json({ ok: true, sent: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length, noEmail: chosen.filter((f) => !f.offPlatform && !f.email).length, desk: chosen.filter((f) => f.offPlatform).length });
   }
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
 }
