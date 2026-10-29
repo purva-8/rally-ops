@@ -13,7 +13,7 @@ export const SHEET_SLOTS: { from: string; to: string; columns?: number; categori
     { key: 'singles_u10', court: 7, round: 'Round 1' },
   ] },
   { from: '7:00 PM', to: '10:00 PM', columns: 1, categories: [
-    { key: 'mixed_doubles_open', court: 8 },
+    { key: 'spouse_doubles_open', court: 8 },
     { key: 'female_singles_kids', court: 7 },
   ] },
 ];
