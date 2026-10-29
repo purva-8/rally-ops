@@ -6,6 +6,7 @@ import { toCsv } from '@/lib/csv';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { ageOn, categoryFee, categoryLabel, isDoublesCategory } from '@/lib/categories';
 import { latestSets } from '@/lib/matchRows';
+import { charges } from '@/lib/billCharges';
 
 // Organizer-only CSV exports. Rows are fetched in pages so 1000+ row tables are never silently cut off.
 const PAGE = 1000;
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    type Table = { headers: string[]; rows: Record<string, any>[]; familyHalves?: Record<string, any>[] };
+    type Table = { headers: string[]; rows: Record<string, any>[]; familyHalves?: Record<string, any>[]; partnersOffPlatform?: Record<string, any>[] };
     const fee0 = Number(tournament.entry_fee ?? 0);
 
     const registrationsTable = async () => {
@@ -98,21 +99,23 @@ export async function GET(req: NextRequest) {
           'Registered on': formatDateTime(r.created_at),
         };
       });
-      // The other half of a doubles pair when the partner has no entry of their own: billed to the partner's family,
-      // or, for a partner confirmed as typed (not on the portal), to the family that entered the pair
+      // Same rule as the bills (lib/billCharges): each person pays for themselves. A linked partner with no entry of their
+      // own for that pair pays their half on their own family's bill; a partner not on the platform is on no family's bill
       const liveRegs = regs.filter((r) => r.status === 'approved' || r.status === 'pending');
-      const typedOk = (r: any) => String(r.notes ?? '').split('|').map((x: string) => x.trim()).includes('PAIRED');
-      const familyHalves = liveRegs.filter((r) => isDoublesCategory(r.category) && r.payment_status !== 'waived' && ((r.partner_id
-        && !liveRegs.some((o) => o.id !== r.id && o.player_id === r.partner_id && o.category === r.category)) || (!r.partner_id && typedOk(r)))).map((r) => {
-        const headId = r.partner_id ? householdOf(r.partner_id) : householdOf(r.player_id);
-        const head = profiles.get(headId ?? '');
-        const own = r.partner_id && householdOf(r.partner_id) !== householdOf(r.player_id) ? r.partner_paid : r.payment_status === 'paid';
-        return {
-          'Family head': head?.full_name ?? '', Person: r.partner_id ? (profiles.get(r.partner_id)?.full_name ?? '') : (r.partner_name ?? ''), Category: categoryLabel(r.category),
-          Partner: profiles.get(r.player_id)?.full_name ?? '', Amount: categoryFee(r.category, fee0) / 2, Payment: own ? 'paid' : (r.payment_status === 'paid' && !r.partner_id ? 'paid' : 'unpaid'), Status: r.status,
-        };
-      });
-      return { headers: Object.keys(rows[0] ?? { '#': 0, Player: 0, Category: 0, Partner: 0, Status: 0, 'Fee due (QAR)': 0, Payment: 0 }), rows, familyHalves } as Table;
+      const { charges: owed, offPlatform } = charges(
+        liveRegs.map((r) => ({ ...r, fee: categoryFee(r.category, fee0) })),
+        (x, y) => householdOf(x) === householdOf(y),
+      );
+      const statusOf = new Map(liveRegs.map((r) => [r.id, r.status]));
+      const familyHalves = owed.filter((c) => c.asPartner).map((c) => ({
+        'Family head': profiles.get(householdOf(c.personId) ?? '')?.full_name ?? '', Person: profiles.get(c.personId)?.full_name ?? '',
+        Category: categoryLabel(c.category), Partner: profiles.get(c.partnerId ?? '')?.full_name ?? '', Amount: c.amount, Payment: c.paid ? 'paid' : 'unpaid', Status: statusOf.get(c.regId),
+      }));
+      const partnersOffPlatform = offPlatform.map((o) => ({
+        Partner: o.partnerName || 'Partner not named', Category: categoryLabel(o.category), 'Entered with': profiles.get(o.playerId)?.full_name ?? '',
+        'Their family': profiles.get(householdOf(o.playerId) ?? '')?.full_name ?? '', Amount: o.amount, Payment: o.paid ? 'paid' : 'unpaid', Status: statusOf.get(o.regId),
+      }));
+      return { headers: Object.keys(rows[0] ?? { '#': 0, Player: 0, Category: 0, Partner: 0, Status: 0, 'Fee due (QAR)': 0, Payment: 0 }), rows, familyHalves, partnersOffPlatform } as Table;
     };
 
     const matchesTable = async () => {
@@ -177,6 +180,9 @@ export async function GET(req: NextRequest) {
       const halves = reg.familyHalves ?? [];
       const halvesSum = halves.reduce((a, h) => a + Number(h.Amount || 0), 0);
       const halvesPaid = halves.filter((h) => String(h.Payment).toLowerCase() === 'paid').reduce((a, h) => a + Number(h.Amount || 0), 0);
+      const offP = reg.partnersOffPlatform ?? [];
+      const offSum = offP.reduce((a, h) => a + Number(h.Amount || 0), 0);
+      const offPaid = offP.filter((h) => String(h.Payment).toLowerCase() === 'paid').reduce((a, h) => a + Number(h.Amount || 0), 0);
 
       const summary: (string | number)[][] = [
         [tournament.name],
@@ -190,9 +196,11 @@ export async function GET(req: NextRequest) {
         ['Withdrawn', count((r) => r.Status === 'withdrawn')],
         [],
         ['MONEY (QAR, excludes rejected and withdrawn)', ''],
-        ['Total due (includes family partners entered by one person)', sum(live) + halvesSum],
-        ['Marked paid', sum(paid) + halvesPaid],
-        ['Still to collect', sum(live) + halvesSum - sum(paid) - halvesPaid],
+        ['Family bills (each family pays for its own people)', sum(live) + halvesSum],
+        ['Partners not on the platform (on no family bill)', offSum],
+        ['Grand total due', sum(live) + halvesSum + offSum],
+        ['Marked paid', sum(paid) + halvesPaid + offPaid],
+        ['Still to collect', sum(live) + halvesSum + offSum - sum(paid) - halvesPaid - offPaid],
         [],
         ['ENTRIES PER CATEGORY', 'Entries'],
       ];
@@ -247,8 +255,9 @@ export async function GET(req: NextRequest) {
         '#': i + 1, 'Family head': r['Registered by (family head)'] || r.Player, Person: r.Player, Category: r.Category,
         'Partner': r.Partner, 'Pays for': r.Partner ? 'Own half of the pair' : 'Own entry', 'Amount (QAR)': Number(r['Fee due (QAR)']), Payment: r.Payment || 'unpaid', Status: r.Status,
       }));
-      halves.forEach((h) => billLines.push({ '#': billLines.length + 1, 'Family head': h['Family head'], Person: h.Person, Category: h.Category, 'Partner': h.Partner, 'Pays for': 'Partner half (family member, no entry of their own)', 'Amount (QAR)': Number(h.Amount), Payment: h.Payment || 'unpaid', Status: h.Status }));
+      halves.forEach((h) => billLines.push({ '#': billLines.length + 1, 'Family head': h['Family head'], Person: h.Person, Category: h.Category, 'Partner': h.Partner, 'Pays for': 'Own half of the pair (entered by their partner)', 'Amount (QAR)': Number(h.Amount), Payment: h.Payment || 'unpaid', Status: h.Status }));
       addSheet('Bill lines', tableSheet({ headers: ['#', 'Family head', 'Person', 'Category', 'Partner', 'Pays for', 'Amount (QAR)', 'Payment', 'Status'], rows: billLines }));
+      if (offP.length) addSheet('Partners not on platform', tableSheet({ headers: ['Partner', 'Category', 'Entered with', 'Their family', 'Amount', 'Payment', 'Status'], rows: offP }));
       // One bill per family: its lines (who plays what and what each line costs), then the family total
       const famBill: (string | number)[][] = [['FAMILY BILLS', '', '', '', '', '', ''], ['Family head', 'Person', 'Category', 'Partner', 'Pays for', 'Amount (QAR)', 'Payment'], []];
       const heads = Array.from(new Set(billLines.map((l) => String(l['Family head'])))).sort((a, b) => a.localeCompare(b));
