@@ -49,11 +49,12 @@ export async function POST(req: NextRequest) {
   if (body.action === 'email') {
     // People not on the platform pay at the desk: their bills are never emailed
     const reachable = chosen.filter((f) => f.email && !f.offPlatform);
+    const title = `${a.t!.name} Badminton Tournament`;
     const results = await sendMails(reachable.map((f) => ({
       to: f.email!, kind: 'bill', tournamentId: a.t!.id,
-      subject: `Your bill for ${a.t!.name}`,
+      subject: `Your bill for ${title}`,
       html: billEmail({
-        name: f.head, tournamentName: a.t!.name, lines: f.lines,
+        name: f.head, tournamentName: title, lines: f.lines,
         paymentNote: 'Please bring the exact amount in cash and pay at the registration desk. If anything on this bill looks wrong, please contact us as soon as possible.',
       }),
     })));
