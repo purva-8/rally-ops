@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
           <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;">
             <h2 style="color:#111827;">You're invited to coach ${tournament.name}</h2>
             <p style="color:#57534e;font-size:15px;">You've been added as a coach on RallyOps. Sign in or create a free account with this email to start scoring matches.</p>
-            <a href="${inviteUrl}" style="display:inline-block;background:#B4532A;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px;">Accept Invite</a>
+            <a href="${inviteUrl}" style="display:inline-block;background:#ea580c;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px;">Accept Invite</a>
           </div>
         `,
       });
