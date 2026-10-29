@@ -19,7 +19,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
   const t = event ? all?.find((x) => x.id === event) : (all?.find((x) => x.status !== 'completed') ?? all?.[0]);
   if (!t) return <BoardView empty />;
 
-  const cats = SHEET_SLOTS.flatMap((s) => s.categories);
+  const cats = SHEET_SLOTS.flatMap((s) => s.categories.map((c) => c.key));
   const [{ data: regs }, { data: matches }] = await Promise.all([
     admin.from('registrations').select('category, player_id, partner_id, partner_name, manual_name')
       .eq('tournament_id', t.id).eq('status', 'approved').in('category', cats),
@@ -47,12 +47,14 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
   const slots: BoardSlot[] = SHEET_SLOTS.map((s) => ({
     from: s.from,
     to: s.to,
-    categories: s.categories.filter((c) => labels[c]?.length).map((c) => {
+    categories: s.categories.filter(({ key }) => labels[key]?.length).map(({ key: c, court, round }) => {
       const ms = (matches ?? []).filter((m) => m.category === c) as SheetMatch[];
       const n = labels[c].length;
       return {
         key: c,
         label: CATEGORY_LABELS[c] ?? c,
+        court,
+        round: round ?? null,
         doubles: isDoublesCategory(c),
         drawn: ms.length > 0,
         entries: labels[c]

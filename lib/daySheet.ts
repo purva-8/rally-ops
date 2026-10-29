@@ -1,10 +1,19 @@
 // The one-page sheet for the first day (/board): who plays in which slot, and how each entry is doing.
 // Pure functions only so they can be tested with `node --test`.
 
-// The organizers' slots for 30/10: children, parent + child and women's singles first, then the men
-export const SHEET_SLOTS = [
-  { from: '4:00 PM', to: '7:00 PM', categories: ['singles_u10', 'male_singles_kids', 'mixed_doubles_open', 'female_singles_18plus'] },
-  { from: '7:00 PM', to: '10:00 PM', categories: ['male_singles_18plus', 'male_doubles_18plus'] },
+// The organizers' slots and courts for 30/10
+export type SheetCategory = { key: string; court: number; round?: string };
+export const SHEET_SLOTS: { from: string; to: string; categories: SheetCategory[] }[] = [
+  { from: '4:00 PM', to: '7:00 PM', categories: [
+    { key: 'male_singles_18plus', court: 6, round: 'Round 1' },
+    { key: 'male_doubles_18plus', court: 9, round: 'Round 1' },
+    { key: 'male_singles_kids', court: 8, round: 'Round 1' },
+    { key: 'female_singles_18plus', court: 7, round: 'Round 1' },
+    { key: 'singles_u10', court: 7, round: 'Round 1' },
+  ] },
+  { from: '7:00 PM', to: '10:00 PM', categories: [
+    { key: 'mixed_doubles_open', court: 8 },
+  ] },
 ];
 
 // Names typed all in lower or upper case are shown capitalised; anything else as entered
