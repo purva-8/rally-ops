@@ -51,7 +51,10 @@ export async function POST(req: NextRequest) {
     const results = await sendMails(reachable.map((f) => ({
       to: f.email!, kind: 'bill', tournamentId: a.t!.id,
       subject: `Your bill for ${a.t!.name}`,
-      html: billEmail({ name: f.head, tournamentName: a.t!.name, lines: f.lines }),
+      html: billEmail({
+        name: f.head, tournamentName: a.t!.name, lines: f.lines,
+        paymentNote: 'Please bring the exact amount in cash and pay at the registration desk. If anything on this bill looks wrong, please contact us as soon as possible.',
+      }),
     })));
     return NextResponse.json({ ok: true, sent: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length, noEmail: chosen.length - reachable.length });
   }
