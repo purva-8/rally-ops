@@ -23,7 +23,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
   const [{ data: regs }, { data: matches }] = await Promise.all([
     admin.from('registrations').select('category, player_id, partner_id, partner_name, manual_name')
       .eq('tournament_id', t.id).eq('status', 'approved').in('category', cats),
-    admin.from('matches').select('category, round, status, player1_name, player2_name, winner_name')
+    admin.from('matches').select('*')
       .eq('tournament_id', t.id).in('category', cats),
   ]);
   const ids = [...new Set((regs ?? []).flatMap((r) => [r.player_id, r.partner_id]).filter(Boolean))] as string[];

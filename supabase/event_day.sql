@@ -1,6 +1,6 @@
 -- Cash taken at the desk, one row per payment, and entries taken off a bill at the desk. Only the server (service
 -- role) reads and writes these: row-level security is on with no policies, so the browser cannot touch them.
--- Run once in Supabase → SQL editor.
+-- Run once in Supabase → SQL editor. Safe to run again.
 
 create table if not exists bill_payments (
   id uuid primary key default gen_random_uuid(),
@@ -32,3 +32,6 @@ create table if not exists bill_removals (
 );
 create index if not exists bill_removals_tournament on bill_removals (tournament_id);
 alter table bill_removals enable row level security;
+
+-- Matches made on the spot (Score desk → Match maker) carry their own name: "Round 1", "Round 2", "Final"
+alter table matches add column if not exists label text;

@@ -14,7 +14,8 @@ export function toClientMatches(rows: Row[], sets: Row[]) {
       category: m.category,
       round: m.round,
       position: m.position ?? undefined,
-      roundName: roundLabel(m.round, totalRoundsFor(round0.get(m.category) ?? 0)),
+      // Matches made on the spot carry their own name; an old drawn bracket's come from its size
+      roundName: m.label ?? roundLabel(m.round, totalRoundsFor(round0.get(m.category) ?? 0)),
       player1Id: m.player1_id,
       player1Name: m.player1_name,
       player2Id: m.player2_id ?? undefined,

@@ -5,9 +5,8 @@ import { isEventOrganizer } from '@/lib/organizer';
 import { toClientMatches } from '@/lib/matchRows';
 
 // Organizers undo a match's result (or its score so far): it goes back to "to be played" with no games.
-// Later rounds of the category were drawn from finished results, so if none of their matches has started
-// they are removed and drawn again when the round is finished again; if one has started, that one must be
-// undone first. Body: { matchId }.
+// A later match the winner was put into (made on the spot, or a bye in an old drawn bracket) is removed if it
+// hasn't started; if it has, that one must be undone first. Body: { matchId }.
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { matchId } = (await req.json().catch(() => ({}))) as { matchId?: string };
@@ -28,7 +27,9 @@ export async function POST(req: NextRequest) {
 
     const { data: catMatches } = await admin.from('matches').select('*')
       .eq('tournament_id', match.tournament_id).eq('category', match.category);
-    const later = (catMatches ?? []).filter((m) => m.round > match.round);
+    const won = match.status === 'completed' ? match.winner_name : null;
+    const later = won ? (catMatches ?? []).filter((m) => m.id !== match.id && m.round > match.round
+      && (m.player1_name === won || m.player2_name === won)) : [];
     const laterIds = later.map((m) => m.id);
     const { data: laterSets } = laterIds.length ? await admin.from('match_sets').select('match_id').in('match_id', laterIds) : { data: [] };
     const scored = new Set((laterSets ?? []).map((s) => s.match_id));
@@ -43,8 +44,8 @@ export async function POST(req: NextRequest) {
     if (laterIds.length) {
       const { error } = await admin.from('matches').delete().in('id', laterIds);
       if (error) {
-        console.error('later rounds delete failed', error);
-        return NextResponse.json({ error: 'Could not remove the later rounds' }, { status: 500 });
+        console.error('later matches delete failed', error);
+        return NextResponse.json({ error: 'Could not remove the later match' }, { status: 500 });
       }
     }
     await admin.from('match_sets').delete().eq('match_id', matchId);

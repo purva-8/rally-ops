@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ bills, ledger, removals, yetToBill });
 }
 
-const NEEDS_SQL = 'Recording payments needs a database update first: run supabase/bill_payments.sql in Supabase';
+const NEEDS_SQL = 'Recording payments needs a database update first: run supabase/event_day.sql in Supabase';
 
 // Actions (all take tournamentId):
 //   email { headIds? }                         no headIds = everyone with a balance

@@ -23,7 +23,7 @@ const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length
 // One bill per family head, from approved entries only, with only that family's own people on it: each person pays
 // for themselves (see lib/billCharges). People not on the platform (an entry made at the desk, or a partner typed by
 // name) each get a bill of their own under their name, so nobody who plays goes unbilled.
-// Paid amounts come from the cash recorded at the desk (bill_payments). ledger is false until supabase/bill_payments.sql
+// Paid amounts come from the cash recorded at the desk (bill_payments). ledger is false until supabase/event_day.sql
 // has been run.
 export async function loadBilling(admin: Admin, tournamentId: string, entryFee: number): Promise<{ bills: FamilyBill[]; ledger: boolean; removals: Removal[] }> {
   const { data: regs } = await admin.from('registrations')

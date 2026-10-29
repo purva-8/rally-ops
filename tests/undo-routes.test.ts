@@ -6,6 +6,7 @@ import { POST as reset } from '../app/api/tournament/matches/reset/route.ts';
 import { DELETE as deleteDraw } from '../app/api/tournament/brackets/route.ts';
 import { POST as restore } from '../app/api/tournament/brackets/restore/route.ts';
 import { POST as score } from '../app/api/tournament/matches/score/route.ts';
+import { POST as quick } from '../app/api/tournament/matches/quick/route.ts';
 
 const T = 't1', ORG = 'u-org', COORG = 'u-coorg', COACH = 'u-coach';
 
@@ -31,9 +32,12 @@ beforeEach(() => {
   db.match_sets = [];
 });
 
+// Both first matches played, then the final made on the spot (Match maker): A v C
 const finishRound0 = async () => {
   await call(score, ORG, { matchId: 'm1', sets: [set(21, 5), set(21, 7)], status: 'completed' });
   await call(score, ORG, { matchId: 'm2', sets: [set(21, 5), set(21, 7)], status: 'completed' });
+  assert.equal(db.matches.filter((x) => x.round === 1).length, 0, 'nothing is drawn by itself');
+  await call(quick, ORG, { tournamentId: T, category: 'ms', final: true, pairs: [{ player1: { name: 'A' }, player2: { name: 'C' } }] });
 };
 
 test('undo puts a finished match back to be played; only organizers may', async () => {
@@ -48,16 +52,16 @@ test('undo puts a finished match back to be played; only organizers may', async 
   assert.equal(r.body.match.status, 'upcoming');
 });
 
-test('undo removes an unplayed later round, which is drawn again when the round finishes again', async () => {
+test("undo removes the winner's unplayed later match; nothing else is touched or drawn", async () => {
   await finishRound0();
-  assert.equal(db.matches.filter((x) => x.round === 1).length, 1);
+  db.matches.push(m('later-other', 1, 5, 'P', 'Q'));
   const r = await call(reset, ORG, { matchId: 'm2' });
   assert.equal(r.status, 200);
   assert.equal(r.body.removedIds.length, 1);
-  assert.equal(db.matches.filter((x) => x.round === 1).length, 0);
+  assert.deepEqual(db.matches.filter((x) => x.round === 1).map((x) => x.id), ['later-other']);
+  assert.equal(db.matches.find((x) => x.id === 'm1')!.status, 'completed', 'the other result stays');
   await call(score, ORG, { matchId: 'm2', sets: [set(5, 21), set(7, 21)], status: 'completed' });
-  const final = db.matches.filter((x) => x.round === 1);
-  assert.deepEqual(final.map((x) => [x.player1_name, x.player2_name]), [['A', 'D']]);
+  assert.deepEqual(db.matches.filter((x) => x.round === 1).map((x) => x.id), ['later-other']);
 });
 
 test('undo is refused while a later-round match has started; byes have nothing to undo', async () => {
