@@ -23,9 +23,10 @@ test('status: wins, knocked out, champion from the final; byes and unfinished ma
   assert.deepEqual(entryStatus('G', odd, 3), { wins: 0, out: true, champion: false });
 });
 
-test('the six first-day categories are in the two slots once each, each with a court', () => {
+test('the seven first-day categories are in the two slots once each, each with a court', () => {
   assert.ok(SHEET_SLOTS.every((s) => s.categories.every((c) => Number.isInteger(c.court))));
   const all = SHEET_SLOTS.flatMap((s) => s.categories.map((c) => c.key));
-  assert.equal(new Set(all).size, 6);
+  assert.equal(new Set(all).size, 7);
+  assert.equal(all.length, 7);
   assert.deepEqual(SHEET_SLOTS.map((s) => `${s.from}-${s.to}`), ['4:00 PM-7:00 PM', '7:00 PM-10:00 PM']);
 });
