@@ -8,6 +8,9 @@ import { entryLabel, sortCategories } from '@/lib/categories';
 import { matchResult, winnerSide } from '@/lib/bracket';
 import { undoResult } from './undo';
 import MatchMaker from './MatchMaker';
+import HistoryPanel from './HistoryPanel';
+import BackupBar from './BackupBar';
+import { clearDraft, fetchRetry, loadDraft, saveDraft, type Base, type Games } from '@/lib/deskSafety';
 
 // Scores come in from the coaches; one person types them in here as each match ends. The server picks the winner.
 // First matches are made in Brackets; winners are paired up for their next match here. Nothing is drawn ahead.
@@ -26,7 +29,7 @@ export default function ScoreDeskTab() {
   // Another desk may save too, so stay current
   useEffect(() => {
     refresh();
-    const t = setInterval(refresh, 20000);
+    const t = setInterval(refresh, 10000);
     return () => clearInterval(t);
   }, [refresh]);
 
@@ -89,7 +92,9 @@ export default function ScoreDeskTab() {
 
       {note && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 font-medium">{note}</div>}
 
+      <div className="mb-4"><BackupBar tournamentId={tournamentId} /></div>
       <MatchMaker mode="winners" tournamentId={tournamentId} names={names} matches={matches} onMade={saved} />
+      <HistoryPanel tournamentId={tournamentId} onRestored={saved} />
 
       {matches.length === 0 && (
         <p className="text-sm text-stone-400 mb-6">No matches yet. Make first matches in the Brackets tab as players arrive.</p>
@@ -122,7 +127,6 @@ export default function ScoreDeskTab() {
   );
 }
 
-type Games = [string, string][];
 
 function DeskRow({ match, names, onSaved }: {
   match: Match;
@@ -135,26 +139,41 @@ function DeskRow({ match, names, onSaved }: {
     const s = match.sets[i];
     return s ? [String(s.player1Score), String(s.player2Score)] : ['', ''];
   });
-  const [games, setGames] = useState<Games>(fromMatch);
-  const [open, setOpen] = useState(!finished);
+  const baseOf = (): Base => ({ status: match.status, sets: match.sets.map((x) => ({ player1Score: x.player1Score, player2Score: x.player2Score })) });
+  // A score typed on this device but not yet saved comes back after a reload or a dropped connection
+  const [draft] = useState(() => loadDraft(match.id));
+  const [games, setGames] = useState<Games>(() => draft?.games ?? fromMatch());
+  const [base, setBase] = useState<Base>(() => draft?.base ?? baseOf());
+  const [dirty, setDirty] = useState(!!draft);
+  const [open, setOpen] = useState(!finished || !!draft);
   const [editPlayers, setEditPlayers] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const [info, setInfo] = useState<string | null>(draft ? `Unsaved score from this device (typed ${new Date(draft.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}) is back. Check it and save.` : null);
 
-  // Pick up a score saved elsewhere unless this row is being typed into
-  const key = JSON.stringify(match.sets);
+  // Pick up a score saved elsewhere, unless something is typed here: then keep the typing and say so
+  const key = JSON.stringify([match.status, match.sets]);
   const [seen, setSeen] = useState(key);
   if (key !== seen && !busy) {
     setSeen(key);
-    setGames(fromMatch());
+    if (!dirty) { setGames(fromMatch()); setBase(baseOf()); }
+    else setInfo(`Another desk changed this match (${match.status === 'completed' ? `${match.winnerName} won ` : ''}${scoreText(match.sets) || 'no score'}). Your typed score is kept until you save or clear it.`);
   }
 
   const typed = (side: 0 | 1, i: number, v: string) => {
     const clean = v.replace(/\D/g, '').slice(0, 2);
-    setGames((g) => g.map((pair, j) => (j === i ? (side === 0 ? [clean, pair[1]] : [pair[0], clean]) : pair)) as Games);
+    const next = games.map((pair, j) => (j === i ? (side === 0 ? [clean, pair[1]] : [pair[0], clean]) : pair)) as Games;
+    setGames(next);
+    setDirty(true);
+    saveDraft(match.id, { games: next, base, at: new Date().toISOString() });
+  };
+  const discard = () => {
+    clearDraft(match.id);
+    setDirty(false); setGames(fromMatch()); setBase(baseOf()); setError(null); setConflict(false); setInfo(null);
   };
 
-  const save = async () => {
+  const save = async (force = false) => {
     setError(null);
     const half = games.find(([a, b]) => (a === '') !== (b === ''));
     if (half) { setError('Each game needs both numbers'); return; }
@@ -172,19 +191,24 @@ function DeskRow({ match, names, onSaved }: {
     }
 
     setBusy(true);
+    saveDraft(match.id, { games, base, at: new Date().toISOString() });
     try {
-      const res = await fetch('/api/tournament/matches/score', {
+      const res = await fetchRetry('/api/tournament/matches/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId: match.id, sets, status: 'completed', override }),
+        body: JSON.stringify({ matchId: match.id, sets, status: 'completed', override, expected: base, force }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setError(data.error ?? `Not saved (${res.status})`); return; }
+      if (res.status === 401) { setError('You have been signed out. Your typed score is kept on this device: sign in again in another tab, then press Save.'); return; }
+      if (res.status === 409 && data.conflict) { setConflict(true); setError(`${data.error} Your typed score is kept.`); return; }
+      if (!res.ok) { setError(`${data.error ?? `Not saved (${res.status})`}. Your typed score is kept.`); return; }
+      clearDraft(match.id);
+      setDirty(false); setConflict(false); setInfo(null);
       const winner = data.match?.winnerName ?? '';
       await onSaved(`${finished ? 'Corrected' : 'Saved'}: ${winner} won ${match.roundName.toLowerCase()} (${scoreText(sets)}).`);
       if (finished) setOpen(false);
     } catch {
-      setError('No connection. Not saved; try again.');
+      setError('No connection. Not saved yet, but your typed score is kept on this device: press Save again when the wifi is back.');
     } finally {
       setBusy(false);
     }
@@ -199,7 +223,7 @@ function DeskRow({ match, names, onSaved }: {
   ));
 
   return (
-    <div className={`bg-white border rounded-xl px-4 py-3 ${error ? 'border-red-300' : 'border-stone-200'}`}>
+    <div className={`bg-white border rounded-xl px-4 py-3 ${error ? 'border-red-300' : dirty ? 'border-amber-300' : 'border-stone-200'}`}>
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[match.category] ?? 'bg-stone-100 text-stone-600'}`}>{CATEGORY_LABELS[match.category] ?? match.category}</span>
         <span className="text-xs text-stone-400">{match.roundName}{match.courtId ? ` · ${match.courtId.replace('court-', 'Court ')}` : ''}</span>
@@ -251,14 +275,17 @@ function DeskRow({ match, names, onSaved }: {
             {boxes(1)}
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={save} disabled={busy}
+            <button onClick={() => save()} disabled={busy}
               className="bg-[#111827] hover:bg-[#1F2937] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-semibold">
               {busy ? 'Saving…' : finished ? 'Save correction' : 'Save result'}
             </button>
-            {finished && <button onClick={() => { setOpen(false); setGames(fromMatch()); setError(null); }} className="text-xs text-stone-400 hover:text-stone-700">Cancel</button>}
+            {conflict && <button onClick={() => save(true)} disabled={busy} className="px-3 py-2 rounded-lg text-sm font-semibold border border-red-300 text-red-700 bg-white disabled:opacity-50">Save mine anyway</button>}
+            {finished && <button onClick={() => { discard(); setOpen(false); }} className="text-xs text-stone-400 hover:text-stone-700">Cancel</button>}
+            {!finished && dirty && <button onClick={() => { if (confirm('Clear the typed score?')) discard(); }} className="text-xs text-stone-400 hover:text-stone-700">Clear</button>}
           </div>
         </div>
       )}
+      {info && <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mt-2">{info}</p>}
       {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
     </div>
   );

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isEventOrganizer } from '@/lib/organizer';
 import { toClientMatches } from '@/lib/matchRows';
+import { logMatch, scoreText, snapshot, vs } from '@/lib/matchLog';
 
 // Organizers undo a match's result (or its score so far): it goes back to "to be played" with no games.
 // A later match the winner was put into (made on the spot, or a bye in an old drawn bracket) is removed if it
@@ -41,6 +42,8 @@ export async function POST(req: NextRequest) {
       }, { status: 409 });
     }
 
+    const before = await snapshot(admin, matchId);
+    const laterBefore = await Promise.all(laterIds.map((id) => snapshot(admin, id)));
     if (laterIds.length) {
       const { error } = await admin.from('matches').delete().in('id', laterIds);
       if (error) {
@@ -56,6 +59,12 @@ export async function POST(req: NextRequest) {
       console.error('match reset failed', error);
       return NextResponse.json({ error: 'Could not undo the result' }, { status: 500 });
     }
+
+    await logMatch(admin, { tournamentId: match.tournament_id, matchId, category: match.category, action: 'reset', by: user.id,
+      summary: `${vs(match)}: result undone (was ${match.winner_name ? `${match.winner_name} won ` : ''}${scoreText(before?.sets) || 'no score'})`,
+      before, after: await snapshot(admin, matchId) });
+    for (const was of laterBefore) if (was) await logMatch(admin, { tournamentId: match.tournament_id, matchId: was.match.id, category: match.category,
+      action: 'delete', by: user.id, summary: `${vs(was.match)}: removed with the undo of ${vs(match)}`, before: was, after: null });
 
     const rows = (catMatches ?? []).filter((m) => !laterIds.includes(m.id)).map((m) => (m.id === matchId ? updated : m));
     const [client] = toClientMatches(rows, []).filter((m) => m.id === matchId);

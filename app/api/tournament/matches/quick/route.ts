@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isEventOrganizer } from '@/lib/organizer';
 import { insertMatches, toClientMatches } from '@/lib/matchRows';
 import { roundFor, roundName, standing } from '@/lib/quickMatch';
+import { logMatch, snapshot, vs } from '@/lib/matchLog';
 
 type Side = { id?: string | null; name?: string };
 
@@ -17,7 +18,7 @@ async function organizer(tournamentId: string | undefined) {
   if (!t || !(await isEventOrganizer(admin, tournamentId, user.id, t.created_by))) {
     return { error: NextResponse.json({ error: 'Only organizers can make matches' }, { status: 403 }) };
   }
-  return { admin };
+  return { admin, userId: user.id };
 }
 
 // Matches made on the spot as players arrive (Score desk → Match maker). Body: { tournamentId, category,
@@ -72,6 +73,8 @@ export async function POST(req: NextRequest) {
     console.error('quick match insert failed', res.error);
     return NextResponse.json({ error: res.error.code === '23505' ? 'Someone else just made a match here. Reload and try again.' : 'Could not save the matches' }, { status: 500 });
   }
+  for (const m of res.data ?? []) await logMatch(admin, { tournamentId: tournamentId!, matchId: m.id, category, action: 'create', by: a.userId,
+    summary: `${vs(m)}: ${m.label ?? 'match'} made`, before: null, after: { match: m, sets: [] } });
   return NextResponse.json({ matches: toClientMatches(res.data ?? [], []) });
 }
 
@@ -86,7 +89,10 @@ export async function DELETE(req: NextRequest) {
   if (!m || m.tournament_id !== tournamentId) return NextResponse.json({ error: 'Match not found' }, { status: 404 });
   const { data: sets } = await admin.from('match_sets').select('id').eq('match_id', matchId);
   if (m.status !== 'upcoming' || sets?.length) return NextResponse.json({ error: 'This match has a score. Undo the result first.' }, { status: 409 });
+  const before = await snapshot(admin, matchId);
   const { error } = await admin.from('matches').delete().eq('id', matchId);
   if (error) return NextResponse.json({ error: 'Could not remove the match' }, { status: 500 });
+  await logMatch(admin, { tournamentId: tournamentId!, matchId, category: before?.match.category, action: 'delete', by: a.userId,
+    summary: `${vs(before?.match)}: taken back`, before, after: null });
   return NextResponse.json({ ok: true });
 }
