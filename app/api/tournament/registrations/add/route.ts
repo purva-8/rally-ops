@@ -5,7 +5,9 @@ import { isEventOrganizer } from '@/lib/organizer';
 import { categoryFee, isDoublesCategory } from '@/lib/categories';
 
 // Organizers register someone who already has a profile on the app (on the spot, at the desk). The entry is
-// approved straight away; it is unpaid if the category has a fee, like a player's own entry.
+// approved straight away; it is unpaid if the category has a fee, like a player's own entry. It is saved as the
+// signed-in organizer, not with the server key: the database lets organizers add entries after registration closes
+// (guard_registration), and it can only tell who is adding when the insert carries their session.
 // Body: { tournamentId, category, playerId, partnerId?, partnerName? }.
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     const partner = doubles ? (partnerId ? byId.get(partnerId)! : (partnerName ?? '').trim()) : '';
-    const { data: row, error } = await admin.from('registrations').insert({
+    const { data: row, error } = await supabase.from('registrations').insert({
       tournament_id: tournamentId,
       player_id: playerId,
       category,
