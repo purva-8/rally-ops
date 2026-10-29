@@ -36,7 +36,7 @@ export default function BillingTab() {
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) setNote(d.error ?? 'Failed');
-    else if (action === 'email') setNote(`Emailed ${d.sent} bill${d.sent === 1 ? '' : 's'}${d.failed ? `, ${d.failed} failed` : ''}${d.noEmail ? `, ${d.noEmail} without an email` : ''}`);
+    else if (action === 'email') setNote(`Emailed ${d.sent} bill${d.sent === 1 ? '' : 's'}${d.failed ? `, ${d.failed} failed` : ''}${d.noEmail ? `, ${d.noEmail} without an email` : ''}${d.desk ? `, ${d.desk} not on the platform (collect at the desk)` : ''}`);
     else { setNote(`Marked ${d.updated} entries paid`); await load(); }
     setBusy(false);
     setTimeout(() => setNote(''), 7000);
@@ -105,14 +105,16 @@ export default function BillingTab() {
             <div className="flex items-center gap-3 p-4">
               <button onClick={() => setOpen(open === b.headId ? null : b.headId)} className="flex-1 min-w-0 text-left">
                 <p className="text-sm font-semibold text-stone-900 truncate">{b.head}{b.offPlatform && <span className="ml-2 text-[10px] font-semibold text-stone-500 bg-stone-100 rounded px-1.5 py-0.5 align-middle">Not on the platform</span>}</p>
-                <p className="text-xs text-stone-400 truncate">{b.email ?? 'no email on file'}{b.mobile ? ` · ${b.mobile}` : ''} · {b.lines.length} entr{b.lines.length === 1 ? 'y' : 'ies'}</p>
+                <p className="text-xs text-stone-400 truncate">{b.offPlatform ? 'Not emailed, pay at the desk' : b.email ?? 'no email on file'}{b.mobile ? ` · ${b.mobile}` : ''} · {b.lines.length} entr{b.lines.length === 1 ? 'y' : 'ies'}</p>
               </button>
               <div className="text-right shrink-0">
                 <p className={`text-sm font-bold ${b.balance > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>{b.balance > 0 ? `QAR ${b.balance} due` : 'Paid'}</p>
                 <p className="text-xs text-stone-400">of QAR {b.due}</p>
               </div>
-              <button onClick={() => act('email', [b.headId])} disabled={busy || !b.email}
-                className="px-3 py-1.5 border border-stone-200 text-stone-600 rounded-lg text-xs hover:bg-stone-50 disabled:opacity-40">Email bill</button>
+              {b.offPlatform
+                ? <span className="px-2 text-xs text-stone-500">Collect at the desk</span>
+                : <button onClick={() => act('email', [b.headId])} disabled={busy || !b.email}
+                    className="px-3 py-1.5 border border-stone-200 text-stone-600 rounded-lg text-xs hover:bg-stone-50 disabled:opacity-40">Email bill</button>}
               {b.balance > 0 && (
                 <button onClick={() => act('markPaid', [b.headId])} disabled={busy}
                   className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 disabled:opacity-40">Mark paid</button>

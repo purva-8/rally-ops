@@ -18,9 +18,13 @@ test('singles in full; doubles half each; a pair where both entered is charged o
   assert.deepEqual(by, { dad: 65, son: 30 });
 });
 
-test('a parent in Parent + Child with two children pays a half for each pair', () => {
+test('no repeats: a person in two pairs of one category is charged once, on their own entry', () => {
+  // dad in Parent + Child with two children
   const { by } = owed([reg('a', 'dad', 'mixed_doubles_open', 'son'), reg('b', 'son', 'mixed_doubles_open', 'dad'), reg('c', 'girl', 'mixed_doubles_open', 'dad')]);
-  assert.deepEqual(by, { dad: 60, son: 30, girl: 30 });
+  assert.deepEqual(by, { dad: 30, son: 30, girl: 30 });
+  // gopi entered with sijith, and yadu named gopi too: gopi pays once, for his own entry
+  const c = charges([reg('g', 'gopi', 'male_doubles_18plus', 'sijith'), reg('y', 'yadu', 'male_doubles_18plus', 'gopi')], same);
+  assert.deepEqual(c.filter((x) => x.personId === 'gopi').map((x) => [x.regId, x.amount]), [['g', 30]]);
 });
 
 test('each person is charged only for themselves: a partner in another family pays on their own bill', () => {
@@ -32,8 +36,8 @@ test('everyone who plays is billed: a partner not on the platform pays their hal
   const c = charges([reg('a', 'dad', 'male_doubles_18plus', null, 'Ravi K'), reg('b', 'dad', 'spouse_doubles_open', null, ''), reg('c', 'gopi', 'male_doubles_18plus', null, ' ravi  k ')], same);
   const by: Record<string, number> = {};
   for (const x of c) by[x.personId] = (by[x.personId] ?? 0) + x.amount;
-  // Ravi K is in two pairs (with dad and with gopi): one bill of his own, a half for each
-  assert.deepEqual(by, { dad: 60, gopi: 30, 'name:ravi k': 60, 'name:partner not named': 30 });
+  // Ravi K is named in two pairs of one category (with dad and with gopi): one bill of his own, charged once
+  assert.deepEqual(by, { dad: 60, gopi: 30, 'name:ravi k': 30, 'name:partner not named': 30 });
   assert.ok(c.filter((x) => x.personId.startsWith('name:')).every((x) => x.offPlatform && x.asPartner));
 });
 

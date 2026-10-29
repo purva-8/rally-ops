@@ -1,7 +1,9 @@
 // Who owes what, shared by the organizers' bills, the export and the player's own bill. Pure so it can be tested with
-// `node --test`. Each person pays for themselves: a singles fee in full, and half a doubles fee for each pair they are
-// in, once, even when both partners entered. Everyone who plays is billed: people on the platform on their family's
-// bill, and people who are not (an entry made at the desk, or a partner typed by name) each on a bill of their own.
+// `node --test`. Each person pays for themselves, once per category: a singles fee in full, half a doubles fee. No
+// repeats: if a person turns up in two pairs of one category (both partners entered, or someone else named them too),
+// they are still charged once, on their own entry when they have one. Everyone who plays is billed: people on the
+// platform on their family's bill, and people who are not (an entry made at the desk, or a partner typed by name) each
+// on a bill of their own.
 import { isDoublesCategory } from './categories';
 
 export type ChargeReg = {
@@ -25,14 +27,13 @@ export function charges(regs: ChargeReg[], sameFamily: (a: string, b: string) =>
   const live = regs.filter((r) => (r.player_id || r.manual_name?.trim()) && r.fee > 0 && r.payment_status !== 'waived');
   const playerOf = (r: ChargeReg) => r.player_id ?? offPlatformId(r.manual_name);
   const partnerOf = (r: ChargeReg) => r.partner_id ?? offPlatformId(r.partner_name);
-  const pairOf = (r: ChargeReg) => `${r.category}|${[playerOf(r), partnerOf(r)].sort().join('|')}`;
   const add = (key: string, c: Charge) => { if (!seen.has(key)) { seen.add(key); out.push(c); } };
 
-  // Own entries first, so a person's half is booked on their own entry when they have one
+  // Own entries first, so a person's charge is booked on their own entry when they have one
   for (const r of live) {
     const doubles = isDoublesCategory(r.category);
     const me = playerOf(r);
-    add(doubles ? `${pairOf(r)}|${me}` : `${r.id}|${me}`, {
+    add(`${r.category}|${me}`, {
       regId: r.id, personId: me, personName: r.player_id ? null : (r.manual_name ?? '').trim(), category: r.category,
       partnerId: doubles ? r.partner_id : null, partnerName: doubles ? r.partner_name : null,
       amount: doubles ? r.fee / 2 : r.fee, paid: r.payment_status === 'paid', asPartner: false, offPlatform: !r.player_id,
@@ -41,7 +42,7 @@ export function charges(regs: ChargeReg[], sameFamily: (a: string, b: string) =>
   for (const r of live) {
     if (!isDoublesCategory(r.category)) continue;
     const partner = partnerOf(r);
-    add(`${pairOf(r)}|${partner}`, {
+    add(`${r.category}|${partner}`, {
       regId: r.id, personId: partner, personName: r.partner_id ? null : (r.partner_name ?? '').trim() || 'Partner not named', category: r.category,
       partnerId: r.player_id, partnerName: r.player_id ? null : (r.manual_name ?? '').trim(), amount: r.fee / 2,
       // Halves within one family used to be paid together with the entry
