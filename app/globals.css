@@ -1,18 +1,53 @@
 @import "tailwindcss";
 
 @theme {
-  --color-cream: #FAF6F0;
-  --color-cream-dark: #F0E9DF;
+  --color-cream: #FBF5EC;
+  --color-cream-dark: #F3EADB;
   --color-charcoal: #131110;
   --color-charcoal-mid: #2A2520;
   --color-warm-gray: #6B6258;
   --color-warm-light: #9A9088;
   --color-border: #E6DDD4;
-  --color-saffron: #E8722A;
-  --color-saffron-light: #F0935A;
-  --color-saffron-deep: #C45E1A;
+  --color-saffron: #B4532A;
+  --color-saffron-light: #CF7A52;
+  --color-saffron-deep: #8F3F1E;
   --color-clay: #C4856A;
   --color-dark: #0A0806;
+
+  /* The board and leaderboard palette everywhere: orange is terracotta, blue and sky are beige-brown */
+  --color-orange-50: #FBF3EE;
+  --color-orange-100: #F6E2D6;
+  --color-orange-200: #EDC4AD;
+  --color-orange-300: #E0A07F;
+  --color-orange-400: #CF7A52;
+  --color-orange-500: #C1653A;
+  --color-orange-600: #B4532A;
+  --color-orange-700: #8F3F1E;
+  --color-orange-800: #6F3118;
+  --color-orange-900: #552614;
+  --color-orange-950: #2E140A;
+  --color-sky-50: #FBF5EC;
+  --color-sky-100: #F3EADB;
+  --color-sky-200: #E4D6C1;
+  --color-sky-300: #D2BE9F;
+  --color-sky-400: #BBA07A;
+  --color-sky-500: #A3855E;
+  --color-sky-600: #8A6D49;
+  --color-sky-700: #6F5639;
+  --color-sky-800: #57432D;
+  --color-sky-900: #3F3021;
+  --color-sky-950: #2B1D14;
+  --color-blue-50: #FBF5EC;
+  --color-blue-100: #F3EADB;
+  --color-blue-200: #E4D6C1;
+  --color-blue-300: #D2BE9F;
+  --color-blue-400: #BBA07A;
+  --color-blue-500: #A3855E;
+  --color-blue-600: #8A6D49;
+  --color-blue-700: #6F5639;
+  --color-blue-800: #57432D;
+  --color-blue-900: #3F3021;
+  --color-blue-950: #2B1D14;
 
   --font-display: var(--font-cormorant), "Georgia", serif;
   --font-body: var(--font-inter), "Helvetica Neue", sans-serif;
