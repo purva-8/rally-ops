@@ -16,6 +16,7 @@ export default function BillingTab() {
   const [open, setOpen] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState('');
 
   const load = useCallback(async () => {
     if (!tournamentId) return;
@@ -46,6 +47,10 @@ export default function BillingTab() {
   const total = bills.reduce((s, b) => s + b.due, 0);
   const paid = bills.reduce((s, b) => s + b.paid, 0);
   const offCount = bills.filter((b) => b.offPlatform).length;
+  // Search by the head's name, email, mobile or QID, or the name of anyone on the bill
+  const q = query.trim().toLowerCase();
+  const shown = q ? bills.filter((b) => [b.head, b.email, b.mobile, b.qid, ...b.lines.map((l) => l.person)]
+    .some((v) => v?.toLowerCase().includes(q))) : bills;
 
   return (
     <div>
@@ -99,8 +104,18 @@ export default function BillingTab() {
       {loading && <p className="text-sm text-stone-400">Loading...</p>}
       {!loading && bills.length === 0 && <p className="text-sm text-stone-400">No approved entries with a fee yet.</p>}
 
+      {bills.length > 0 && (
+        <div className="mb-3 flex items-center gap-3">
+          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name, email, mobile or QID"
+            className="flex-1 px-3 py-2 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:border-orange-400" />
+          {q && <span className="text-xs text-stone-400 shrink-0">{shown.length} of {bills.length}</span>}
+        </div>
+      )}
+      {q && shown.length === 0 && <p className="text-sm text-stone-400">No bill matches “{query.trim()}”.</p>}
+
       <div className="space-y-2">
-        {bills.map((b) => (
+        {shown.map((b) => (
           <div key={b.headId} className="bg-white rounded-xl border border-stone-200">
             <div className="flex items-center gap-3 p-4">
               <button onClick={() => setOpen(open === b.headId ? null : b.headId)} className="flex-1 min-w-0 text-left">
