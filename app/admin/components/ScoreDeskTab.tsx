@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTournamentStore } from '../../tournament/store';
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../tournament/types';
 import type { Category, Match } from '../../tournament/types';
@@ -19,12 +19,22 @@ export default function ScoreDeskTab() {
   const [cat, setCat] = useState<Category | 'all'>('all');
   const [search, setSearch] = useState('');
   const [note, setNote] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!tournamentId) return;
     const r = await fetch(`/api/tournament/matches?tournamentId=${tournamentId}`).then((x) => x.json()).catch(() => null);
     if (r?.matches) loadMatches(r.matches);
   }, [tournamentId, loadMatches]);
+
+  // The venue runs on a phone hotspot: say plainly when it drops, and catch up as soon as it's back
+  useEffect(() => {
+    const down = () => setOffline(true);
+    const up = () => { setOffline(false); refresh(); };
+    window.addEventListener('offline', down);
+    window.addEventListener('online', up);
+    return () => { window.removeEventListener('offline', down); window.removeEventListener('online', up); };
+  }, [refresh]);
 
   // Another desk may save too, so stay current
   useEffect(() => {
@@ -90,6 +100,7 @@ export default function ScoreDeskTab() {
           className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-white flex-1 min-w-40 focus:outline-none focus:ring-2 focus:ring-orange-500" />
       </div>
 
+      {offline && <div className="mb-4 rounded-xl border border-amber-300 bg-amber-100 px-4 py-3 text-sm text-amber-900 font-medium">No signal. Keep typing scores: they stay on this device and send themselves when the hotspot is back. Keep this page open.</div>}
       {note && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 font-medium">{note}</div>}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -152,6 +163,9 @@ function DeskRow({ match, names, onSaved }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
+  // A score that couldn't be sent (no signal): held here and sent again by itself when the connection is back
+  const [held, setHeld] = useState<{ force: boolean; override: boolean } | null>(null);
+  const sending = useRef(false);
   const [info, setInfo] = useState<string | null>(draft ? `Unsaved score from this device (typed ${new Date(draft.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}) is back. Check it and save.` : null);
 
   // Pick up a score saved elsewhere, unless something is typed here: then keep the typing and say so
@@ -168,23 +182,25 @@ function DeskRow({ match, names, onSaved }: {
     const next = games.map((pair, j) => (j === i ? (side === 0 ? [clean, pair[1]] : [pair[0], clean]) : pair)) as Games;
     setGames(next);
     setDirty(true);
+    setHeld(null); // changed after it was held: Save sends the new score
     saveDraft(match.id, { games: next, base, at: new Date().toISOString() });
   };
   const discard = () => {
     clearDraft(match.id);
-    setDirty(false); setGames(fromMatch()); setBase(baseOf()); setError(null); setConflict(false); setInfo(null);
+    setDirty(false); setGames(fromMatch()); setBase(baseOf()); setError(null); setConflict(false); setInfo(null); setHeld(null);
   };
 
-  const save = async (force = false) => {
+  const save = async (force = false, resend?: { override: boolean }) => {
+    if (sending.current) return;
     setError(null);
     const half = games.find(([a, b]) => (a === '') !== (b === ''));
     if (half) { setError('Each game needs both numbers'); return; }
     const sets = games.filter(([a, b]) => a !== '' && b !== '').map(([a, b]) => ({ player1Score: Number(a), player2Score: Number(b) }));
     if (!sets.length) { setError('Type the scores first'); return; }
 
-    let override = false;
+    let override = resend?.override ?? false;
     const r = matchResult(sets);
-    if ('problem' in r) {
+    if ('problem' in r && !resend) {
       const side = winnerSide(sets);
       if (!side) { setError(`${r.problem}. Both sides won the same number of games.`); return; }
       const name = side === 1 ? match.player1Name : match.player2Name;
@@ -193,14 +209,19 @@ function DeskRow({ match, names, onSaved }: {
     }
 
     setBusy(true);
+    sending.current = true;
     saveDraft(match.id, { games, base, at: new Date().toISOString() });
+    const hold = () => { setHeld({ force, override }); setError(null); };
     try {
       const res = await fetchRetry('/api/tournament/matches/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ matchId: match.id, sets, status: 'completed', override, expected: base, force }),
       });
+      if ([502, 503, 504].includes(res.status)) { hold(); return; }
+      setHeld(null);
       const data = await res.json().catch(() => ({}));
+      if (data.alreadySaved) setInfo(null);
       if (res.status === 401) { setError('You have been signed out. Your typed score is kept on this device: sign in again in another tab, then press Save.'); return; }
       if (res.status === 409 && data.conflict) { setConflict(true); setError(`${data.error} Your typed score is kept.`); return; }
       if (!res.ok) { setError(`${data.error ?? `Not saved (${res.status})`}. Your typed score is kept.`); return; }
@@ -210,11 +231,23 @@ function DeskRow({ match, names, onSaved }: {
       await onSaved(`${finished ? 'Corrected' : 'Saved'}: ${winner} won ${match.roundName.toLowerCase()} (${scoreText(sets)}).`);
       if (finished) setOpen(false);
     } catch {
-      setError('No connection. Not saved yet, but your typed score is kept on this device: press Save again when the wifi is back.');
+      hold();
     } finally {
       setBusy(false);
+      sending.current = false;
     }
   };
+
+  // Send a held score again as soon as the connection is back, and every 15s in case that event is missed
+  const latest = useRef(save);
+  useEffect(() => { latest.current = save; });
+  useEffect(() => {
+    if (!held) return;
+    const again = () => { if (navigator.onLine) latest.current(held.force, { override: held.override }); };
+    window.addEventListener('online', again);
+    const t = setInterval(again, 15000);
+    return () => { window.removeEventListener('online', again); clearInterval(t); };
+  }, [held]);
 
   const boxes = (side: 0 | 1) => games.map((g, i) => (
     <input key={i} inputMode="numeric" value={g[side]} disabled={busy}
@@ -225,7 +258,7 @@ function DeskRow({ match, names, onSaved }: {
   ));
 
   return (
-    <div className={`bg-white border rounded-xl px-4 py-3 ${error ? 'border-red-300' : dirty ? 'border-amber-300' : 'border-stone-200'}`}>
+    <div className={`bg-white border rounded-xl px-4 py-3 ${error ? 'border-red-300' : dirty || held ? 'border-amber-300' : 'border-stone-200'}`}>
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[match.category] ?? 'bg-stone-100 text-stone-600'}`}>{CATEGORY_LABELS[match.category] ?? match.category}</span>
         <span className="text-xs text-stone-400">{match.roundName}{match.courtId ? ` · ${match.courtId.replace('court-', 'Court ')}` : ''}</span>
@@ -279,7 +312,7 @@ function DeskRow({ match, names, onSaved }: {
           <div className="flex items-center gap-2">
             <button onClick={() => save()} disabled={busy}
               className="bg-[#111827] hover:bg-[#1F2937] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-semibold">
-              {busy ? 'Saving…' : finished ? 'Save correction' : 'Save result'}
+              {busy ? 'Saving…' : held ? 'Send now' : finished ? 'Save correction' : 'Save result'}
             </button>
             {conflict && <button onClick={() => save(true)} disabled={busy} className="px-3 py-2 rounded-lg text-sm font-semibold border border-red-300 text-red-700 bg-white disabled:opacity-50">Save mine anyway</button>}
             {finished && <button onClick={() => { discard(); setOpen(false); }} className="text-xs text-stone-400 hover:text-stone-700">Cancel</button>}
@@ -287,6 +320,7 @@ function DeskRow({ match, names, onSaved }: {
           </div>
         </div>
       )}
+      {held && !busy && <p className="text-sm text-amber-900 bg-amber-100 border border-amber-300 rounded-lg px-3 py-1.5 mt-2">No signal. This score is held on this device and will send itself when the connection is back. Don&apos;t close this page.</p>}
       {info && <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mt-2">{info}</p>}
       {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
     </div>

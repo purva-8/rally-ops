@@ -48,6 +48,14 @@ export async function POST(req: NextRequest) {
       const seen = JSON.stringify((expected.sets ?? []).map((x: { player1Score: number; player2Score: number }) => [x.player1Score, x.player2Score]));
       const now = JSON.stringify(before.sets.map((x) => [x.player1_score, x.player2_score]));
       if (seen !== now || (expected.status && expected.status !== match.status)) {
+        // The same save arriving twice (the reply was lost on a weak connection and the desk sent it again):
+        // it is already saved, so say so instead of calling it someone else's change
+        const sent = JSON.stringify(sets.map((x: { player1Score: number; player2Score: number }) => [x.player1Score, x.player2Score]));
+        if (sent === now && (!status || status === match.status)) {
+          const { data: all } = await admin.from('matches').select('*').eq('tournament_id', match.tournament_id).eq('category', match.category);
+          const [client] = toClientMatches(all ?? [match], before.sets).filter((m) => m.id === matchId);
+          return NextResponse.json({ match: client, nextMatches: [], alreadySaved: true });
+        }
         return NextResponse.json({
           error: `Someone else saved this match since you opened it: ${match.winner_name && match.status === 'completed' ? `${match.winner_name} won ` : ''}${scoreText(before.sets) || 'no score'}.`,
           conflict: true, current: { status: match.status, sets: before.sets.map((x) => ({ player1Score: x.player1_score, player2Score: x.player2_score })) },
