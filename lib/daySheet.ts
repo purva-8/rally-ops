@@ -3,7 +3,8 @@
 
 // The organizers' slots and courts for 30/10
 export type SheetCategory = { key: string; court: number; round?: string };
-export const SHEET_SLOTS: { from: string; to: string; categories: SheetCategory[] }[] = [
+// columns: how many categories sit side by side in the slot (default up to 3)
+export const SHEET_SLOTS: { from: string; to: string; columns?: number; categories: SheetCategory[] }[] = [
   { from: '4:00 PM', to: '7:00 PM', categories: [
     { key: 'male_singles_18plus', court: 6, round: 'Round 1' },
     { key: 'male_doubles_18plus', court: 9, round: 'Round 1' },
@@ -11,7 +12,7 @@ export const SHEET_SLOTS: { from: string; to: string; categories: SheetCategory[
     { key: 'female_singles_18plus', court: 7, round: 'Round 1' },
     { key: 'singles_u10', court: 7, round: 'Round 1' },
   ] },
-  { from: '7:00 PM', to: '10:00 PM', categories: [
+  { from: '7:00 PM', to: '10:00 PM', columns: 1, categories: [
     { key: 'mixed_doubles_open', court: 8 },
     { key: 'female_singles_kids', court: 7 },
   ] },

@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client';
 import EntriesTab from './components/EntriesTab';
 import BracketsTab from './components/BracketsTab';
 import ScoreDeskTab from './components/ScoreDeskTab';
-import ScheduleTab from './components/ScheduleTab';
 import ExportTab from './components/ExportTab';
 import BillingTab from './components/BillingTab';
 import PairsTab from './components/PairsTab';
@@ -19,7 +18,6 @@ import { sortCategories } from '@/lib/categories';
 
 // Tournament-day tabs first; a divider, then the admin paperwork
 const TABS = [
-  { id: 'schedule',  label: 'Schedule' },
   { id: 'entries',   label: 'Entries' },
   { id: 'brackets',  label: 'Brackets' },
   { id: 'desk',      label: 'Score desk' },
@@ -31,7 +29,7 @@ const TABS = [
 ];
 
 function AdminPageInner() {
-  const [activeTab, setActiveTab] = useState('schedule');
+  const [activeTab, setActiveTab] = useState('entries');
   const { isSetup, _hasHydrated, tournamentName, organizerName, eventDate, venue, loadParticipants, loadMatches, setTournamentId, tournamentId } = useTournamentStore();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -223,7 +221,6 @@ function AdminPageInner() {
         {activeTab === 'pairs'       && <PairsTab />}
         {activeTab === 'brackets'    && <BracketsTab />}
         {activeTab === 'desk'        && <ScoreDeskTab />}
-        {activeTab === 'schedule'    && <ScheduleTab />}
         {activeTab === 'billing'     && <BillingTab />}
         {activeTab === 'volunteers'  && <VolunteersTab />}
         {activeTab === 'analytics'   && <AnalyticsTab />}

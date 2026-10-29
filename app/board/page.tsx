@@ -47,6 +47,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
   const slots: BoardSlot[] = SHEET_SLOTS.map((s) => ({
     from: s.from,
     to: s.to,
+    columns: s.columns ?? Math.min(s.categories.length, 3),
     categories: s.categories.filter(({ key }) => labels[key]?.length).map(({ key: c, court, round }) => {
       const ms = (matches ?? []).filter((m) => m.category === c) as SheetMatch[];
       const n = labels[c].length;
