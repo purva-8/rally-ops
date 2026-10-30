@@ -5,7 +5,6 @@ import { CATEGORY_LABELS } from '../../tournament/types';
 import type { Match } from '../../tournament/types';
 import { sortCategories } from '@/lib/categories';
 import { rollPairs, standing, type Standing } from '@/lib/quickMatch';
-import { keptApart } from '@/lib/keepApart';
 
 type Entry = { id: string; label: string };
 type Rolled = { pairs: [Entry, Entry][]; waiting: Entry | null };
@@ -58,9 +57,18 @@ export default function MatchMaker({ tournamentId, names, matches, onMade, mode,
     setRolled(null); setFinal(false);
     setPicked((p) => { const n = new Set(p); if (n.has(label)) n.delete(label); else n.add(label); return n; });
   };
-  const roll = () => {
+  // Rolled on the server; with no connection it rolls here (making the matches needs the connection anyway)
+  const roll = async () => {
     setError(null); setRolling(true); setRolled(null);
-    setTimeout(() => { setRolled(rollPairs(chosen.map(({ id, label }) => ({ id, label })), Math.random, (x, y) => keptApart(cat, x.label, y.label))); setRolling(false); }, 600);
+    const entries = chosen.map(({ id, label }) => ({ id, label }));
+    const [res] = await Promise.all([
+      fetch('/api/tournament/matches/roll', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId, category: cat, entries }) }).catch(() => null),
+      new Promise((r) => setTimeout(r, 600)),
+    ]);
+    const d = res?.ok ? await res.json().catch(() => null) : null;
+    setRolled(d?.pairs ? d : rollPairs(entries));
+    setRolling(false);
   };
 
   async function create(pairs: [Entry, Entry][]) {
