@@ -9,7 +9,8 @@ const display = Barlow_Condensed({ subsets: ['latin'], weight: ['500', '600', '7
 // Same terracotta and beige as the leaderboard
 const C = { paid: '#1F7A3A', court: '#B4532A', courtDeep: '#8F3F1E', line: '#FBF5EC', floor: '#F3EADB', ink: '#2B1D14', muted: '#7A6656', gold: '#D9962B', rule: '#E4D6C1' };
 
-export type BoardEntry = { name: string; wins: number; out: boolean; champion: boolean; paid: boolean };
+// parts: the player (and partner), each green once their own share is paid
+export type BoardEntry = { name: string; wins: number; out: boolean; champion: boolean; parts: { name: string; paid: boolean }[] };
 export type BoardSlot = { title: string; columns: number; categories: { key: string; label: string; court: number | null; round: string | null; doubles: boolean; drawn: boolean; entries: BoardEntry[] }[] };
 
 // The sheet is laid out at a fixed poster width and scaled to fit the whole screen, so it never scrolls
@@ -20,11 +21,13 @@ type Props = { empty: true } | { empty?: false; event: { name: string; venue: st
 function Name({ e, hit }: { e: BoardEntry; hit: boolean }) {
   return (
     <li className="flex items-baseline gap-1.5 break-inside-avoid py-[2px] leading-snug text-[14px]"
-      style={{ background: hit ? '#FFE3A8' : undefined, color: e.paid ? C.paid : e.out ? C.muted : C.ink }}>
+      style={{ background: hit ? '#FFE3A8' : undefined, color: e.out ? C.muted : C.ink }}>
       <span className="w-3.5 shrink-0 text-center" style={{ color: e.champion ? C.gold : C.court }}>
         {e.champion ? '★' : e.out ? '' : e.wins > 0 ? '✓' : '·'}
       </span>
-      <span className={`${e.out ? 'line-through decoration-1' : ''} ${e.champion || hit ? 'font-semibold' : ''}`}>{e.name}</span>
+      <span className={`${e.out ? 'line-through decoration-1' : ''} ${e.champion || hit ? 'font-semibold' : ''}`}>
+        {e.parts.map((p, i) => <span key={i}>{i > 0 && ' & '}<span style={{ color: p.paid ? C.paid : undefined }}>{p.name}</span></span>)}
+      </span>
       {!e.out && e.wins > 1 && <span className="text-[11px] font-semibold" style={{ color: C.court }}>×{e.wins}</span>}
     </li>
   );
