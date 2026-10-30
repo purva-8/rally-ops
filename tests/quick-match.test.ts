@@ -91,3 +91,19 @@ test('a match rolled by mistake can be taken back until it has a score', async (
   assert.equal((await call(unmake, { tournamentId: T, matchId: m2.id })).status, 409);
   assert.equal((await call(unmake, { tournamentId: T, matchId: m2.id }, 'u-stranger')).status, 403);
 });
+
+import { keptApart } from '../lib/keepApart.ts';
+
+test('some Spouse doubles entries are never drawn against each other', () => {
+  const s = 'spouse_doubles_open';
+  assert.equal(keptApart(s, 'Sanjay Vaidya / Harshada Vaidya', 'Girish Ubale / Vaidehi Ubale'), true);
+  assert.equal(keptApart(s, 'Supriya Suresh Bhat & Kinila Suresh Bhat', ' sanjay  vaidya & Harshada Vaidya'), true);
+  assert.equal(keptApart(s, 'Sanjay Vaidya / Harshada Vaidya', 'Mini Manesh / Manesh Kumar'), false);
+  assert.equal(keptApart('male_doubles_18plus', 'Sanjay Vaidya / Shailaja Ranjith', 'Girish Ubale / Vaidehi Ubale'), false);
+  // the roll keeps them apart every time
+  const items = ['Sanjay Vaidya / Harshada Vaidya', 'Girish Ubale / Vaidehi Ubale', 'Supriya Suresh Bhat / Kinila Suresh Bhat', 'Mini Manesh / Manesh Kumar'];
+  for (let i = 0; i < 200; i++) {
+    const r = rollPairs(items, Math.random, (x, y) => keptApart(s, x, y));
+    assert.ok(r.pairs.every(([x, y]) => !keptApart(s, x, y)));
+  }
+});

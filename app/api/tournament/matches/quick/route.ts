@@ -5,6 +5,7 @@ import { isEventOrganizer } from '@/lib/organizer';
 import { insertMatches, toClientMatches } from '@/lib/matchRows';
 import { roundFor, roundName, standing } from '@/lib/quickMatch';
 import { logMatch, snapshot, vs } from '@/lib/matchLog';
+import { keptApart } from '@/lib/keepApart';
 
 type Side = { id?: string | null; name?: string };
 
@@ -39,6 +40,9 @@ export async function POST(req: NextRequest) {
   const all = pairs.flatMap((p) => [name(p.player1), name(p.player2)]);
   if (all.some((n) => !n)) return NextResponse.json({ error: 'Every match needs two players' }, { status: 400 });
   if (new Set(all).size !== all.length) return NextResponse.json({ error: 'Someone is in two of these matches' }, { status: 400 });
+  if (pairs.some((p) => keptApart(category, name(p.player1), name(p.player2)))) {
+    return NextResponse.json({ error: 'This match can\'t be made. Roll again or pick another pair.' }, { status: 409 });
+  }
 
   const { data: existing } = await admin.from('matches').select('*').eq('tournament_id', tournamentId).eq('category', category);
   const rows = existing ?? [];

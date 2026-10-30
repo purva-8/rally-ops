@@ -5,6 +5,7 @@ import { CATEGORY_LABELS } from '../../tournament/types';
 import type { Match } from '../../tournament/types';
 import { sortCategories } from '@/lib/categories';
 import { rollPairs, standing, type Standing } from '@/lib/quickMatch';
+import { keptApart } from '@/lib/keepApart';
 
 type Entry = { id: string; label: string };
 type Rolled = { pairs: [Entry, Entry][]; waiting: Entry | null };
@@ -59,7 +60,7 @@ export default function MatchMaker({ tournamentId, names, matches, onMade, mode,
   };
   const roll = () => {
     setError(null); setRolling(true); setRolled(null);
-    setTimeout(() => { setRolled(rollPairs(chosen.map(({ id, label }) => ({ id, label })))); setRolling(false); }, 600);
+    setTimeout(() => { setRolled(rollPairs(chosen.map(({ id, label }) => ({ id, label })), Math.random, (x, y) => keptApart(cat, x.label, y.label))); setRolling(false); }, 600);
   };
 
   async function create(pairs: [Entry, Entry][]) {
