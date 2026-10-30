@@ -10,6 +10,7 @@ import { undoResult } from './undo';
 import MatchMaker from './MatchMaker';
 import HistoryPanel from './HistoryPanel';
 import BackupBar from './BackupBar';
+import KnockoutChart from './KnockoutChart';
 import { clearDraft, fetchRetry, loadDraft, saveDraft, type Base, type Games } from '@/lib/deskSafety';
 
 // Scores come in from the coaches; one person types them in here as each match ends. The server picks the winner.
@@ -107,6 +108,7 @@ export default function ScoreDeskTab() {
         <BackupBar tournamentId={tournamentId} />
         <HistoryPanel tournamentId={tournamentId} onRestored={saved} />
       </div>
+      <KnockoutChart names={names} matches={matches} />
       <MatchMaker mode="winners" tournamentId={tournamentId} names={names} matches={matches} onMade={saved} />
 
       {matches.length === 0 && (
