@@ -22,7 +22,13 @@ export const roundFor = (a: Standing, b: Standing) => Math.max(a.wins, b.wins);
 export const roundName = (round: number, final: boolean) => (final ? 'Final' : `Round ${round + 1}`);
 
 // Roll the dice: shuffle and pair off in order. With an odd number, the last one waits for the next match.
-export function rollPairs<T>(items: T[], rand: () => number = Math.random): { pairs: [T, T][]; waiting: T | null } {
+// apart: pairs that must not meet; the dice are rolled again (up to 500 times) until none of them do.
+export function rollPairs<T>(items: T[], rand: () => number = Math.random, apart?: (x: T, y: T) => boolean): { pairs: [T, T][]; waiting: T | null } {
+  if (apart) {
+    let r = rollPairs(items, rand);
+    for (let i = 0; i < 500 && r.pairs.some(([x, y]) => apart(x, y)); i++) r = rollPairs(items, rand);
+    return r;
+  }
   const a = [...items];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));

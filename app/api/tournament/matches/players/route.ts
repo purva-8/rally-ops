@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isEventOrganizer } from '@/lib/organizer';
 import { toClientMatches } from '@/lib/matchRows';
 import { logMatch, snapshot, vs } from '@/lib/matchLog';
+import { keptApart } from '@/lib/keepApart';
 
 type Side = { id?: string | null; name?: string };
 
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Only organizers can change the players' }, { status: 403 });
     }
 
+    if (keptApart(match.category, clean(player1), clean(player2))) {
+      return NextResponse.json({ error: 'This match can\'t be made. Pick another pair.' }, { status: 409 });
+    }
     if (!match.player2_id && !match.player2_name) return NextResponse.json({ error: 'A bye has no opponent to change' }, { status: 400 });
     const { data: sets } = await admin.from('match_sets').select('id').eq('match_id', matchId);
     if (match.status !== 'upcoming' || sets?.length) {
