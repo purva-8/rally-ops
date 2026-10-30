@@ -1,6 +1,8 @@
 // Matches made on the spot as players arrive (Score desk → Match maker): no bracket, no rounds drawn ahead.
 // Pure so it can be tested with `node --test`.
 
+import { sameName } from './daySheet';
+
 export type QuickMatchRow = { round: number; status: string; player1_name: string | null; player2_name: string | null; winner_name: string | null; label?: string | null };
 export type Standing = { wins: number; out: boolean; playing: boolean; champion: boolean };
 
@@ -9,9 +11,10 @@ export type Standing = { wins: number; out: boolean; playing: boolean; champion:
 export function standing(label: string, matches: QuickMatchRow[]): Standing {
   let wins = 0, out = false, playing = false, champion = false;
   for (const m of matches) {
-    if (!m.player2_name || (m.player1_name !== label && m.player2_name !== label)) continue;
+    // names as typed on a profile and on a match can differ in spacing and capitals ("Pranav Nidhin ")
+    if (!m.player2_name || (!sameName(m.player1_name, label) && !sameName(m.player2_name, label))) continue;
     if (m.status !== 'completed') { playing = true; continue; }
-    if (m.winner_name === label) { wins++; if (m.label === 'Final') champion = true; } else out = true;
+    if (sameName(m.winner_name, label)) { wins++; if (m.label === 'Final') champion = true; } else out = true;
   }
   return { wins, out, playing, champion };
 }

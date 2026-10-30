@@ -109,3 +109,9 @@ test('entries in the KEEP_APART setting are never drawn against each other', () 
   delete process.env.KEEP_APART;
   assert.equal(keptApart(c, 'Ann Lee / Ben Lee', 'Bo Chan / Al Chan'), false, 'no setting, no rule');
 });
+
+test('a name with a stray space or other capitals is still the same player', () => {
+  const rows = [{ round: 0, status: 'completed', player1_name: 'Alisha Mehta', player2_name: 'Pranav Nidhin', winner_name: 'Pranav Nidhin' }];
+  assert.deepEqual(standing('Pranav Nidhin ', rows), { wins: 1, out: false, playing: false, champion: false });
+  assert.equal(standing('alisha  mehta', rows).out, true);
+});
