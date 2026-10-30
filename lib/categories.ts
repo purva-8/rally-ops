@@ -74,15 +74,13 @@ export function ageOn(dob: string, onDate: string) {
   return age;
 }
 
+// Only gender limits who can enter: the organizers dropped the age limits (30/10), so anyone can be entered in
+// any age band. minAge/maxAge stay on the categories as labels and for scheduling.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function isEligible(id: string, gender: string | null, dob: string | null, eventDate: string) {
   const def = CATEGORY_DEFS[id];
   if (!def) return true;
   if (def.genders && !(gender && def.genders.includes(gender as 'male' | 'female'))) return false;
-  if ((def.minAge !== undefined || def.maxAge !== undefined) && dob) {
-    const age = ageOn(dob, eventDate);
-    if (def.minAge !== undefined && age < def.minAge) return false;
-    if (def.maxAge !== undefined && age > def.maxAge) return false;
-  }
   return true;
 }
 
@@ -95,18 +93,15 @@ export type PartnerInfo = {
   sameHousehold?: boolean;
 };
 
-// Why this person cannot be the partner in this doubles category, or null when it is fine.
+// Why this person cannot be the partner in this doubles category, or null when it is fine. No age limits.
 // Anything unknown (a typed name, a missing birth date) is allowed through; the organizers check it later.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function partnerIssue(id: string, me: PartnerInfo, partner: PartnerInfo, eventDate: string): string | null {
   const def = CATEGORY_DEFS[id];
   if (!def?.doubles) return null;
-  const ageOf = (p: PartnerInfo) => p.age ?? (p.dob ? ageOn(p.dob, eventDate) : null);
-  const age = ageOf(partner);
   if (def.genders && partner.gender && !def.genders.includes(partner.gender as 'male' | 'female')) {
     return def.genders[0] === 'male' ? 'This category is for men only' : 'This category is for women only';
   }
-  if (age !== null && def.minAge !== undefined && age < def.minAge) return `Partner must be ${def.minAge} or older`;
-  if (age !== null && def.maxAge !== undefined && age > def.maxAge) return `Partner must be ${def.maxAge} or younger`;
   // The app cannot see who is married, so inside one family it only rules out pairing a child with a parent
   if (id === 'spouse_doubles_open' && partner.sameHousehold) {
     const child = (r?: string | null) => r === 'son' || r === 'daughter';

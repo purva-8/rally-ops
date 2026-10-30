@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     const me = profiles.get(r.player_id);
     if (!me) continue;
     const list: string[] = [];
-    if (!isEligible(r.category, me.gender, me.dob, asOf)) list.push(`${me.full_name} does not meet the age or gender rule for this category`);
+    if (!isEligible(r.category, me.gender, me.dob, asOf)) list.push(`${me.full_name} does not meet the gender rule for this category`);
     if (r.partner_id) {
       const pt = profiles.get(r.partner_id);
       if (pt) {
