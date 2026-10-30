@@ -34,8 +34,15 @@ export function entryStatus(label: string, matches: SheetMatch[], entries: numbe
   const finalRound = Math.ceil(Math.log2(Math.max(entries, 2))) - 1;
   let wins = 0, out = false, champion = false;
   for (const m of matches) {
-    if (m.status !== 'completed' || !m.player2_name || (m.player1_name !== label && m.player2_name !== label)) continue;
-    if (m.winner_name === label) { wins++; if (m.label ? m.label === 'Final' : m.round === finalRound) champion = true; } else out = true;
+    if (m.status !== 'completed' || !m.player2_name || !inMatch(label, m)) continue;
+    if (sameName(m.winner_name, label)) { wins++; if (m.label ? m.label === 'Final' : m.round === finalRound) champion = true; } else out = true;
   }
   return { wins, out, champion };
 }
+
+// Names as typed into a profile and as saved on a match can differ in spacing and capitals ("Pranav Nidhin " and
+// "Pranav Nidhin"); they are the same person
+export const sameName = (a: string | null | undefined, b: string | null | undefined) =>
+  !!a && !!b && a.trim().replace(/\s+/g, ' ').toLowerCase() === b.trim().replace(/\s+/g, ' ').toLowerCase();
+export const inMatch = (label: string, m: Pick<SheetMatch, 'player1_name' | 'player2_name'>) =>
+  sameName(m.player1_name, label) || sameName(m.player2_name, label);
