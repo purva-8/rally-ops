@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Barlow, Barlow_Condensed } from 'next/font/google';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORY_LABELS } from '../../../../tournament/types';
@@ -143,7 +143,7 @@ export default function ResultsView({ id }: { id: string }) {
 
       {/* What to look at: the latest, or one category's draw */}
       <nav className="sticky top-0 z-10 border-b" style={{ background: C.courtDeep, borderColor: 'rgba(251,245,236,.12)' }}>
-        <div className="max-w-3xl mx-auto px-4 flex gap-1 overflow-x-auto py-2">
+        <TabStrip watch={categories.length}>
           {[{ id: 'latest', label: 'Latest' }, ...categories.map((c) => ({ id: c, label: shortCat(c) }))].map((t) => (
             <button key={t.id} onClick={() => setView(t.id)}
               className="shrink-0 px-3 py-1.5 rounded-md text-sm whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
@@ -151,7 +151,7 @@ export default function ResultsView({ id }: { id: string }) {
               {t.label}
             </button>
           ))}
-        </div>
+        </TabStrip>
       </nav>
 
       <main className="max-w-3xl mx-auto px-4 py-6 pb-12 space-y-8">
@@ -243,6 +243,41 @@ export default function ResultsView({ id }: { id: string }) {
           );
         })()}
       </main>
+    </div>
+  );
+}
+
+// The category tabs scroll sideways on a phone: a fade and an arrow on each side that has more tabs, so it shows
+function TabStrip({ children, watch }: { children: React.ReactNode; watch: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState({ left: false, right: false });
+  const check = () => {
+    const el = ref.current;
+    if (el) setMore({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+  };
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [watch]);
+  const go = (dir: number) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.7, behavior: 'smooth' });
+  const arrow = (side: 'left' | 'right') => (
+    <button type="button" onClick={() => go(side === 'left' ? -1 : 1)} aria-label={side === 'left' ? 'More categories to the left' : 'More categories to the right'}
+      className={`absolute top-0 bottom-0 w-12 flex items-center ${side === 'left' ? 'justify-start pl-1' : 'justify-end pr-1'}`}
+      style={{ [side]: 0, background: `linear-gradient(to ${side === 'left' ? 'right' : 'left'}, ${C.courtDeep} 45%, rgba(143,63,30,0))` }}>
+      <span className="w-8 h-8 rounded-full flex items-center justify-center text-xl font-bold shadow-md"
+        style={{ background: C.line, color: C.court }}>{side === 'left' ? '‹' : '›'}</span>
+    </button>
+  );
+  return (
+    <div className="relative max-w-3xl mx-auto">
+      <div ref={ref} onScroll={check} className="px-4 flex gap-1 overflow-x-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {children}
+      </div>
+      {more.left && arrow('left')}
+      {more.right && arrow('right')}
     </div>
   );
 }
