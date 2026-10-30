@@ -18,14 +18,16 @@ const SHEET_WIDTH = 1600;
 
 type Props = { empty: true } | { empty?: false; event: { name: string; venue: string | null; day: string; footer: string }; slots: BoardSlot[] };
 
+// Anyone who has played a match is struck out, whether they won or lost; ✓ and ★ still show who won
 function Name({ e, hit }: { e: BoardEntry; hit: boolean }) {
+  const played = e.out || e.wins > 0;
   return (
     <li className="flex items-baseline gap-1.5 break-inside-avoid py-[2px] leading-snug text-[14px]"
-      style={{ background: hit ? '#FFE3A8' : undefined, color: e.out ? C.muted : C.ink }}>
+      style={{ background: hit ? '#FFE3A8' : undefined, color: C.ink }}>
       <span className="w-3.5 shrink-0 text-center" style={{ color: e.champion ? C.gold : C.court }}>
         {e.champion ? '★' : e.out ? '' : e.wins > 0 ? '✓' : '·'}
       </span>
-      <span className={`${e.out ? 'line-through decoration-1' : ''} ${e.champion || hit ? 'font-semibold' : ''}`}>
+      <span className={`${played ? 'line-through decoration-1' : ''} ${e.champion || hit ? 'font-semibold' : ''}`}>
         {e.parts.map((p, i) => <span key={i}>{i > 0 && ' & '}<span style={{ color: p.paid ? C.paid : undefined }}>{p.name}</span></span>)}
       </span>
       {!e.out && e.wins > 1 && <span className="text-[11px] font-semibold" style={{ color: C.court }}>×{e.wins}</span>}
@@ -106,7 +108,7 @@ export default function BoardView(props: Props) {
 
         <footer className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-[13px]" style={{ color: C.muted }}>
           <p>
-            Names in alphabetical order. <b style={{ color: C.paid }}>Green: paid.</b>{anyResults ? ' ✓ won a match · ★ champion · struck out: knocked out.' : ''}
+            Names in alphabetical order. <b style={{ color: C.paid }}>Green: paid.</b>{anyResults ? ' Struck out: has played a match · ✓ won · ★ champion.' : ''}
           </p>
           <p>{event.footer} Live scores: rally-ops-hazel.vercel.app/leaderboard</p>
         </footer>
