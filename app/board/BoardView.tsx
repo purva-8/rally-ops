@@ -10,7 +10,8 @@ const display = Barlow_Condensed({ subsets: ['latin'], weight: ['500', '600', '7
 const C = { paid: '#1F7A3A', court: '#B4532A', courtDeep: '#8F3F1E', line: '#FBF5EC', floor: '#F3EADB', ink: '#2B1D14', muted: '#7A6656', gold: '#D9962B', rule: '#E4D6C1' };
 
 // parts: the player (and partner), each green once their own share is paid
-export type BoardEntry = { name: string; wins: number; out: boolean; champion: boolean; parts: { name: string; paid: boolean }[] };
+// inMatch: put in a match on the Score desk (made, on court or finished)
+export type BoardEntry = { name: string; wins: number; out: boolean; champion: boolean; inMatch: boolean; parts: { name: string; paid: boolean }[] };
 export type BoardSlot = { title: string; columns: number; categories: { key: string; label: string; court: number | null; round: string | null; doubles: boolean; drawn: boolean; entries: BoardEntry[] }[] };
 
 // The sheet is laid out at a fixed poster width and scaled to fit the whole screen, so it never scrolls
@@ -18,9 +19,10 @@ const SHEET_WIDTH = 1600;
 
 type Props = { empty: true } | { empty?: false; event: { name: string; venue: string | null; day: string; footer: string }; slots: BoardSlot[] };
 
-// Anyone who has played a match is struck out, whether they won or lost; ✓ and ★ still show who won
+// Anyone in a match is struck out: made on the desk, on court or played, whether they won or lost; ✓ and ★ still
+// show who won
 function Name({ e, hit }: { e: BoardEntry; hit: boolean }) {
-  const played = e.out || e.wins > 0;
+  const played = e.inMatch || e.out || e.wins > 0;
   return (
     <li className="flex items-baseline gap-1.5 break-inside-avoid py-[2px] leading-snug text-[14px]"
       style={{ background: hit ? '#FFE3A8' : undefined, color: C.ink }}>
@@ -61,7 +63,7 @@ export default function BoardView(props: Props) {
   }
   const { event, slots } = props;
   const term = q.trim().toLowerCase();
-  const anyResults = slots.some((s) => s.categories.some((c) => c.entries.some((e) => e.wins || e.out)));
+  const anyResults = slots.some((s) => s.categories.some((c) => c.entries.some((e) => e.inMatch || e.wins || e.out)));
 
   return (
     <div className={`${shell} fixed inset-0 overflow-hidden`} style={{ background: C.floor, color: C.ink }}>
@@ -108,7 +110,7 @@ export default function BoardView(props: Props) {
 
         <footer className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-[13px]" style={{ color: C.muted }}>
           <p>
-            Names in alphabetical order. <b style={{ color: C.paid }}>Green: paid.</b>{anyResults ? ' Struck out: has played a match · ✓ won · ★ champion.' : ''}
+            Names in alphabetical order. <b style={{ color: C.paid }}>Green: paid.</b>{anyResults ? ' Struck out: in a match or played · ✓ won · ★ champion.' : ''}
           </p>
           <p>{event.footer} Live scores: rally-ops-hazel.vercel.app/leaderboard</p>
         </footer>

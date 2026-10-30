@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { entryLabel, isDoublesCategory, sortCategories } from '@/lib/categories';
 import { CATEGORY_LABELS } from '../tournament/types';
-import { SHEET_SLOTS, entryStatus, tidyName, type SheetMatch } from '@/lib/daySheet';
+import { SHEET_SLOTS, entryStatus, inMatch, tidyName, type SheetMatch } from '@/lib/daySheet';
 import BoardView, { type BoardSlot } from './BoardView';
 import { eventTitle } from '@/lib/eventName';
 
@@ -86,7 +86,9 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
           .map((l, i) => {
             const paid = paidParts(forms[c][i], isDoublesCategory(c));
             const parts = tidyName(l).split(' / ').map((name, k) => ({ name, paid: paid[k] ?? false }));
-            return { name: tidyName(l).replace(' / ', ' & '), ...entryStatus(l, ms, n), parts };
+            // In a match on the desk (made, on court or finished; a bye doesn't count)
+            const playing = ms.some((m) => m.player2_name && inMatch(l, m));
+            return { name: tidyName(l).replace(' / ', ' & '), ...entryStatus(l, ms, n), parts, inMatch: playing };
           })
           .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })),
       };

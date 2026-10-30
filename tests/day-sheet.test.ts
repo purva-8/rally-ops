@@ -30,3 +30,9 @@ test('the seven first-day categories are in the two slots once each, each with a
   assert.equal(all.length, 7);
   assert.deepEqual(SHEET_SLOTS.map((s) => `${s.from}-${s.to}`), ['4:00 PM-7:00 PM', '7:00 PM-10:00 PM']);
 });
+
+test('a name with extra spaces or other capitals on its profile still matches its matches', () => {
+  const ms: SheetMatch[] = [{ round: 0, status: 'completed', player1_name: 'Alisha Mehta', player2_name: 'Pranav Nidhin', winner_name: 'Alisha Mehta' }];
+  assert.deepEqual(entryStatus('Pranav Nidhin ', ms, 9), { wins: 0, out: true, champion: false });
+  assert.deepEqual(entryStatus('alisha  mehta', ms, 9), { wins: 1, out: false, champion: false });
+});
