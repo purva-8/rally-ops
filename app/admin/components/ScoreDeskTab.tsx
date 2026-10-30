@@ -257,11 +257,49 @@ function DeskRow({ match, names, onSaved }: {
       className="w-11 border border-stone-200 rounded-md py-1.5 text-center font-bold text-stone-900 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-orange-500" />
   ));
 
+  // Court and "match started" (the leaderboard shows a started match as on court now). Safe to repeat.
+  const courtNo = match.courtId?.replace('court-', '') ?? '';
+  const changeMatch = async (body: { court?: string | null; started?: boolean }, msg: string) => {
+    setError(null); setBusy(true);
+    const res = await fetchRetry('/api/tournament/matches/court', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchId: match.id, ...body }),
+    }).catch(() => null);
+    const d = await res?.json().catch(() => ({})) ?? {};
+    setBusy(false);
+    if (!res?.ok) setError(d.error ?? 'No connection. Not saved; try again.');
+    else await onSaved(msg);
+  };
+  const who = `${match.player1Name} vs ${match.player2Name}`;
+
   return (
     <div className={`bg-white border rounded-xl px-4 py-3 ${error ? 'border-red-300' : dirty || held ? 'border-amber-300' : 'border-stone-200'}`}>
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[match.category] ?? 'bg-stone-100 text-stone-600'}`}>{CATEGORY_LABELS[match.category] ?? match.category}</span>
-        <span className="text-xs text-stone-400">{match.roundName}{match.courtId ? ` · ${match.courtId.replace('court-', 'Court ')}` : ''}</span>
+        <span className="text-xs text-stone-400">{match.roundName}{finished && match.courtId ? ` · ${match.courtId.replace('court-', 'Court ')}` : ''}</span>
+        {!finished && (
+          <>
+            <select value={courtNo} disabled={busy} aria-label="Court"
+              onChange={(e) => changeMatch({ court: e.target.value || null }, e.target.value ? `${who}: Court ${e.target.value}` : `${who}: court cleared`)}
+              className={`text-xs font-semibold border rounded-md px-1.5 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 ${courtNo ? 'border-stone-300 text-stone-800' : 'border-dashed border-stone-300 text-stone-400'}`}>
+              <option value="">Court…</option>
+              {['6', '7', '8', '9'].map((c) => <option key={c} value={c}>Court {c}</option>)}
+            </select>
+            {match.status === 'upcoming' ? (
+              <button disabled={busy} onClick={() => changeMatch({ started: true }, `Started: ${who}${courtNo ? ` on Court ${courtNo}` : ''}`)}
+                className="text-xs font-semibold px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">▶ Match started</button>
+            ) : (
+              <span className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 motion-safe:animate-pulse" />On court
+                </span>
+                {match.sets.length === 0 && (
+                  <button disabled={busy} onClick={() => changeMatch({ started: false }, `Not started yet: ${who}`)}
+                    className="text-xs text-stone-400 hover:text-stone-700 underline disabled:opacity-50">Not started</button>
+                )}
+              </span>
+            )}
+          </>
+        )}
         {finished && !open && (
           <>
             <span className="text-sm text-stone-700 ml-1"><b>{match.winnerName}</b> won {scoreText(match.sets)}</span>

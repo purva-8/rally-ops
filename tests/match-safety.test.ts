@@ -8,6 +8,7 @@ import { POST as reset } from '../app/api/tournament/matches/reset/route.ts';
 import { POST as make, DELETE as unmake } from '../app/api/tournament/matches/quick/route.ts';
 import { GET as history, POST as restore } from '../app/api/tournament/matches/history/route.ts';
 import { GET as backup } from '../app/api/tournament/backup/route.ts';
+import { POST as courtStart } from '../app/api/tournament/matches/court/route.ts';
 
 const T = 't1', ORG = 'u-org';
 const call = (fn: (r: any) => Promise<Response>, body: Record<string, unknown>, user: string | null = ORG) => {
@@ -134,4 +135,27 @@ test('backup has every table for the event and is organizers only', async () => 
   assert.equal(b.match_sets.length, 2);
   assert.equal(b.match_log.length, 1);
   assert.equal((await get(backup, `tournamentId=${T}`, 'u-stranger')).status, 403);
+});
+
+test('court 6-9 and match started: saved, refused when wrong, in the history, scores untouched', async () => {
+  assert.equal((await call(courtStart, { matchId: 'm1', court: '7' })).status, 200);
+  assert.equal(db.matches[0].court_id, 'court-7');
+  assert.equal((await call(courtStart, { matchId: 'm1', court: '3' })).status, 400, 'only courts 6-9');
+  assert.equal((await call(courtStart, { matchId: 'm1', started: true }, null)).status, 401);
+  const r = await call(courtStart, { matchId: 'm1', started: true });
+  assert.equal(r.status, 200);
+  assert.equal(db.matches[0].status, 'in_progress');
+  assert.equal(r.body.match.courtId, 'court-7');
+  // taken back while no score is in
+  assert.equal((await call(courtStart, { matchId: 'm1', started: false })).status, 200);
+  assert.equal(db.matches[0].status, 'upcoming');
+  // once a score is in, "not started" is refused: Undo clears it instead
+  await call(score, { matchId: 'm1', sets: [g(5, 3)], status: 'in_progress' });
+  assert.equal((await call(courtStart, { matchId: 'm1', started: false })).status, 409);
+  assert.deepEqual(db.match_sets.map((x) => [x.player1_score, x.player2_score]), [[5, 3]], 'scores untouched');
+  // a finished match cannot be started again
+  await call(score, { matchId: 'm1', sets: A_WINS, status: 'completed' });
+  assert.equal((await call(courtStart, { matchId: 'm1', started: true })).status, 409);
+  const actions = (await log()).map((e) => e.action);
+  assert.ok(actions.includes('court') && actions.includes('start'));
 });

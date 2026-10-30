@@ -5,7 +5,7 @@ import { CATEGORY_LABELS } from '../../tournament/types';
 
 type Entry = { id: number | string; matchId: string | null; category: string | null; action: string; summary: string; at: string; restorable: boolean };
 const ACTION: Record<string, string> = {
-  score: 'Score', reset: 'Undone', create: 'Made', delete: 'Removed', players: 'Players', restore: 'Restored',
+  score: 'Score', reset: 'Undone', create: 'Made', delete: 'Removed', players: 'Players', restore: 'Restored', court: 'Court', start: 'Started',
 };
 
 // Every change to a match, newest first. Restore puts that match back the way it was just before the change
