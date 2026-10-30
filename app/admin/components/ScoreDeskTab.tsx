@@ -10,6 +10,7 @@ import { undoResult } from './undo';
 import MatchMaker from './MatchMaker';
 import HistoryPanel from './HistoryPanel';
 import BackupBar from './BackupBar';
+import KnockoutChart from './KnockoutChart';
 import { clearDraft, fetchRetry, loadDraft, saveDraft, type Base, type Games } from '@/lib/deskSafety';
 
 // Scores come in from the coaches; one person types them in here as each match ends. The server picks the winner.
@@ -107,6 +108,7 @@ export default function ScoreDeskTab() {
         <BackupBar tournamentId={tournamentId} />
         <HistoryPanel tournamentId={tournamentId} onRestored={saved} />
       </div>
+      <KnockoutChart names={names} matches={matches} />
       <MatchMaker mode="winners" tournamentId={tournamentId} names={names} matches={matches} onMade={saved} />
 
       {matches.length === 0 && (
@@ -132,7 +134,15 @@ export default function ScoreDeskTab() {
         </>
       )}
 
-      <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Entered ({done.length}), newest first</h3>
+      {/* Same category filter as at the top, here too so it is at hand while scrolling the results */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest">Entered ({done.length}), newest first</h3>
+        <select value={cat} onChange={(e) => setCat(e.target.value as Category | 'all')} aria-label="Category for entered results"
+          className="border border-stone-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+          <option value="all">All categories</option>
+          {cats.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c] ?? c}</option>)}
+        </select>
+      </div>
       <div className="space-y-2">
         {done.map((m) => <DeskRow key={m.id} match={m} names={[]} onSaved={saved} />)}
       </div>
