@@ -115,3 +115,22 @@ test('a name with a stray space or other capitals is still the same player', () 
   assert.deepEqual(standing('Pranav Nidhin ', rows), { wins: 1, out: false, playing: false, champion: false });
   assert.equal(standing('alisha  mehta', rows).out, true);
 });
+
+import { rankPlayers } from '../lib/topPlayers.ts';
+
+test('top players: most wins first, then points scored; doubles partners each credited in the all view', () => {
+  const g = (a: number, b: number) => ({ player1Score: a, player2Score: b });
+  const ms = [
+    { category: 's', status: 'completed', player1Name: 'Ann', player2Name: 'Bo', winnerName: 'Ann', sets: [g(21, 10), g(21, 12)] },
+    { category: 's', status: 'completed', player1Name: 'Cy', player2Name: 'Di', winnerName: 'Cy', sets: [g(21, 19), g(19, 21), g(21, 20)] },
+    { category: 'd', status: 'completed', player1Name: 'Ann / Ed', player2Name: 'Cy / Fay', winnerName: 'Cy / Fay', sets: [g(15, 21), g(18, 21)] },
+    { category: 's', status: 'in_progress', player1Name: 'Ann', player2Name: 'Cy', winnerName: null, sets: [g(5, 3)] },
+    { category: 's', status: 'completed', isBye: true, player1Name: 'Gus', player2Name: null, winnerName: 'Gus', sets: [] },
+  ];
+  const all = rankPlayers(ms, true);
+  assert.deepEqual(all.slice(0, 2).map((r) => [r.name, r.won, r.pointsFor]), [['Cy', 2, 103], ['Ann', 1, 75]]);
+  assert.deepEqual(all.find((r) => r.name === 'Ann')!.categories, ['s', 'd']);
+  assert.ok(!all.some((r) => r.name === 'Gus'), 'byes do not count');
+  const pairs = rankPlayers(ms.filter((m) => m.category === 'd'), false);
+  assert.deepEqual(pairs.map((r) => [r.name, r.won, r.lost]), [['Cy / Fay', 1, 0], ['Ann / Ed', 0, 1]]);
+});

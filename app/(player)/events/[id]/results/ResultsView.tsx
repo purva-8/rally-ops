@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Barlow, Barlow_Condensed } from 'next/font/google';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORY_LABELS } from '../../../../tournament/types';
@@ -136,6 +137,7 @@ export default function ResultsView({ id }: { id: string }) {
               )}
               <span>{playable.filter((m) => m.status === 'completed').length} of {playable.length} matches played</span>
               {updated && <span>Updated {updated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>}
+              <Link href={`/top?event=${id}`} className="underline" style={{ color: C.line }}>Top players →</Link>
             </p>
           </div>
         </div>
@@ -248,7 +250,7 @@ export default function ResultsView({ id }: { id: string }) {
 }
 
 // The category tabs scroll sideways on a phone: a fade and an arrow on each side that has more tabs, so it shows
-function TabStrip({ children, watch }: { children: React.ReactNode; watch: number }) {
+export function TabStrip({ children, watch }: { children: React.ReactNode; watch: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [more, setMore] = useState({ left: false, right: false });
   const check = () => {
