@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { CATEGORY_LABELS } from '../../../../tournament/types';
 import type { Category, Match } from '../../../../tournament/types';
 import { sortCategories } from '@/lib/categories';
+import { eventTitle } from '@/lib/eventName';
 
 const body = Barlow({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--lb-body' });
 const display = Barlow_Condensed({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--lb-display' });
@@ -121,7 +122,7 @@ export default function ResultsView({ id }: { id: string }) {
             <div className="absolute inset-y-0 left-3 right-3 border-x pointer-events-none" style={{ borderColor: 'rgba(251,245,236,.35)' }} />
             <p className="text-sm relative" style={{ color: 'rgba(251,245,236,.7)' }}>Live results{tournament?.venue ? `, ${tournament.venue}` : ''}</p>
             <h1 className="[font-family:var(--lb-display)] font-bold text-[40px] sm:text-[52px] leading-[0.95] mt-1 relative" style={{ color: C.line }}>
-              {tournament?.name ?? 'Tournament'}
+              {tournament?.name ? eventTitle(tournament.name) : 'Tournament'}
             </h1>
             <p className="text-sm mt-3 relative flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'rgba(251,245,236,.75)' }}>
               {live.length > 0 && (
