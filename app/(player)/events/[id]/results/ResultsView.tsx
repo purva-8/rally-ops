@@ -102,6 +102,8 @@ export default function ResultsView({ id }: { id: string }) {
   const live = playable.filter((m) => m.status === 'in_progress');
   const recent = playable.filter((m) => m.status === 'completed')
     .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? '')).slice(0, 8);
+  // Categories only (no Latest tab): the first category until one is picked
+  const shown = categories.includes(view as Category) ? view : categories[0] ?? 'latest';
   const champions = categories.flatMap((cat) => {
     const final = matches.find((m) => m.category === cat && m.roundName === 'Final' && m.status === 'completed' && !m.isBye);
     return final?.winnerName ? [{ cat, name: final.winnerName, runnerUp: final.winnerName === final.player1Name ? final.player2Name : final.player1Name }] : [];
@@ -146,10 +148,10 @@ export default function ResultsView({ id }: { id: string }) {
       {/* What to look at: the latest, or one category's draw */}
       <nav className="sticky top-0 z-10 border-b" style={{ background: C.courtDeep, borderColor: 'rgba(251,245,236,.12)' }}>
         <TabStrip watch={categories.length}>
-          {[{ id: 'latest', label: 'Latest' }, ...categories.map((c) => ({ id: c, label: shortCat(c) }))].map((t) => (
+          {categories.map((c) => ({ id: c, label: shortCat(c) })).map((t) => (
             <button key={t.id} onClick={() => setView(t.id)}
               className="shrink-0 px-3 py-1.5 rounded-md text-sm whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-              style={view === t.id ? { background: C.line, color: C.court, fontWeight: 600 } : { color: 'rgba(251,245,236,.75)' }}>
+              style={shown === t.id ? { background: C.line, color: C.court, fontWeight: 600 } : { color: 'rgba(251,245,236,.75)' }}>
               {t.label}
             </button>
           ))}
@@ -166,7 +168,7 @@ export default function ResultsView({ id }: { id: string }) {
           <p className="text-[15px]" style={{ color: C.muted }}>The draws haven&apos;t been made yet. Results appear here as soon as matches are played.</p>
         )}
 
-        {view === 'latest' && matches.length > 0 && (
+        {shown === 'latest' && matches.length > 0 && (
           <>
             {live.filter(hits).length > 0 && (
               <section>
@@ -215,14 +217,14 @@ export default function ResultsView({ id }: { id: string }) {
           </>
         )}
 
-        {view !== 'latest' && (() => {
-          const catMatches = matches.filter((m) => m.category === view);
+        {shown !== 'latest' && (() => {
+          const catMatches = matches.filter((m) => m.category === shown);
           const rounds = Array.from(new Set(catMatches.map((m) => m.round))).sort((a, b) => a - b);
-          const champ = champions.find((c) => c.cat === view);
+          const champ = champions.find((c) => c.cat === shown);
           return (
             <section className="space-y-6">
               <div>
-                <h2 className="[font-family:var(--lb-display)] text-3xl font-bold leading-tight">{shortCat(view)}</h2>
+                <h2 className="[font-family:var(--lb-display)] text-3xl font-bold leading-tight">{shortCat(shown)}</h2>
                 {champ && <p className="text-[15px] mt-1">Champion: <b>{champ.name}</b></p>}
               </div>
               {rounds.map((r) => {
