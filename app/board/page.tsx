@@ -57,13 +57,16 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
     (forms[r.category] ??= []).push(mine);
     if (key) byPair.set(key, mine);
   }
-  // Paid once the billing desk has settled every share of the entry (the desk keeps these flags in step with the
-  // bills): each player's own share, and in doubles the partner's share, on either of the pair's forms
-  const isPaid = (group: Reg[], doubles: boolean) => {
+  // Who has paid, per person (the billing desk keeps these flags in step with the bills): a player's own share is
+  // payment_status on their form; in doubles a partner's share is partner_paid on the form naming them, or their own
+  // form when both filed one. [player, partner] for doubles, [player] for singles.
+  const paidParts = (group: Reg[], doubles: boolean) => {
     const own = (r: Reg) => r.payment_status === 'paid' || r.payment_status === 'waived';
-    if (!doubles) return group.every(own);
-    const coveredBy = (r: Reg) => own(r) || group.some((o) => o !== r && o.partner_paid && o.partner_id === r.player_id);
-    return group.every(coveredBy) && (group.length > 1 || !!group[0].partner_paid);
+    const first = group[0];
+    const personPaid = (id: string) => group.some((r) => (r.player_id === id && own(r)) || (r.partner_id === id && r.partner_paid));
+    const player = first.player_id ? personPaid(first.player_id) : own(first);
+    if (!doubles) return [player];
+    return [player, first.partner_id ? personPaid(first.partner_id) : !!first.partner_paid];
   };
 
   const slots: BoardSlot[] = slotsFor.map((s) => ({
@@ -80,7 +83,11 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
         doubles: isDoublesCategory(c),
         drawn: ms.length > 0,
         entries: labels[c]
-          .map((l, i) => ({ name: tidyName(l).replace(' / ', ' & '), ...entryStatus(l, ms, n), paid: isPaid(forms[c][i], isDoublesCategory(c)) }))
+          .map((l, i) => {
+            const paid = paidParts(forms[c][i], isDoublesCategory(c));
+            const parts = tidyName(l).split(' / ').map((name, k) => ({ name, paid: paid[k] ?? false }));
+            return { name: tidyName(l).replace(' / ', ' & '), ...entryStatus(l, ms, n), parts };
+          })
           .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })),
       };
     }),
