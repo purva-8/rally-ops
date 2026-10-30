@@ -7,9 +7,9 @@ const body = Barlow({ subsets: ['latin'], weight: ['400', '500', '600'], variabl
 const display = Barlow_Condensed({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--lb-display' });
 
 // Same terracotta and beige as the leaderboard
-const C = { court: '#B4532A', courtDeep: '#8F3F1E', line: '#FBF5EC', floor: '#F3EADB', ink: '#2B1D14', muted: '#7A6656', gold: '#D9962B', rule: '#E4D6C1' };
+const C = { paid: '#1F7A3A', court: '#B4532A', courtDeep: '#8F3F1E', line: '#FBF5EC', floor: '#F3EADB', ink: '#2B1D14', muted: '#7A6656', gold: '#D9962B', rule: '#E4D6C1' };
 
-export type BoardEntry = { name: string; wins: number; out: boolean; champion: boolean };
+export type BoardEntry = { name: string; wins: number; out: boolean; champion: boolean; paid: boolean };
 export type BoardSlot = { title: string; columns: number; categories: { key: string; label: string; court: number | null; round: string | null; doubles: boolean; drawn: boolean; entries: BoardEntry[] }[] };
 
 // The sheet is laid out at a fixed poster width and scaled to fit the whole screen, so it never scrolls
@@ -20,7 +20,7 @@ type Props = { empty: true } | { empty?: false; event: { name: string; venue: st
 function Name({ e, hit }: { e: BoardEntry; hit: boolean }) {
   return (
     <li className="flex items-baseline gap-1.5 break-inside-avoid py-[2px] leading-snug text-[14px]"
-      style={{ background: hit ? '#FFE3A8' : undefined, color: e.out ? C.muted : C.ink }}>
+      style={{ background: hit ? '#FFE3A8' : undefined, color: e.paid ? C.paid : e.out ? C.muted : C.ink }}>
       <span className="w-3.5 shrink-0 text-center" style={{ color: e.champion ? C.gold : C.court }}>
         {e.champion ? '★' : e.out ? '' : e.wins > 0 ? '✓' : '·'}
       </span>
@@ -103,7 +103,7 @@ export default function BoardView(props: Props) {
 
         <footer className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-[13px]" style={{ color: C.muted }}>
           <p>
-            Names in alphabetical order.{anyResults ? ' ✓ won a match · ★ champion · struck out: knocked out.' : ''}
+            Names in alphabetical order. <b style={{ color: C.paid }}>Green: paid.</b>{anyResults ? ' ✓ won a match · ★ champion · struck out: knocked out.' : ''}
           </p>
           <p>{event.footer} Live scores: rally-ops-hazel.vercel.app/leaderboard</p>
         </footer>
