@@ -91,6 +91,8 @@ export default function ResultsView({ id }: { id: string }) {
     return () => clearInterval(interval);
   }, [id]);
 
+  const titleText = tournament?.name ? eventTitle(tournament.name) : 'Tournament';
+  const title = { text: titleText, cut: titleText.search(/\s+Badminton Tournament$/i) };
   const categories = useMemo(() => sortCategories(Array.from(new Set(matches.map((m) => m.category)))) as Category[], [matches]);
   const q = search.trim().toLowerCase();
   const highlight = (s?: string) => !!q && !!s && s.toLowerCase().includes(q);
@@ -121,8 +123,9 @@ export default function ResultsView({ id }: { id: string }) {
           <div className="border-x-2 border-t-2 px-4 pt-4 pb-5 relative" style={{ borderColor: 'rgba(251,245,236,.85)' }}>
             <div className="absolute inset-y-0 left-3 right-3 border-x pointer-events-none" style={{ borderColor: 'rgba(251,245,236,.35)' }} />
             <p className="text-sm relative" style={{ color: 'rgba(251,245,236,.7)' }}>Live results{tournament?.venue ? `, ${tournament.venue}` : ''}</p>
-            <h1 className="[font-family:var(--lb-display)] font-bold text-[40px] sm:text-[52px] leading-[0.95] mt-1 relative" style={{ color: C.line }}>
-              {tournament?.name ? eventTitle(tournament.name) : 'Tournament'}
+            <h1 className="[font-family:var(--lb-display)] font-bold text-[min(40px,8.5vw)] sm:text-[52px] leading-[0.95] mt-1 relative" style={{ color: C.line }}>
+              {/* "Badminton Tournament" on its own line under the event's name */}
+              {title.cut > 0 ? <>{title.text.slice(0, title.cut)}<br />{title.text.slice(title.cut).trim()}</> : title.text}
             </h1>
             <p className="text-sm mt-3 relative flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'rgba(251,245,236,.75)' }}>
               {live.length > 0 && (
