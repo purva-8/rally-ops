@@ -3,6 +3,7 @@ import { entryLabel, isDoublesCategory, sortCategories } from '@/lib/categories'
 import { CATEGORY_LABELS } from '../tournament/types';
 import { SHEET_SLOTS, entryStatus, tidyName, type SheetMatch } from '@/lib/daySheet';
 import BoardView, { type BoardSlot } from './BoardView';
+import { eventTitle } from '@/lib/eventName';
 
 // One-page sheet for the first day, made to be screenshotted and shared: the two slots, every player in each
 // category in alphabetical order, and how each entry is doing (wins, out, champion) once matches are played.
@@ -78,5 +79,5 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
   const footer = second
     ? 'Times and courts will be shared before the day.'
     : `${dayName(next)}: later rounds and all other categories.`;
-  return <BoardView event={{ name: t.name, venue: t.venue, day: dayName(second ? next : first), footer }} slots={slots} />;
+  return <BoardView event={{ name: eventTitle(t.name), venue: t.venue, day: dayName(second ? next : first), footer }} slots={slots} />;
 }

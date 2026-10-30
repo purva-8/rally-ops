@@ -7,6 +7,7 @@ import { pairOf } from '@/lib/billCharges';
 import { validCash } from '@/lib/payments';
 import { sendMails } from '@/lib/email';
 import { billEmail } from '@/lib/emailTemplates';
+import { eventTitle } from '@/lib/eventName';
 
 export const maxDuration = 60;
 
@@ -138,7 +139,7 @@ export async function POST(req: NextRequest) {
   if (body.action === 'email') {
     // People not on the platform pay at the desk: their bills are never emailed
     const reachable = chosen.filter((f) => f.email && !f.offPlatform);
-    const title = `${a.t!.name} Badminton Tournament`;
+    const title = eventTitle(a.t!.name);
     const results = await sendMails(reachable.map((f) => ({
       to: f.email!, kind: 'bill', tournamentId: tid,
       subject: `Your bill for ${title}`,
