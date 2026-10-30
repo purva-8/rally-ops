@@ -50,7 +50,9 @@ export default function TopPlayersView({ id }: { id: string }) {
   const categories = useMemo(() => sortCategories(Array.from(new Set(matches.map((m) => m.category)))), [matches]);
   const shownCats = categories.filter(fits);
   const cat = view !== 'everyone' && shownCats.includes(view) ? view : null;
-  const rows = rankPlayers(matches.filter((m) => (cat ? m.category === cat : fits(m.category))), !cat);
+  // Doubles: pairs ranked as pairs; otherwise everyone on their own line
+  const pairs = !!cat ? isDoublesCategory(cat) : kind === 'doubles';
+  const rows = rankPlayers(matches.filter((m) => (cat ? m.category === cat : fits(m.category))), !cat && kind !== 'doubles');
   const q = search.trim().toLowerCase();
   // Level on wins and points: the same place
   const listed = rows.map((r, i) => ({ ...r, rank: rows.findIndex((x) => x.won === r.won && x.pointsFor === r.pointsFor) + 1 || i + 1 }))
@@ -81,7 +83,7 @@ export default function TopPlayersView({ id }: { id: string }) {
 
       <nav className="sticky top-0 z-10 border-b" style={{ background: C.courtDeep, borderColor: 'rgba(251,245,236,.12)' }}>
         <TabStrip watch={shownCats.length}>
-          {[{ id: 'everyone', label: 'Everyone' }, ...shownCats.map((c) => ({ id: c, label: short(c) }))].map((t) => {
+          {[{ id: 'everyone', label: kind === 'doubles' ? 'All pairs' : 'Everyone' }, ...shownCats.map((c) => ({ id: c, label: short(c) }))].map((t) => {
             const on = (cat ?? 'everyone') === t.id;
             return (
               <button key={t.id} onClick={() => setView(t.id)}
@@ -108,7 +110,7 @@ export default function TopPlayersView({ id }: { id: string }) {
         </div>
 
         <h2 className="text-[22px] font-semibold [font-family:var(--lb-display)]">
-          {cat ? short(cat) : kind === 'all' ? 'Everyone' : kind === 'singles' ? 'Everyone, singles' : 'Everyone, doubles'}
+          {cat ? short(cat) : kind === 'all' ? 'Everyone' : kind === 'singles' ? 'Everyone, singles' : 'Top pairs, all doubles'}
         </h2>
 
         {rows.length === 0 ? (
@@ -116,7 +118,7 @@ export default function TopPlayersView({ id }: { id: string }) {
         ) : (
           <div className="bg-white rounded-xl overflow-hidden border border-[#E6D9C6]">
             <div className="grid grid-cols-[2.25rem_1fr_2.5rem_2.5rem_3.25rem] gap-2 px-3 py-2 text-[11px] uppercase tracking-wider font-semibold border-b border-[#EFE5D6]" style={{ color: C.muted }}>
-              <span>#</span><span>{cat && isDoublesCategory(cat) ? 'Pair' : 'Player'}</span><span className="text-center">Won</span><span className="text-center">Lost</span><span className="text-right">Points</span>
+              <span>#</span><span>{pairs ? 'Pair' : 'Player'}</span><span className="text-center">Won</span><span className="text-center">Lost</span><span className="text-right">Points</span>
             </div>
             <div className="divide-y divide-[#EFE5D6]">
               {listed.map((r) => (
