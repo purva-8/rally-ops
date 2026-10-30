@@ -7,6 +7,10 @@ import type { Category, Match } from '../../tournament/types';
 import { entryLabel, isDoublesCategory, sortCategories } from '@/lib/categories';
 import { undoResult } from './undo';
 import MatchMaker from './MatchMaker';
+import { SHEET_SLOTS } from '@/lib/daySheet';
+
+// Categories played on 30 October (the /board slots); the rest are on 6 November
+const FIRST_DAY = new Set(SHEET_SLOTS.flatMap((s) => s.categories.map((c) => c.key)));
 
 
 export default function BracketsTab() {
@@ -119,10 +123,12 @@ export default function BracketsTab() {
         </div>
       </div>
 
-      {/* Singles and doubles each get their own row, youngest first */}
+      {/* By day (30 October, then 6 November), singles and doubles each on their own row, youngest first */}
       {[
-        { title: 'Singles', cats: categories.filter((c) => !isDoublesCategory(c)) },
-        { title: 'Doubles', cats: categories.filter((c) => isDoublesCategory(c)) },
+        { title: 'Friday 30 October · Singles', cats: categories.filter((c) => FIRST_DAY.has(c) && !isDoublesCategory(c)) },
+        { title: 'Friday 30 October · Doubles', cats: categories.filter((c) => FIRST_DAY.has(c) && isDoublesCategory(c)) },
+        { title: 'Friday 6 November · Singles', cats: categories.filter((c) => !FIRST_DAY.has(c) && !isDoublesCategory(c)) },
+        { title: 'Friday 6 November · Doubles', cats: categories.filter((c) => !FIRST_DAY.has(c) && isDoublesCategory(c)) },
       ].filter((g) => g.cats.length).map((g) => (
         <section key={g.title} className="mb-5">
           <h3 className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-2 pb-1 border-b border-stone-200">{g.title}</h3>
