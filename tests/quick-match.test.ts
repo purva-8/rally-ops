@@ -94,16 +94,18 @@ test('a match rolled by mistake can be taken back until it has a score', async (
 
 import { keptApart } from '../lib/keepApart.ts';
 
-test('some Spouse doubles entries are never drawn against each other', () => {
-  const s = 'spouse_doubles_open';
-  assert.equal(keptApart(s, 'Sanjay Vaidya / Harshada Vaidya', 'Girish Ubale / Vaidehi Ubale'), true);
-  assert.equal(keptApart(s, 'Supriya Suresh Bhat & Kinila Suresh Bhat', ' sanjay  vaidya & Harshada Vaidya'), true);
-  assert.equal(keptApart(s, 'Sanjay Vaidya / Harshada Vaidya', 'Mini Manesh / Manesh Kumar'), false);
-  assert.equal(keptApart('male_doubles_18plus', 'Sanjay Vaidya / Shailaja Ranjith', 'Girish Ubale / Vaidehi Ubale'), false);
-  // the roll keeps them apart every time
-  const items = ['Sanjay Vaidya / Harshada Vaidya', 'Girish Ubale / Vaidehi Ubale', 'Supriya Suresh Bhat / Kinila Suresh Bhat', 'Mini Manesh / Manesh Kumar'];
+test('entries in the KEEP_APART setting are never drawn against each other', () => {
+  process.env.KEEP_APART = 'doubles_cat:ann lee>bo chan,cy dee';
+  const c = 'doubles_cat';
+  assert.equal(keptApart(c, 'Ann Lee / Ben Lee', 'Bo Chan / Al Chan'), true);
+  assert.equal(keptApart(c, 'Cy Dee & Di Dee', ' ann  LEE & Ben Lee'), true);
+  assert.equal(keptApart(c, 'Ann Lee / Ben Lee', 'Ed Fox / Fay Fox'), false);
+  assert.equal(keptApart('other_cat', 'Ann Lee / Ben Lee', 'Bo Chan / Al Chan'), false);
+  const items = ['Ann Lee / Ben Lee', 'Bo Chan / Al Chan', 'Cy Dee / Di Dee', 'Ed Fox / Fay Fox'];
   for (let i = 0; i < 200; i++) {
-    const r = rollPairs(items, Math.random, (x, y) => keptApart(s, x, y));
-    assert.ok(r.pairs.every(([x, y]) => !keptApart(s, x, y)));
+    const r = rollPairs(items, Math.random, (x, y) => keptApart(c, x, y));
+    assert.ok(r.pairs.every(([x, y]) => !keptApart(c, x, y)));
   }
+  delete process.env.KEEP_APART;
+  assert.equal(keptApart(c, 'Ann Lee / Ben Lee', 'Bo Chan / Al Chan'), false, 'no setting, no rule');
 });

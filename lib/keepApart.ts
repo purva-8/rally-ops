@@ -1,14 +1,20 @@
-// Organizers' request (30/10): some entries are never drawn against each other. Not shown anywhere on screen; the
-// dice roll quietly avoids these pairs and the server refuses them with a plain message.
-const RULES: { category: string; a: string; b: string[] }[] = [
-  { category: 'spouse_doubles_open', a: 'sanjay vaidya', b: ['vaidehi ubale', 'supriya suresh bhat'] },
-];
-
+// Entries the organizers never want drawn against each other. The list lives in a server setting (KEEP_APART), not
+// in the code, and never reaches the browser. Format: category:name>name,name;category:name>name
+// e.g. "doubles_cat:ann lee>bo chan,cy dee" keeps Ann Lee's entry away from Bo Chan's and Cy Dee's.
 const norm = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
-// An entry is matched by any of its names ("Sanjay Vaidya & Harshada Vaidya" is Sanjay Vaidya's pair)
+
+function rules() {
+  return (process.env.KEEP_APART ?? '').split(';').map((r) => {
+    const [category, rest = ''] = r.split(':');
+    const [a = '', b = ''] = rest.split('>');
+    return { category: category.trim(), a: norm(a), b: b.split(',').map(norm).filter(Boolean) };
+  }).filter((r) => r.category && r.a && r.b.length);
+}
+
+// An entry is matched by any of its names ("Ann Lee / Ben Lee" is Ann Lee's pair)
 const has = (label: string, who: string) => norm(label).split(/\s*[&/]\s*/).some((n) => n === who);
 
 export function keptApart(category: string, x: string, y: string) {
-  return RULES.some((r) => r.category === category &&
+  return rules().some((r) => r.category === category &&
     ((has(x, r.a) && r.b.some((w) => has(y, w))) || (has(y, r.a) && r.b.some((w) => has(x, w)))));
 }
