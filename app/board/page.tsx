@@ -105,7 +105,8 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
             const noMatchYet = second && firstDay.includes(c) && !allMs.some((m) => !dayTwo(m) && m.player2_name && inMatch(l, m));
             return { name: tidyName(l).replace(' / ', ' & '), ...entryStatus(l, ms, n), parts, inMatch: playing, noMatchYet };
           })
-          .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })),
+          // Alphabetical; on the second day, anyone without a first-day match comes first
+          .sort((a, b) => Number(!!b.noMatchYet) - Number(!!a.noMatchYet) || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })),
       };
     }),
   }));
