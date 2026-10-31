@@ -36,3 +36,12 @@ test('a name with extra spaces or other capitals on its profile still matches it
   assert.deepEqual(entryStatus('Pranav Nidhin ', ms, 9), { wins: 0, out: true, champion: false });
   assert.deepEqual(entryStatus('alisha  mehta', ms, 9), { wins: 1, out: false, champion: false });
 });
+
+test('rounds left: final for 2, semi-finals for 3-4, knockout rounds before that, byes to fill a round', async () => {
+  const { roundsAhead } = await import('../lib/daySheet.ts');
+  assert.deepEqual(roundsAhead(1), { rounds: [], byes: 0 });
+  assert.deepEqual(roundsAhead(2), { rounds: ['Final'], byes: 0 });
+  assert.deepEqual(roundsAhead(3), { rounds: ['Semi-finals', 'Final'], byes: 1 });
+  assert.deepEqual(roundsAhead(7), { rounds: ['Knockout', 'Semi-finals', 'Final'], byes: 1 });
+  assert.deepEqual(roundsAhead(13), { rounds: ['Knockout', 'Knockout', 'Semi-finals', 'Final'], byes: 3 });
+});

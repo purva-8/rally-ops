@@ -1,15 +1,16 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { entryLabel, isDoublesCategory, sortCategories } from '@/lib/categories';
 import { CATEGORY_LABELS } from '../tournament/types';
-import { SHEET_SLOTS, entryStatus, inMatch, tidyName, type SheetMatch } from '@/lib/daySheet';
+import { SHEET_SLOTS, entryStatus, inMatch, roundsAhead, tidyName, type SheetMatch } from '@/lib/daySheet';
 import BoardView, { type BoardSlot } from './BoardView';
 import { eventTitle } from '@/lib/eventName';
 
 // One-page sheet for the first day, made to be screenshotted and shared: the two slots, every player in each
 // category in alphabetical order, and how each entry is doing (wins, out, champion) once matches are played.
 // Names only (no contact details). ?event=<id> picks another event; otherwise the latest one not finished.
-// ?day=2 is the second day (a week later): every other category and its players. Its times and courts aren't
-// set yet, so they're shown as to be announced.
+// ?day=2 is the second day (a week later): the first day's categories with only the entries still in (not yet
+// knocked out), then every other category, each with the knockout rounds it has left. Only matches made from that
+// day on mark entries there. Times and courts aren't set yet.
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'RallyOps: Schedule' };
 
@@ -24,17 +25,21 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
   if (!t) return <BoardView empty />;
 
   const firstDay = SHEET_SLOTS.flatMap((s) => s.categories.map((c) => c.key));
+  const first = new Date(`${t.event_date.slice(0, 10)}T12:00:00Z`);
+  const next = new Date(first.getTime() + 7 * 86400000);
   const [{ data: regs }, { data: matches }] = await Promise.all([
     admin.from('registrations').select('category, player_id, partner_id, partner_name, manual_name, payment_status, partner_paid')
       .eq('tournament_id', t.id).eq('status', 'approved'),
     admin.from('matches').select('*').eq('tournament_id', t.id),
   ]);
-  const cats = second
-    ? sortCategories([...new Set((regs ?? []).map((r) => r.category as string))].filter((c) => !firstDay.includes(c)))
-    : firstDay;
+  const later = sortCategories([...new Set((regs ?? []).map((r) => r.category as string))].filter((c) => !firstDay.includes(c)));
+  const cats = second ? [...firstDay, ...later] : firstDay;
   const slotsFor: { title: string; columns?: number; categories: { key: string; court: number | null; round?: string }[] }[] = second
-    ? [{ title: 'Times and courts to be announced', columns: 3, categories: cats.map((key) => ({ key, court: null })) }]
+    ? [{ title: 'Continuing from 30 October', columns: 3, categories: firstDay.map((key) => ({ key, court: null })) },
+      { title: 'Starting on 6 November', columns: 3, categories: later.map((key) => ({ key, court: null })) }]
     : SHEET_SLOTS.map((s) => ({ title: `${s.from} – ${s.to}`, columns: s.columns, categories: s.categories }));
+  // Second day: matches made from that day on (earlier ones only decide who is still in)
+  const dayTwo = (m: { created_at: string }) => new Date(m.created_at).getTime() >= new Date(`${next.toISOString().slice(0, 10)}T00:00:00+03:00`).getTime();
   const ids = [...new Set((regs ?? []).flatMap((r) => [r.player_id, r.partner_id]).filter(Boolean))] as string[];
   const { data: profiles } = ids.length ? await admin.from('player_profiles').select('id, full_name').in('id', ids) : { data: [] };
   const nameOf = new Map((profiles ?? []).map((p) => [p.id, p.full_name as string]));
@@ -73,17 +78,25 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
     title: s.title,
     columns: s.columns ?? Math.min(s.categories.length, 3),
     categories: s.categories.filter(({ key }) => labels[key]?.length).map(({ key: c, court, round }) => {
-      const ms = (matches ?? []).filter((m) => m.category === c) as SheetMatch[];
+      const allMs = (matches ?? []).filter((m) => m.category === c) as (SheetMatch & { created_at: string })[];
+      const ms = second ? allMs.filter(dayTwo) : allMs;
       const n = labels[c].length;
+      // Second day: knocked out on the first day means off the sheet
+      const keep = labels[c].map((l) => !second || !entryStatus(l, allMs.filter((m) => !dayTwo(m)), n).out);
+      const left = keep.filter(Boolean).length;
+      const ahead = roundsAhead(left);
+      const plan = left < 2 ? 'No opponent yet' : `${ahead.rounds.join(' → ')}${ahead.byes ? ` · ${ahead.byes} bye${ahead.byes === 1 ? '' : 's'}` : ''}`;
       return {
         key: c,
         label: CATEGORY_LABELS[c] ?? c,
         court,
-        round: round ?? null,
+        round: second ? plan : round ?? null,
         doubles: isDoublesCategory(c),
         drawn: ms.length > 0,
         entries: labels[c]
-          .map((l, i) => {
+          .map((l, i) => ({ l, i }))
+          .filter(({ i }) => keep[i])
+          .map(({ l, i }) => {
             const paid = paidParts(forms[c][i], isDoublesCategory(c));
             const parts = tidyName(l).split(' / ').map((name, k) => ({ name, paid: paid[k] ?? false }));
             // In a match on the desk (made, on court or finished; a bye doesn't count)
@@ -95,10 +108,8 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
     }),
   }));
 
-  const first = new Date(`${t.event_date.slice(0, 10)}T12:00:00Z`);
-  const next = new Date(first.getTime() + 7 * 86400000);
   const footer = second
-    ? 'Times and courts will be shared before the day.'
+    ? 'Still in from 30 October, and the new categories. Times and courts will be shared before the day.'
     : `${dayName(next)}: later rounds and all other categories.`;
   return <BoardView event={{ name: eventTitle(t.name), venue: t.venue, day: dayName(second ? next : first), footer }} slots={slots} />;
 }
