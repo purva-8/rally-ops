@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { entryLabel, isDoublesCategory, sortCategories } from '@/lib/categories';
 import { CATEGORY_LABELS } from '../tournament/types';
-import { SHEET_SLOTS, entryStatus, inMatch, roundsAhead, tidyName, type SheetMatch } from '@/lib/daySheet';
+import { SHEET_SLOTS, entryStatus, inMatch, tidyName, type SheetMatch } from '@/lib/daySheet';
 import BoardView, { type BoardSlot } from './BoardView';
 import { eventTitle } from '@/lib/eventName';
 
@@ -9,8 +9,8 @@ import { eventTitle } from '@/lib/eventName';
 // category in alphabetical order, and how each entry is doing (wins, out, champion) once matches are played.
 // Names only (no contact details). ?event=<id> picks another event; otherwise the latest one not finished.
 // ?day=2 is the second day (a week later): the first day's categories with only the entries still in (not yet
-// knocked out), then every other category, each with the knockout rounds it has left. Only matches made from that
-// day on mark entries there. Times and courts aren't set yet.
+// knocked out), then every other category. Only matches made from that day on mark entries there. Times and courts
+// aren't set yet.
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'RallyOps: Schedule' };
 
@@ -83,14 +83,12 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
       const n = labels[c].length;
       // Second day: knocked out on the first day means off the sheet
       const keep = labels[c].map((l) => !second || !entryStatus(l, allMs.filter((m) => !dayTwo(m)), n).out);
-      const left = keep.filter(Boolean).length;
-      const ahead = roundsAhead(left);
-      const plan = left < 2 ? 'No opponent yet' : ahead.rounds.join(' → ');
       return {
         key: c,
         label: CATEGORY_LABELS[c] ?? c,
         court,
-        round: second ? plan : round ?? null,
+        // Second day: rounds not shown for now
+        round: second ? null : round ?? null,
         doubles: isDoublesCategory(c),
         drawn: ms.length > 0,
         entries: labels[c]
@@ -105,7 +103,8 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
             const noMatchYet = second && firstDay.includes(c) && !allMs.some((m) => !dayTwo(m) && m.player2_name && inMatch(l, m));
             return { name: tidyName(l).replace(' / ', ' & '), ...entryStatus(l, ms, n), parts, inMatch: playing, noMatchYet };
           })
-          .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })),
+          // Alphabetical; on the second day, anyone without a first-day match comes first
+          .sort((a, b) => Number(!!b.noMatchYet) - Number(!!a.noMatchYet) || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })),
       };
     }),
   }));
