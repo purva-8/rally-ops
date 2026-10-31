@@ -48,13 +48,12 @@ export const inMatch = (label: string, m: Pick<SheetMatch, 'player1_name' | 'pla
   sameName(m.player1_name, label) || sameName(m.player2_name, label);
 
 // The knockout rounds left for a category with n entries still in: the final for 2, semi-finals first for 3-4,
-// knockout rounds before that for more. Short of a full round (3, 5-7, 9-15 entries), some go through without
-// playing (byes); who gets them is the organizers' call.
-export function roundsAhead(n: number): { rounds: string[]; byes: number } {
-  if (n < 2) return { rounds: [], byes: 0 };
+// knockout rounds before that for more.
+export function roundsAhead(n: number): { rounds: string[] } {
+  if (n < 2) return { rounds: [] };
   const size = 2 ** Math.ceil(Math.log2(n));
   const rounds = ['Final'];
   if (size >= 4) rounds.unshift('Semi-finals');
   for (let s = 8; s <= size; s *= 2) rounds.unshift('Knockout');
-  return { rounds, byes: size - n };
+  return { rounds };
 }
