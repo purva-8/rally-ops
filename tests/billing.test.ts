@@ -60,3 +60,21 @@ test('paid flags: own half from the entry, partner half from partner_paid (or th
   ], same);
   assert.deepEqual(c.map((x) => [x.personId, x.paid]), [['dad', true], ['gopi', false], ['mum', true], ['sijith', true]]);
 });
+
+test('what is owed per entry: payments cover the oldest entries first', async () => {
+  const { owingByLine, lineKey } = await import('../lib/lineOwing.ts');
+  const lines = [
+    { regId: 'md', amount: 30, enteredAt: '2026-10-30T16:22' },
+    { regId: 'ms', amount: 35, enteredAt: '2026-10-30T15:38' },
+    { regId: 'sp', amount: 30, enteredAt: '2026-10-08T03:31' },
+    { regId: 'sp', partnerHalf: true, amount: 30, enteredAt: '2026-10-08T03:31' },
+  ];
+  const o = owingByLine({ lines, paid: 95 });
+  assert.equal(o.get(lineKey('sp')), 0);
+  assert.equal(o.get(lineKey('sp', true)), 0);
+  assert.equal(o.get(lineKey('ms')), 0);
+  assert.equal(o.get(lineKey('md')), 30, 'the newest entry is the one not paid for');
+  const part = owingByLine({ lines, paid: 115 });
+  assert.equal(part.get(lineKey('md')), 10, 'part paid');
+  assert.ok([...owingByLine({ lines, paid: 200 }).values()].every((v) => v === 0));
+});

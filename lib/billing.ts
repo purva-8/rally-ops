@@ -25,7 +25,8 @@ const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length
 // name) each get a bill of their own under their name, so nobody who plays goes unbilled.
 // Paid amounts come from the cash recorded at the desk (bill_payments). ledger is false until supabase/event_day.sql
 // has been run.
-export async function loadBilling(admin: Admin, tournamentId: string, entryFee: number): Promise<{ bills: FamilyBill[]; ledger: boolean; removals: Removal[] }> {
+// emails: false skips looking up each family's email (the public /board needs only the amounts)
+export async function loadBilling(admin: Admin, tournamentId: string, entryFee: number, opts: { emails?: boolean } = {}): Promise<{ bills: FamilyBill[]; ledger: boolean; removals: Removal[] }> {
   const { data: regs } = await admin.from('registrations')
     .select('id, player_id, partner_id, partner_name, manual_name, manual_email, manual_mobile, manual_qid, category, status, payment_status, partner_paid, created_at')
     .eq('tournament_id', tournamentId).eq('status', 'approved');
@@ -95,9 +96,11 @@ export async function loadBilling(admin: Admin, tournamentId: string, entryFee: 
     .map((r: any) => ({ id: r.id, label: r.label ?? '', headId: r.head_id ?? null, at: r.created_at }))
     .sort((a: Removal, b: Removal) => b.at.localeCompare(a.at));
 
-  const { recipientOf } = await resolveRecipients(admin, Array.from(families.keys()).filter((id) => !isOffPlatform(id)));
+  const { recipientOf } = opts.emails === false
+    ? { recipientOf: new Map<string, { email: string | null }>() }
+    : await resolveRecipients(admin, Array.from(families.keys()).filter((id) => !isOffPlatform(id)));
   for (const f of families.values()) {
-    if (!f.offPlatform) f.email = recipientOf.get(f.headId)?.email ?? null;
+    if (!f.offPlatform && opts.emails !== false) f.email = recipientOf.get(f.headId)?.email ?? null;
     f.paid = Math.round(f.paid * 100) / 100;
     f.balance = Math.round((f.due - f.paid) * 100) / 100;
     // Every line shows as paid once the bill is settled
