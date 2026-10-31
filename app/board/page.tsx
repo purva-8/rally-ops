@@ -101,7 +101,9 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
             const parts = tidyName(l).split(' / ').map((name, k) => ({ name, paid: paid[k] ?? false }));
             // In a match on the desk (made, on court or finished; a bye doesn't count)
             const playing = ms.some((m) => m.player2_name && inMatch(l, m));
-            return { name: tidyName(l).replace(' / ', ' & '), ...entryStatus(l, ms, n), parts, inMatch: playing };
+            // Second day, a first-day category: still in without a single match on the first day
+            const noMatchYet = second && firstDay.includes(c) && !allMs.some((m) => !dayTwo(m) && m.player2_name && inMatch(l, m));
+            return { name: tidyName(l).replace(' / ', ' & '), ...entryStatus(l, ms, n), parts, inMatch: playing, noMatchYet };
           })
           .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })),
       };
