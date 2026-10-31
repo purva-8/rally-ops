@@ -11,7 +11,8 @@ const C = { paid: '#1F7A3A', court: '#B4532A', courtDeep: '#8F3F1E', line: '#FBF
 
 // parts: the player (and partner), each green once their own share is paid
 // inMatch: put in a match on the Score desk (made, on court or finished)
-export type BoardEntry = { name: string; wins: number; out: boolean; champion: boolean; inMatch: boolean; parts: { name: string; paid: boolean }[] };
+// noMatchYet: second-day sheet only, still in from the first day without having played there
+export type BoardEntry = { name: string; wins: number; out: boolean; champion: boolean; inMatch: boolean; noMatchYet?: boolean; parts: { name: string; paid: boolean }[] };
 export type BoardSlot = { title: string; columns: number; categories: { key: string; label: string; court: number | null; round: string | null; doubles: boolean; drawn: boolean; entries: BoardEntry[] }[] };
 
 // The sheet is laid out at a fixed poster width and scaled to fit the whole screen, so it never scrolls
@@ -33,6 +34,7 @@ function Name({ e, hit }: { e: BoardEntry; hit: boolean }) {
         {e.parts.map((p, i) => <span key={i}>{i > 0 && ' & '}<span style={{ color: p.paid ? C.paid : undefined }}>{p.name}</span></span>)}
       </span>
       {!e.out && e.wins > 1 && <span className="text-[11px] font-semibold" style={{ color: C.court }}>×{e.wins}</span>}
+      {e.noMatchYet && <span className="text-[11px] font-semibold whitespace-nowrap" style={{ color: C.court }}>not even one match</span>}
     </li>
   );
 }
