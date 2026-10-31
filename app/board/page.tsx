@@ -85,7 +85,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
       const keep = labels[c].map((l) => !second || !entryStatus(l, allMs.filter((m) => !dayTwo(m)), n).out);
       const left = keep.filter(Boolean).length;
       const ahead = roundsAhead(left);
-      const plan = left < 2 ? 'No opponent yet' : `${ahead.rounds.join(' → ')}${ahead.byes ? ` · ${ahead.byes} bye${ahead.byes === 1 ? '' : 's'}` : ''}`;
+      const plan = left < 2 ? 'No opponent yet' : ahead.rounds.join(' → ');
       return {
         key: c,
         label: CATEGORY_LABELS[c] ?? c,
