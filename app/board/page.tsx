@@ -4,6 +4,8 @@ import { CATEGORY_LABELS } from '../tournament/types';
 import { SHEET_SLOTS, entryStatus, inMatch, tidyName, type SheetMatch } from '@/lib/daySheet';
 import BoardView, { type BoardSlot } from './BoardView';
 import { eventTitle } from '@/lib/eventName';
+import { loadBilling } from '@/lib/billing';
+import { lineKey, owingByLine } from '@/lib/lineOwing';
 
 // One-page sheet for the first day, made to be screenshotted and shared: the two slots, every player in each
 // category in alphabetical order, and how each entry is doing (wins, out, champion) once matches are played.
@@ -20,18 +22,22 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
   const { event, day } = await searchParams;
   const second = day === '2';
   const admin = createAdminClient();
-  const { data: all } = await admin.from('tournaments').select('id, name, venue, event_date, status').order('event_date', { ascending: false });
+  const { data: all } = await admin.from('tournaments').select('id, name, venue, event_date, status, entry_fee').order('event_date', { ascending: false });
   const t = event ? all?.find((x) => x.id === event) : (all?.find((x) => x.status !== 'completed') ?? all?.[0]);
   if (!t) return <BoardView empty />;
 
   const firstDay = SHEET_SLOTS.flatMap((s) => s.categories.map((c) => c.key));
   const first = new Date(`${t.event_date.slice(0, 10)}T12:00:00Z`);
   const next = new Date(first.getTime() + 7 * 86400000);
-  const [{ data: regs }, { data: matches }] = await Promise.all([
-    admin.from('registrations').select('category, player_id, partner_id, partner_name, manual_name, payment_status, partner_paid')
+  const [{ data: regs }, { data: matches }, billing] = await Promise.all([
+    admin.from('registrations').select('id, category, player_id, partner_id, partner_name, manual_name, payment_status, partner_paid')
       .eq('tournament_id', t.id).eq('status', 'approved'),
     admin.from('matches').select('*').eq('tournament_id', t.id),
+    loadBilling(admin, t.id, t.entry_fee ?? 0, { emails: false }).catch(() => null),
   ]);
+  // What each person still owes on each entry: a family's payments cover its oldest entries first (lib/lineOwing)
+  const owing = new Map<string, number>();
+  for (const b of billing?.bills ?? []) for (const [k, v] of owingByLine(b)) owing.set(k, v);
   const later = sortCategories([...new Set((regs ?? []).map((r) => r.category as string))].filter((c) => !firstDay.includes(c)));
   const cats = second ? [...firstDay, ...later] : firstDay;
   const slotsFor: { title: string; columns?: number; categories: { key: string; court: number | null; round?: string }[] }[] = second
@@ -73,6 +79,14 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
     if (!doubles) return [player];
     return [player, first.partner_id ? personPaid(first.partner_id) : !!first.partner_paid];
   };
+  // Still owed per person on this entry, [player, partner]: their own share, or the other form's when both filed one.
+  // undefined when the bills don't say (then the paid flags above decide).
+  const owesParts = (group: Reg[]) => {
+    const [first, other] = group;
+    const at = (k: string) => owing.get(k);
+    return [at(lineKey(first.id)) ?? (other ? at(lineKey(other.id, true)) : undefined),
+      at(lineKey(first.id, true)) ?? (other ? at(lineKey(other.id)) : undefined)];
+  };
 
   const slots: BoardSlot[] = slotsFor.map((s) => ({
     title: s.title,
@@ -96,7 +110,10 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
           .filter(({ i }) => keep[i])
           .map(({ l, i }) => {
             const paid = paidParts(forms[c][i], isDoublesCategory(c));
-            const parts = tidyName(l).split(' / ').map((name, k) => ({ name, paid: paid[k] ?? false }));
+            const owes = owesParts(forms[c][i]);
+            const parts = tidyName(l).split(' / ').map((name, k) => (owes[k] === undefined
+              ? { name, paid: paid[k] ?? false }
+              : { name, paid: owes[k]! <= 0, owes: owes[k]! > 0 ? owes[k]! : undefined }));
             // In a match on the desk (made, on court or finished; a bye doesn't count)
             const playing = ms.some((m) => m.player2_name && inMatch(l, m));
             // Second day, a first-day category: still in without a single match on the first day
